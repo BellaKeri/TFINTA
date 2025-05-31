@@ -17,6 +17,7 @@ __version__ = (1, 0)
 ALL_STATIONS_URL = 'http://api.irishrail.ie/realtime/realtime.asmx/getAllStationsXML'
 
 XMLType = xml.dom.minidom.Document
+XMLElement = xml.dom.minidom.Element
 
 
 def LoadStations() -> str:
@@ -24,22 +25,30 @@ def LoadStations() -> str:
     return rail_data.read()
 
 
-def ConvertToXML(data_xml: str) -> XMLType:
-  return xml.dom.minidom.parseString(data_xml)
+def ConvertToXML(xml_data: str) -> XMLType:
+  return xml.dom.minidom.parseString(xml_data)
 
 
-def CountStations(xml: XMLType) -> int:
-  all_stations = xml.getElementsByTagName('objStation')
-  return len(all_stations)
+def GetStations(xml_obj: XMLType) -> list[XMLElement]:
+  return list(xml_obj.getElementsByTagName('objStation'))
+
+
+def StationNames(stations: list[XMLElement]) -> list[str]:
+  return ['empty']
 
 
 def Main() -> None:
   """Main entry point."""
-  data_xml = LoadStations()
-  xml = ConvertToXML(data_xml)
-  station_count = CountStations(xml)
+  xml_data = LoadStations()
+  xml_obj = ConvertToXML(xml_data)
+  stations = GetStations(xml_obj)
+  names = StationNames(stations)
 
-  print(f'Ireland has {station_count} stations')
+  print()
+  print(f'Ireland has {len(stations)} stations')
+  print()
+  print('Names: TODO')
+  print()
 
 
 if __name__ == '__main__':
