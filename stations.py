@@ -12,17 +12,25 @@ __author__ = 'BellaKeri@github.com'
 __version__ = (1, 0)
 
 
+def LoadStations() -> str:
+  return '<xml>'
+
+
+def ConvertToXML(data_xml: str) -> str:  # xml
+  return 'obj'
+
+
+def CountStations(xml: str) -> int:
+  return 10
+
+
 def Main() -> None:
   """Main entry point."""
-  # your code goes here!
+  data_xml = LoadStations()
+  xml = ConvertToXML(data_xml)
+  station_count = CountStations(xml)
 
-  # Load from website
-
-  # Convert to XML object
-
-  # Count the stations
-
-  # Print the count
+  print(f'Ireland has {station_count} stations')
 
 
 if __name__ == '__main__':
