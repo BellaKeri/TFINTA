@@ -3,7 +3,7 @@
 # Copyright 2025 BellaKeri (BellaKeri@github.com)
 # GNU General Public License v3 (http://www.gnu.org/licenses/gpl-3.0.txt)
 #
-"""Stations loader."""
+"""Put name here."""
 
 # import logging
 # import pdb
@@ -15,14 +15,6 @@ __version__ = (1, 0)
 def Main() -> None:
   """Main entry point."""
   # your code goes here!
-
-  # Load from website
-
-  # Convert to XML object
-
-  # Count the stations
-
-  # Print the count
 
 
 if __name__ == '__main__':
