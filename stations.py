@@ -22,6 +22,7 @@ XMLType = xml.dom.minidom.Document
 def LoadStations() -> str:
   with urllib.request.urlopen(ALL_STATIONS_URL) as rail_data:
     return rail_data.read()
+  # equivale a: return urllib.request.urlopen(ALL_STATIONS_URL).read()
 
 
 def ConvertToXML(data_xml: str) -> XMLType:
