@@ -16,8 +16,9 @@ import os
 import os.path
 # import pdb
 import time
-from typing import Callable, Optional, TypedDict
+from typing import Callable, Generator, IO, Optional, TypedDict
 import urllib.request
+import zipfile
 
 from baselib import base
 
@@ -43,8 +44,8 @@ _KNOWN_OPERATORS: set[str] = {
 class _OfficialFiles(TypedDict):
   """Official GTFS files."""
 
-  tm: float                                   # timestamp of last pull of the official CSV
-  files: dict[str, dict[str, Optional[int]]]  # {provider: {url: timestamp}}
+  tm: float                                     # timestamp of last pull of the official CSV
+  files: dict[str, dict[str, Optional[float]]]  # {provider: {url: timestamp}}
 
 
 class _GTFSData(TypedDict):
@@ -107,7 +108,7 @@ class GTFS:
   def _LoadCSVSources(self) -> None:
     """Loads GTFS official sources from CSV."""
     # get the file and parse it
-    new_files: dict[str, dict[str, Optional[int]]] = {}
+    new_files: dict[str, dict[str, Optional[float]]] = {}
     with urllib.request.urlopen(_OFFICIAL_GTFS_CSV) as gtfs_csv:
       text_csv = io.TextIOWrapper(gtfs_csv, encoding='utf-8')
       for i, row in enumerate(csv.reader(text_csv)):
@@ -131,6 +132,53 @@ class GTFS:
         'Loaded GTFS official sources with %d operators and %d links',
         len(new_files), sum(len(urls) for urls in new_files.values()))
 
+  def _LoadGTFSSource(self, operator: str, link: str) -> None:
+    """Loads a single GTFS ZIP file and parses all inner data files.
+
+    Args:
+      operator: Operator for GTFS file
+      link: URL for GTFS file
+    """
+    # check that we are asking for a valid and known source
+    operator, link = operator.strip(), link.strip()
+    if not operator or operator not in self._files['files']:
+      raise ValueError(f'invalid operator {operator!r}')
+    operator_files: dict[str, Optional[float]] = self._files['files'][operator]
+    if not link or link not in operator_files:
+      raise ValueError(f'invalid URL {link!r}')
+    # the handlers
+    file_handlers: dict[str, Callable[[int, list[str]], None]] = {
+        'feed_info.txt': self._HandleFeedInfoRow,
+    }
+    # load ZIP from URL
+    with urllib.request.urlopen(link) as gtfs_zip:
+      # extract files from ZIP
+      gtfs_zip_bytes: bytes = gtfs_zip.read()
+      logging.info(
+          'Loading %r data, %s,from %r',
+          operator, base.HumanizedBytes(len(gtfs_zip_bytes)), link)
+      for file_name, file_data in _UnzipFiles(io.BytesIO(gtfs_zip_bytes)):
+        # send file to adequate handler
+        if file_name in file_handlers:
+          # supported type of GTFS file, so process the data into the DB
+          logging.info('Processing: %s (%s)', file_name, base.HumanizedBytes(len(file_data)))
+          csv_data = io.TextIOWrapper(io.BytesIO(file_data), encoding='utf-8')
+          i = 0
+          for i, row in enumerate(csv.reader(csv_data)):
+            file_handlers[file_name](i, row)
+          logging.info('Read %d records from %s', i, file_name)  # 1st row of CSV is not a record
+        else:
+          logging.warning(
+              'Unsupported GTFS file found: %s (%s)',
+              file_name, base.HumanizedBytes(len(file_data)))
+    # finished loading the files, mark the time
+    operator_files[link] = time.time()
+    self._changed = True
+
+  def _HandleFeedInfoRow(self, line: int, csv_row: list[str]) -> None:
+    print(line)
+    print(csv_row)
+
   def LoadData(self, freshness: int = _DEFAULT_DAYS_FRESHNESS) -> None:
     """Downloads and parses GTFS data.
 
@@ -144,6 +192,28 @@ class GTFS:
       self._LoadCSVSources()
     else:
       logging.info('Stations are fresh (%0.1f days old) - SKIP', age)
+    # load GTFS data we are interested in
+    self._LoadGTFSSource(
+        'Iarnród Éireann / Irish Rail',
+        'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip')
+
+
+def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
+  """Unzips `in_file` bytes buffer. Manages multiple files.
+
+  Args:
+    in_file: bytes buffer (io.BytesIO for example) with ZIP data
+
+  Yields:
+    (file_name, file_data_bytes)
+
+  Raises:
+    BadZipFile: ZIP error
+  """
+  with zipfile.ZipFile(in_file, 'r') as zip_ref:
+    for file_name in sorted(zip_ref.namelist()):
+      with zip_ref.open(file_name) as file_data:
+        yield (file_name, file_data.read())
 
 
 def Main() -> None:
