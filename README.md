@@ -1,5 +1,9 @@
 # TFINTA - Transport for Ireland Data
 
+## Overview
+
+TODO
+
 ## Data Sources
 
 [GPT Search](https://chatgpt.com/share/683abe5a-9e80-800d-b703-f5080a69c970)
@@ -31,3 +35,29 @@ GTFS is [defined here](https://gtfs.org/documentation/schedule/reference/).
 It has 6 mandatory tables (files) and a number of optional ones.
 We will start by making a cached loader for this data into memory dicts
 that will be pickled to disk.
+
+## Installation & Usage
+
+### Dependencies
+
+```sh
+brew install git uv python@3.11
+
+git clone https://github.com/BellaKeri/TFINTA.git TFINTA
+cd TFINTA
+
+uv venv --python 3.11
+source .venv/bin/activate
+uv pip install --upgrade pip
+pip install -r requirements.txt
+
+./gtfs.py read
+
+deactivate
+```
+
+### Running GTFS to load the database
+
+```sh
+./gtfs.py read
+```
