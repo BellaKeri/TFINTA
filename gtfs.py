@@ -95,7 +95,7 @@ class GTFS:
     """Official index of GTFS files available for download."""
     return self._db['files']
 
-  def _LoadStations(self) -> None:
+  def _LoadCSVSources(self) -> None:
     # get the file and parse it
     new_files: dict[str, dict[str, Optional[int]]] = {}
     with urllib.request.urlopen(_OFFICIAL_GTFS_CSV) as gtfs_csv:
@@ -121,12 +121,12 @@ class GTFS:
         'Loaded GTFS official sources with %d operators and %d links',
         len(new_files), sum(len(urls) for urls in new_files.values()))
 
-  def LoadAllData(self, freshness: int = _DEFAULT_DAYS_FRESHNESS) -> None:
+  def LoadData(self, freshness: int = _DEFAULT_DAYS_FRESHNESS) -> None:
     """Downloads and parses GTFS data."""
     # first load the list of GTFS, if needed
     if (age := _DAYS_OLD(self._files['tm'])) > freshness:
       logging.info('Loading stations (%0.1f days old)', age)
-      self._LoadStations()
+      self._LoadCSVSources()
     else:
       logging.info('Stations are fresh (%0.1f days old) - SKIP', age)
 
@@ -169,7 +169,7 @@ def Main() -> None:
       # "read" command
       if command == 'read':
         try:
-          database.LoadAllData(freshness=args.freshness)
+          database.LoadData(freshness=args.freshness)
         finally:
           database.Save()
       # "print" command
