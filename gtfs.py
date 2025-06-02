@@ -48,7 +48,7 @@ class _OfficialFiles(TypedDict):
 
 
 class _GTFSData(TypedDict):
-  """Official GTFS files."""
+  """GTFS data."""
 
   tm: float              # timestamp of last DB save
   files: _OfficialFiles  # the available GTFS files
@@ -58,6 +58,11 @@ class GTFS:
   """GTFS database."""
 
   def __init__(self, db_path: str) -> None:
+    """Constructor.
+
+    Args:
+      db_path: Complete path to save DB to
+    """
     if not db_path:
       raise AttributeError('DB path cannot be empty')
     self._db_path: str = db_path.strip()
@@ -81,7 +86,11 @@ class GTFS:
       self.Save(force=True)
 
   def Save(self, force: bool = False) -> None:
-    """Save DB to file."""
+    """Save DB to file.
+
+    Args:
+      force: (default False) Saves even if no changes to data were detected
+    """
     if force or self._changed:
       with base.Timer() as tm_save:
         # (compressing is responsible for ~95% of save time)
@@ -96,6 +105,7 @@ class GTFS:
     return self._db['files']
 
   def _LoadCSVSources(self) -> None:
+    """Loads GTFS official sources from CSV."""
     # get the file and parse it
     new_files: dict[str, dict[str, Optional[int]]] = {}
     with urllib.request.urlopen(_OFFICIAL_GTFS_CSV) as gtfs_csv:
@@ -122,7 +132,12 @@ class GTFS:
         len(new_files), sum(len(urls) for urls in new_files.values()))
 
   def LoadData(self, freshness: int = _DEFAULT_DAYS_FRESHNESS) -> None:
-    """Downloads and parses GTFS data."""
+    """Downloads and parses GTFS data.
+
+    Args:
+      freshness: (default 1) Number of days before data is not fresh anymore and
+          has to be reloaded from source
+    """
     # first load the list of GTFS, if needed
     if (age := _DAYS_OLD(self._files['tm'])) > freshness:
       logging.info('Loading stations (%0.1f days old)', age)
