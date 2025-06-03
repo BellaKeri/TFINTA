@@ -40,6 +40,9 @@ _KNOWN_OPERATORS: set[str] = {
     'Iarnród Éireann / Irish Rail',
 }
 
+# useful aliases
+_GTFSRowHandler = Callable[[dict[str, Optional[str]]], None]
+
 
 class _OfficialFiles(TypedDict):
   """Official GTFS files."""
@@ -132,12 +135,20 @@ class GTFS:
         'Loaded GTFS official sources with %d operators and %d links',
         len(new_files), sum(len(urls) for urls in new_files.values()))
 
-  def _LoadGTFSSource(self, operator: str, link: str) -> None:
+  def _LoadGTFSSource(
+      self, operator: str, link: str,
+      allow_unknown_file: bool = True, allow_unknown_field: bool = False) -> None:
     """Loads a single GTFS ZIP file and parses all inner data files.
 
     Args:
       operator: Operator for GTFS file
       link: URL for GTFS file
+      allow_unknown_file: (default True) If False will raise on unknown GTFS file
+      allow_unknown_field: (default False) If False will raise on unknown field in file
+
+    Raises:
+      AttributeError: expected file field was not in file
+      NotImplementedError: unknown file or field (if "allow" is False)
     """
     # check that we are asking for a valid and known source
     operator, link = operator.strip(), link.strip()
@@ -147,8 +158,18 @@ class GTFS:
     if not link or link not in operator_files:
       raise ValueError(f'invalid URL {link!r}')
     # the handlers
-    file_handlers: dict[str, Callable[[int, list[str]], None]] = {
-        'feed_info.txt': self._HandleFeedInfoRow,
+    file_handlers: dict[str, tuple[_GTFSRowHandler, set[str]]] = {
+        # file_name: (handler, [field1, field2, ...])
+        'feed_info.txt': (
+            self._HandleFeedInfoRow,
+            {
+                'feed_publisher_name',
+                'feed_publisher_url',
+                'feed_lang',
+                'feed_start_date',
+                'feed_end_date',
+                'feed_version',
+            }),
     }
     # load ZIP from URL
     with urllib.request.urlopen(link) as gtfs_zip:
@@ -158,26 +179,47 @@ class GTFS:
           'Loading %r data, %s,from %r',
           operator, base.HumanizedBytes(len(gtfs_zip_bytes)), link)
       for file_name, file_data in _UnzipFiles(io.BytesIO(gtfs_zip_bytes)):
-        # send file to adequate handler
-        if file_name in file_handlers:
-          # supported type of GTFS file, so process the data into the DB
-          logging.info('Processing: %s (%s)', file_name, base.HumanizedBytes(len(file_data)))
-          csv_data = io.TextIOWrapper(io.BytesIO(file_data), encoding='utf-8')
-          i = 0
-          for i, row in enumerate(csv.reader(csv_data)):
-            file_handlers[file_name](i, row)
-          logging.info('Read %d records from %s', i, file_name)  # 1st row of CSV is not a record
-        else:
-          logging.warning(
-              'Unsupported GTFS file found: %s (%s)',
-              file_name, base.HumanizedBytes(len(file_data)))
+        # check if we know how to process this file
+        if file_name not in file_handlers:
+          message = f'Unsupported GTFS file: {file_name} ({base.HumanizedBytes(len(file_data))})'
+          if allow_unknown_file:
+            logging.warning(message)
+            continue
+          raise NotImplementedError(message)
+        # supported type of GTFS file, so process the data into the DB
+        logging.info('Processing: %s (%s)', file_name, base.HumanizedBytes(len(file_data)))
+        csv_data = io.TextIOWrapper(io.BytesIO(file_data), encoding='utf-8')
+        file_handler, file_fields = file_handlers[file_name]
+        i = 0
+        actual_fields: list[str] = []
+        for i, row in enumerate(csv.reader(csv_data)):
+          # check for 1st row
+          if not i:
+            # should be the fields: check them
+            actual_fields = row  # save for later: we need the order of fields
+            # find missing fields (TODO in future: optional fields)
+            if (missing_fields := file_fields - set(actual_fields)):
+              raise AttributeError(f'Missing fields found: {file_name} {missing_fields!r}')
+            # find unknown/unimplemented fields
+            if (extra_fields := set(actual_fields) - file_fields):
+              message = f'Extra fields found: {file_name} {extra_fields!r}'
+              if allow_unknown_field:
+                logging.warning(message)
+              else:
+                raise NotImplementedError(message)
+            continue  # first row is as expected: skip it
+          # we have a row that is not the 1st, should be data
+          file_handler(
+              dict(zip(
+                  actual_fields,
+                  [(k if k else None) for k in (j.strip() for j in row)])))
+        logging.info('Read %d records from %s', i, file_name)  # 1st row of CSV is not a record
     # finished loading the files, mark the time
     operator_files[link] = time.time()
     self._changed = True
 
-  def _HandleFeedInfoRow(self, line: int, csv_row: list[str]) -> None:
-    print(line)
-    print(csv_row)
+  def _HandleFeedInfoRow(self, row: dict[str, Optional[str]]) -> None:
+    print(row)
 
   def LoadData(self, freshness: int = _DEFAULT_DAYS_FRESHNESS) -> None:
     """Downloads and parses GTFS data.
