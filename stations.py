@@ -7,6 +7,7 @@
 
 # import logging
 import pdb
+from typing import Optional
 import urllib.request
 import xml.dom.minidom
 
@@ -34,8 +35,20 @@ def GetStations(xml_obj: XMLType) -> list[XMLElement]:
   return list(xml_obj.getElementsByTagName('objStation'))
 
 
-def StationNames(stations: list[XMLElement]) -> list[str]:
-  return ['empty']
+def StationData(stations: list[XMLElement]) -> list[tuple[str, str, Optional[str], int]]:
+  names: list[tuple[str, str, Optional[str], int]] = []
+  for station in stations:
+    desc = station.getElementsByTagName('StationDesc')[0].firstChild.nodeValue
+    alias = station.getElementsByTagName('StationAlias')[0].firstChild
+    code = station.getElementsByTagName('StationCode')[0].firstChild.nodeValue
+    id = station.getElementsByTagName('StationId')[0].firstChild.nodeValue
+    names.append(
+        ('-' if code is None else code.upper().strip(),
+         '-' if desc is None else desc.strip(),
+         None if alias is None else alias.nodeValue,
+         0 if id is None else int(id)))
+  return sorted(names)
+
 
 
 def Main() -> None:
@@ -43,12 +56,13 @@ def Main() -> None:
   xml_data = LoadStations()
   xml_obj = ConvertToXML(xml_data)
   stations = GetStations(xml_obj)
-  names = StationNames(stations)
+  station_data = StationData(stations)
 
   print()
   print(f'Ireland has {len(stations)} stations')
   print()
-  print('Names: TODO')
+  for i, (code, name, alias, id) in enumerate(station_data, start = 1):
+    print(f'{i}: {code}/{id} - {name}{"" if alias is None else f" ({alias.strip()})"}')
   print()
 
 
