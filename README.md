@@ -25,6 +25,32 @@ TODO
 </objStation>
 ```
 
+### Trains
+
+[Official running Trains](http://api.irishrail.ie/realtime/)
+
+1. [Get All Running Trains](http://api.irishrail.ie/realtime/realtime.asmx/getCurrentTrainsXML) - Usage returns a listing of 'running trains' ie trains that are between origin and destination or are due to start within 10 minutes of the query time. Returns `TrainStatus`, `TrainLatitude`, `TrainLongitude`, `TrainCode`, `TrainDate`, `PublicMessage` and `Direction`.
+
+* a . `TrainStatus` = ***N*** for not yet running or ***R*** for running.
+
+* b . `TrainCode` is Irish Rail's unique code for an individual train service on a date.
+
+* c . `Direction` is either *Northbound* or *Southbound* for trains between Dundalk and Rosslare and between Sligo and Dublin.  for all other trains the direction is to the destination *eg. To Limerick*.
+
+* d . `Public Message` is the latest information on the train uses ***\n*** for a line break *eg AA509\n11:00 - Waterford to Dublin Heuston (0 mins late)\nDeparted Waterford next stop Thomastown*.
+
+```xml
+<objTrainPositions>
+    <TrainStatus>N</TrainStatus>
+    <TrainLatitude>51.9018</TrainLatitude>
+    <TrainLongitude>-8.4582</TrainLongitude>
+    <TrainCode>D501</TrainCode>
+    <TrainDate>01 Jun 2025</TrainDate>
+    <PublicMessage>D501\nCork to Cobh\nExpected Departure 08:00</PublicMessage>
+    <Direction>To Cobh</Direction>
+</objTrainPositions>
+```
+
 ### GTFS Schedule Files
 
 The [Official GTFS Schedules](https://data.gov.ie/dataset/operator-gtfs-schedule-files)
@@ -62,30 +88,4 @@ deactivate
 
 ```sh
 ./gtfs.py read
-```
-
-### Trains
-
-[Official running Trains](http://api.irishrail.ie/realtime/)
-
-1. [Get All Running Trains](http://api.irishrail.ie/realtime/realtime.asmx/getCurrentTrainsXML) - Usage returns a listing of 'running trains' ie trains that are between origin and destination or are due to start within 10 minutes of the query time. Returns `TrainStatus`, `TrainLatitude`, `TrainLongitude`, `TrainCode`, `TrainDate`, `PublicMessage` and `Direction`.
-
-* a . `TrainStatus` = ***N*** for not yet running or ***R*** for running.
-
-* b . `TrainCode` is Irish Rail's unique code for an individual train service on a date.
-
-* c . `Direction` is either *Northbound* or *Southbound* for trains between Dundalk and Rosslare and between Sligo and Dublin.  for all other trains the direction is to the destination *eg. To Limerick*.
-
-* d . `Public Message` is the latest information on the train uses ***\n*** for a line break *eg AA509\n11:00 - Waterford to Dublin Heuston (0 mins late)\nDeparted Waterford next stop Thomastown*.
-
-```xml
-<objTrainPositions>
-    <TrainStatus>N</TrainStatus>
-    <TrainLatitude>51.9018</TrainLatitude>
-    <TrainLongitude>-8.4582</TrainLongitude>
-    <TrainCode>D501</TrainCode>
-    <TrainDate>01 Jun 2025</TrainDate>
-    <PublicMessage>D501\nCork to Cobh\nExpected Departure 08:00</PublicMessage>
-    <Direction>To Cobh</Direction>
-</objTrainPositions>
 ```
