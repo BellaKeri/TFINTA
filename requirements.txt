@@ -1,0 +1,4 @@
+
+python>=3.11
+
+baselib @ git+https://github.com/balparda/baselib.git@v1.1.1
