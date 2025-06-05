@@ -78,7 +78,7 @@ class _TableLocation(TypedDict):
 
 class FileMetadata(TypedDict):
   """GTFS file metadata (mostly from loading feed_info.txt tables)."""
-  tm: float       # timestamp of last load of this GTFS ZIP file
+  tm: float       # timestamp of first load of this version of this GTFS ZIP file
   publisher: str  # feed_info.txt/feed_publisher_name (required)
   url: str        # feed_info.txt/feed_publisher_url  (required)
   language: str   # feed_info.txt/feed_lang           (required)
@@ -362,6 +362,8 @@ class GTFS:
           abs(start - current_data['start']) < 10.0 and
           abs(end - current_data['end']) < 10.0):
         # same version of the data!
+        # note that since we `raise` we don't update the timestamp, so the timestamp
+        # is the time we first processed this version of the ZIP file
         raise ParseIdenticalVersionError(
             f'{version} @ {base.STD_TIME_STRING(current_data["tm"])} '
             f'{location["operator"]} / {location["link"]}')
