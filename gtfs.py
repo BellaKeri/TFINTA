@@ -36,6 +36,18 @@ _DEFAULT_DB_FILE: str = os.path.join(_DATA_DIR, 'transit.db')
 _REQUIRED_FILES: set[str] = {
     'feed_info.txt',  # required because it has the date ranges and the version info
 }
+_LOAD_ORDER: list[str] = [
+    # there must be a load order because of the table foreign ID references (listed below)
+    'feed_info.txt',  # no primary key -> added to ZIP metadata
+    'agency.txt',     # pk: agency_id
+    'calendar.txt',        # pk: service_id
+    'calendar_dates.txt',  # pk: (calendar/service_id, date) / ref: calendar/service_id
+    'routes.txt',      # pk: route_id / ref: agency/agency_id
+    'shapes.txt',      # pk: (shape_id, shape_pt_sequence)
+    'trips.txt',       # pk: trip_id / ref: routes.route_id, calendar.service_id, shapes.shape_id
+    'stops.txt',       # pk: stop_id / self-ref: parent_station=stop/stop_id
+    'stop_times.txt',  # pk: (trips/trip_id, stop_sequence) / ref: stops/stop_id
+]
 
 # URLs
 _OFFICIAL_GTFS_CSV = 'https://www.transportforireland.ie/transitData/Data/GTFS%20Operator%20Files.csv'
@@ -85,6 +97,7 @@ class FileMetadata(TypedDict):
   start: float    # feed_info.txt/feed_start_date     (required) - interpreted as UTC
   end: float      # feed_info.txt/feed_end_date       (required) - interpreted as UTC
   version: str    # feed_info.txt/feed_version        (required)
+  email: Optional[str]  # feed_info.txt/feed_contact_email (optional)
 
 
 class OfficialFiles(TypedDict):
@@ -147,6 +160,7 @@ class GTFS:
                 'feed_start_date',
                 'feed_end_date',
                 'feed_version',
+                'feed_contact_email',
             }),
     }
 
@@ -344,6 +358,7 @@ class GTFS:
     start: float = _UTC_DATE(row['feed_start_date']) if row['feed_start_date'] else 0.0
     end: float = _UTC_DATE(row['feed_end_date']) if row['feed_end_date'] else 0.0
     version: str = row['feed_version'] if row['feed_version'] else ''
+    email: Optional[str] = row['feed_contact_email']
     if not publisher or not url or not lang or not version:
       raise RowError(f'missing data in {location}: {row}')
     if start < 1.0 or end < 1.0:
@@ -380,6 +395,7 @@ class GTFS:
         'start': start,
         'end': end,
         'version': version,
+        'email': email,
     }
 
   def LoadData(
@@ -405,9 +421,7 @@ class GTFS:
 
 
 def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
-  """Unzips `in_file` bytes buffer. Manages multiple files.
-
-  File 'feed_info.txt' will be sorted first.
+  """Unzips `in_file` bytes buffer. Manages multiple files, preserving _LOAD_ORDER.
 
   Args:
     in_file: bytes buffer (io.BytesIO for example) with ZIP data
@@ -420,9 +434,10 @@ def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
   """
   with zipfile.ZipFile(in_file, 'r') as zip_ref:
     file_names: list[str] = sorted(zip_ref.namelist())
-    if 'feed_info.txt' in file_names:
-      file_names.remove('feed_info.txt')
-      file_names = ['feed_info.txt'] + file_names
+    for n in _LOAD_ORDER[::-1]:
+      if n in file_names:
+        file_names.remove(n)
+        file_names.insert(0, n)
     for file_name in file_names:
       with zip_ref.open(file_name) as file_data:
         yield (file_name, file_data.read())
