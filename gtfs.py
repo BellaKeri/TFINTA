@@ -10,6 +10,7 @@ See: https://gtfs.org/documentation/schedule/reference/
 
 import argparse
 import csv
+import dataclasses
 import datetime
 import enum
 import io
@@ -18,7 +19,7 @@ import os
 import os.path
 # import pdb
 import time
-from typing import Callable, Generator, IO, Optional, TypedDict
+from typing import Callable, Generator, IO, Optional
 import urllib.request
 import zipfile
 
@@ -85,14 +86,16 @@ class RowError(ParseError):
   """Exception parsing a GTFS row."""
 
 
-class _TableLocation(TypedDict):
+@dataclasses.dataclass
+class _TableLocation:
   """GTFS table coordinates (just for parsing use for now)."""
   operator: str   # GTFS Operator, from CSV Official Sources
   link: str       # GTFS ZIP file URL location
   file_name: str  # file name (ex: 'feed_info.txt')
 
 
-class FileMetadata(TypedDict):
+@dataclasses.dataclass
+class FileMetadata:
   """GTFS file metadata (mostly from loading feed_info.txt tables)."""
   tm: float       # timestamp of first load of this version of this GTFS ZIP file
   publisher: str  # feed_info.txt/feed_publisher_name   (required)
@@ -102,12 +105,6 @@ class FileMetadata(TypedDict):
   end: datetime.date    # feed_info.txt/feed_end_date   (required)
   version: str    # feed_info.txt/feed_version          (required)
   email: Optional[str]  # feed_info.txt/feed_contact_email (optional)
-
-
-class OfficialFiles(TypedDict):
-  """Official GTFS files."""
-  tm: float  # timestamp of last pull of the official CSV
-  files: dict[str, dict[str, Optional[FileMetadata]]]  # {provider: {url: FileMetadata}}
 
 
 class RouteType(enum.Enum):
@@ -125,7 +122,8 @@ class RouteType(enum.Enum):
   MONORAIL = 12    # Railway in which the track consists of a single rail or a beam
 
 
-class Route(TypedDict):
+@dataclasses.dataclass
+class Route:
   """Route: group of trips that are displayed to riders as a single service"""
   id: int                # routes.txt/route_id (required)
   agency: int            # routes.txt/agency_id (required) -> agency.txt/agency_id
@@ -138,7 +136,8 @@ class Route(TypedDict):
   text_color: Optional[str]   # routes.txt/route_text_color: encoded as a six-digit hexadecimal number
 
 
-class Agency(TypedDict):
+@dataclasses.dataclass
+class Agency:
   """Transit agency."""
   id: int    # (PK) agency.txt/agency_id (required)
   name: str  # agency.txt/agency_name    (required)
@@ -147,7 +146,8 @@ class Agency(TypedDict):
   routes: dict[int, Route]
 
 
-class CalendarService(TypedDict):
+@dataclasses.dataclass
+class CalendarService:
   """Service dates specified using a weekly schedule & start/end dates. Includes the exceptions."""
   id: int  # (PK) calendar.txt/service_id (required)
   week: tuple[bool, bool, bool, bool, bool, bool, bool]  # calendar.txt/sunday...saturday (required)
@@ -157,7 +157,15 @@ class CalendarService(TypedDict):
   # where `has_service` comes from calendar_dates.txt/exception_type
 
 
-class GTFSData(TypedDict):
+@dataclasses.dataclass
+class OfficialFiles:
+  """Official GTFS files."""
+  tm: float  # timestamp of last pull of the official CSV
+  files: dict[str, dict[str, Optional[FileMetadata]]]  # {provider: {url: FileMetadata}}
+
+
+@dataclasses.dataclass
+class GTFSData:
   """GTFS data."""
   tm: float             # timestamp of last DB save
   files: OfficialFiles  # the available GTFS files
@@ -190,18 +198,11 @@ class GTFS:
       with base.Timer() as tm_load:
         self._db = base.BinDeSerialize(file_path=self._db_path, compress=True)
       logging.info('Loaded DB from %r (%s)', self._db_path, tm_load.readable)
-      logging.info('DB freshness: %s', base.STD_TIME_STRING(self._db['tm']))
+      logging.info('DB freshness: %s', base.STD_TIME_STRING(self._db.tm))
     else:
       # DB does not exist: create empty
-      self._db = {  # empty DB
-          'tm': 0.0,
-          'files': {
-              'tm': 0.0,
-              'files': {},
-          },
-          'agencies': {},
-          'calendar': {},
-      }
+      self._db = GTFSData(  # empty DB
+          tm=0.0, files=OfficialFiles(tm=0.0, files={}), agencies={}, calendar={})
       self.Save(force=True)
     # create file handlers structure
     self._file_handlers: dict[str, tuple[_GTFSRowHandler, set[str]]] = {
@@ -318,25 +319,10 @@ class GTFS:
     if force or self._changed:
       with base.Timer() as tm_save:
         # (compressing is responsible for ~95% of save time)
-        self._db['tm'] = time.time()
+        self._db.tm = time.time()
         base.BinSerialize(self._db, file_path=self._db_path, compress=True)
       self._changed = False
       logging.info('Saved DB to %r (%s)', self._db_path, tm_save.readable)
-
-  @property
-  def _files(self) -> OfficialFiles:
-    """Official index of GTFS files available for download."""
-    return self._db['files']
-
-  @property
-  def _agencies(self) -> dict[int, Agency]:
-    """Agencies."""
-    return self._db['agencies']
-
-  @property
-  def _calendar(self) -> dict[int, CalendarService]:
-    """Calendar services."""
-    return self._db['calendar']
 
   def _LoadCSVSources(self) -> None:
     """Loads GTFS official sources from CSV."""
@@ -358,8 +344,8 @@ class GTFS:
       if operator not in new_files:
         raise Error(f'Operator {operator!r} not in loaded CSV!')
     # we have the file loaded
-    self._files['files'] = new_files
-    self._files['tm'] = time.time()
+    self._db.files.files = new_files
+    self._db.files.tm = time.time()
     self._changed = True
     logging.info(
         'Loaded GTFS official sources with %d operators and %d links',
@@ -384,9 +370,9 @@ class GTFS:
     """
     # check that we are asking for a valid and known source
     operator, link = operator.strip(), link.strip()
-    if not operator or operator not in self._files['files']:
+    if not operator or operator not in self._db.files.files:
       raise Error(f'invalid operator {operator!r}')
-    operator_files: dict[str, Optional[FileMetadata]] = self._files['files'][operator]
+    operator_files: dict[str, Optional[FileMetadata]] = self._db.files.files[operator]
     if not link or link not in operator_files:
       raise Error(f'invalid URL {link!r}')
     # load ZIP from URL
@@ -400,11 +386,7 @@ class GTFS:
           operator, base.HumanizedBytes(len(gtfs_zip_bytes)), link)
       for file_name, file_data in _UnzipFiles(io.BytesIO(gtfs_zip_bytes)):
         file_name = file_name.strip()
-        location: _TableLocation = {
-            'operator': operator,
-            'link': link,
-            'file_name': file_name,
-        }
+        location = _TableLocation(operator=operator, link=link, file_name=file_name)
         try:
           self._LoadGTFSFile(location, file_data, allow_unknown_file, allow_unknown_field)
         except ParseIdenticalVersionError as err:
@@ -436,7 +418,7 @@ class GTFS:
       ParseImplementationError: unknown file or field (if "allow" is False)
     """
     # check if we know how to process this file
-    file_name: str = location['file_name']
+    file_name: str = location.file_name
     if file_name not in self._file_handlers or not file_data:
       message: str = (
           f'Unsupported GTFS file: {file_name if file_name else "<empty>"} '
@@ -522,38 +504,31 @@ class GTFS:
       raise RowError(f'missing start/end dates in {location}: {row}')
     # check against current version (and log)
     tm: float = time.time()
-    current_data = self._files['files'][location['operator']][location['link']]
+    current_data: Optional[FileMetadata] = self._db.files.files[location.operator][location.link]
     if current_data is None:
       logging.info(
           'Loading version %r @ %s for %s/%s',
-          version, base.STD_TIME_STRING(tm), location['operator'], location['link'])
+          version, base.STD_TIME_STRING(tm), location.operator, location.link)
     else:
-      if (version == current_data['version'] and
-          publisher == current_data['publisher'] and
-          lang == current_data['language'] and
-          start == current_data['start'] and
-          end == current_data['end']):
+      if (version == current_data.version and
+          publisher == current_data.publisher and
+          lang == current_data.language and
+          start == current_data.start and
+          end == current_data.end):
         # same version of the data!
         # note that since we `raise` we don't update the timestamp, so the timestamp
         # is the time we first processed this version of the ZIP file
         raise ParseIdenticalVersionError(
-            f'{version} @ {base.STD_TIME_STRING(current_data["tm"])} '
-            f'{location["operator"]} / {location["link"]}')
+            f'{version} @ {base.STD_TIME_STRING(current_data.tm)} '
+            f'{location.operator} / {location.link}')
       logging.info(
           'Updating version %r @ %s -> %r @ %s for %s/%s',
-          current_data['version'], base.STD_TIME_STRING(current_data['tm']),
-          version, base.STD_TIME_STRING(tm), location['operator'], location['link'])
+          current_data.version, base.STD_TIME_STRING(current_data.tm),
+          version, base.STD_TIME_STRING(tm), location.operator, location.link)
     # update
-    self._files['files'][location['operator']][location['link']] = {
-        'tm': tm,
-        'publisher': publisher,
-        'url': url,
-        'language': lang,
-        'start': start,
-        'end': end,
-        'version': version,
-        'email': email,
-    }
+    self._db.files.files[location.operator][location.link] = FileMetadata(
+        tm=tm, publisher=publisher, url=url, language=lang,
+        start=start, end=end, version=version, email=email)
 
   def _HandleAgencyRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
@@ -583,13 +558,7 @@ class GTFS:
     if tz != 'Europe/London':
       raise NotImplementedError(f'For now timezones are only UTC (got {tz})')
     # update
-    self._agencies[agency_id] = {
-        'id': agency_id,
-        'name': name,
-        'url': url,
-        'zone': tz,
-        'routes': {},
-    }
+    self._db.agencies[agency_id] = Agency(id=agency_id, name=name, url=url, zone=tz, routes={})
 
   def _HandleCalendarRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
@@ -615,13 +584,8 @@ class GTFS:
     if not service_id or start == datetime.date.min or end == datetime.date.min:
       raise RowError(f'empty row @{count} / {location}: {row}')
     # update
-    self._calendar[service_id] = {  # type:ignore
-        'id': service_id,
-        'week': tuple(days),
-        'start': start,
-        'end': end,
-        'exceptions': {},
-    }
+    self._db.calendar[service_id] = CalendarService(
+        id=service_id, week=tuple(days), start=start, end=end, exceptions={})  # type:ignore
 
   def _HandleCalendarDatesRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
@@ -644,7 +608,7 @@ class GTFS:
     if not service_id or date == datetime.date.min:
       raise RowError(f'empty row @{count} / {location}: {row}')
     # add to calendar
-    self._calendar[service_id]['exceptions'][date] = has_service
+    self._db.calendar[service_id].exceptions[date] = has_service
 
   def _HandleRoutesRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
@@ -669,17 +633,11 @@ class GTFS:
     if not route_id or not agency_id or not short_name or not long_name:
       raise RowError(f'empty row @{count} / {location}: {row}')
     # update
-    self._agencies[agency_id]['routes'][route_id] = {
-        'id': route_id,
-        'agency': agency_id,
-        'short_name': short_name,
-        'long_name': long_name,
-        'route_type': route_type,
-        'description': row['route_desc'],
-        'url': row['route_url'],
-        'color': row['route_color'],
-        'text_color': row['route_text_color'],
-    }
+    self._db.agencies[agency_id].routes[route_id] = Route(
+        id=route_id, agency=agency_id,
+        short_name=short_name, long_name=long_name, route_type=route_type,
+        description=row['route_desc'], url=row['route_url'],
+        color=row['route_color'], text_color=row['route_text_color'])
 
   def _HandleShapesRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
@@ -757,7 +715,7 @@ class GTFS:
       force_replace: (default False) If True will parse a repeated version of the ZIP file
     """
     # first load the list of GTFS, if needed
-    if (age := _DAYS_OLD(self._files['tm'])) > freshness:
+    if (age := _DAYS_OLD(self._db.files.tm)) > freshness:
       logging.info('Loading stations (%0.1f days old)', age)
       self._LoadCSVSources()
     else:
