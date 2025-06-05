@@ -43,8 +43,12 @@ _KNOWN_OPERATORS: set[str] = {
     'Iarnród Éireann / Irish Rail',
 }
 
-# useful aliases
-_GTFSRowHandler = Callable[[tuple[str, str, str], int, dict[str, Optional[str]]], None]
+
+class _TableLocation(TypedDict):
+  """GTFS table coordinates (just for parsing use for now)."""
+  operator: str   # GTFS Operator, from CSV Official Sources
+  link: str       # GTFS ZIP file URL location
+  file_name: str  # file name (ex: 'feed_info.txt')
 
 
 class FileMetadata(TypedDict):
@@ -68,6 +72,10 @@ class GTFSData(TypedDict):
   """GTFS data."""
   tm: float              # timestamp of last DB save
   files: OfficialFiles  # the available GTFS files
+
+
+# useful aliases
+_GTFSRowHandler = Callable[[_TableLocation, int, dict[str, Optional[str]]], None]
 
 
 class GTFS:
@@ -180,7 +188,11 @@ class GTFS:
           operator, base.HumanizedBytes(len(gtfs_zip_bytes)), link)
       for file_name, file_data in _UnzipFiles(io.BytesIO(gtfs_zip_bytes)):
         file_name = file_name.strip()
-        location: tuple[str, str, str] = (operator, link, file_name)
+        location: _TableLocation = {
+            'operator': operator,
+            'link': link,
+            'file_name': file_name,
+        }
         self._LoadGTFSFile(location, file_data, allow_unknown_file, allow_unknown_field)
         done_files.add(file_name)
     # finished loading the files, check that we loaded all required files
@@ -189,7 +201,7 @@ class GTFS:
     self._changed = True
 
   def _LoadGTFSFile(
-      self, location: tuple[str, str, str], file_data: bytes,
+      self, location: _TableLocation, file_data: bytes,
       allow_unknown_file: bool, allow_unknown_field: bool) -> None:
     """Loads a single txt (actually CSV) file and parses all fields, sending rows to handlers.
 
@@ -218,7 +230,7 @@ class GTFS:
             }),
     }
     # check if we know how to process this file
-    file_name: str = location[2]
+    file_name: str = location['file_name']
     if file_name not in file_handlers or not file_data:
       message: str = (
           f'Unsupported GTFS file: {file_name if file_name else "<empty>"} '
@@ -257,7 +269,7 @@ class GTFS:
     logging.info('Read %d records from %s', i, file_name)  # 1st row of CSV is not a record
 
   def _HandleFeedInfoRow(
-      self, location: tuple[str, str, str], count: int, row: dict[str, Optional[str]]) -> None:
+      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
     print(row)
 
   def LoadData(self, freshness: int = _DEFAULT_DAYS_FRESHNESS) -> None:
