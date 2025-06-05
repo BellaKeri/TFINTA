@@ -629,6 +629,7 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
+    # route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url,route_color,route_text_color
 
   def _HandleShapesRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
@@ -644,6 +645,7 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
+    # shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence,shape_dist_traveled
 
   def _HandleTripsRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
@@ -660,6 +662,7 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
+    # route_id,service_id,trip_id,trip_headsign,trip_short_name,direction_id,block_id,shape_id
 
   def _HandleStopsRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
@@ -676,6 +679,7 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
+    # stop_id,stop_code,stop_name,stop_desc,stop_lat,stop_lon,zone_id,stop_url,location_type,parent_station
 
   def _HandleStopTimesRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
@@ -691,6 +695,7 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
+    # trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,timepoint
 
   def LoadData(
       self, freshness: int = _DEFAULT_DAYS_FRESHNESS, force_replace: bool = False) -> None:
