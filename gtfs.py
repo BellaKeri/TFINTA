@@ -338,6 +338,8 @@ class GTFS:
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
     """Handler: "feed_info.txt" Information on the GTFS ZIP file being processed.
 
+    (no primary key)
+
     Args:
       location: _TableLocation info on current GTFS table
       count: row count, starting on 1
@@ -397,6 +399,128 @@ class GTFS:
         'version': version,
         'email': email,
     }
+
+  def _HandleAgencyRow(
+      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+    """Handler: "agency.txt" Transit agencies.
+
+    pk: agency_id
+
+    Args:
+      location: _TableLocation info on current GTFS table
+      count: row count, starting on 1
+      row: the row as a dict {field_name: Optional[field_data]}
+
+    Raises:
+      RowError: error parsing this record
+    """
+
+  def _HandleCalendarRow(
+      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+    """Handler: "calendar.txt" Service dates specified using a weekly schedule & start/end dates.
+
+    pk: service_id
+
+    Args:
+      location: _TableLocation info on current GTFS table
+      count: row count, starting on 1
+      row: the row as a dict {field_name: Optional[field_data]}
+
+    Raises:
+      RowError: error parsing this record
+    """
+
+  def _HandleCalendarDatesRow(
+      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+    """Handler: "calendar_dates.txt" Exceptions for the services defined in the calendar table.
+
+    pk: (calendar/service_id, date) / ref: calendar/service_id
+
+    Args:
+      location: _TableLocation info on current GTFS table
+      count: row count, starting on 1
+      row: the row as a dict {field_name: Optional[field_data]}
+
+    Raises:
+      RowError: error parsing this record
+    """
+
+  def _HandleRoutesRow(
+      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+    """Handler: "routes.txt" Routes: group of trips that are displayed to riders as a single service.
+
+    pk: route_id / ref: agency/agency_id
+
+    Args:
+      location: _TableLocation info on current GTFS table
+      count: row count, starting on 1
+      row: the row as a dict {field_name: Optional[field_data]}
+
+    Raises:
+      RowError: error parsing this record
+    """
+
+  def _HandleShapesRow(
+      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+    """Handler: "shapes.txt" Rules for mapping vehicle travel paths (aka. route alignments).
+
+    pk: (shape_id, shape_pt_sequence)
+
+    Args:
+      location: _TableLocation info on current GTFS table
+      count: row count, starting on 1
+      row: the row as a dict {field_name: Optional[field_data]}
+
+    Raises:
+      RowError: error parsing this record
+    """
+
+  def _HandleTripsRow(
+      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+    """Handler: "trips.txt" Trips for each route.
+
+    A trip is a sequence of two or more stops that occur during a specific time period.
+    pk: trip_id / ref: routes.route_id, calendar.service_id, shapes.shape_id
+
+    Args:
+      location: _TableLocation info on current GTFS table
+      count: row count, starting on 1
+      row: the row as a dict {field_name: Optional[field_data]}
+
+    Raises:
+      RowError: error parsing this record
+    """
+
+  def _HandleStopsRow(
+      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+    """Handler: "stops.txt" Stops where vehicles pick up or drop off riders.
+
+    Also defines stations and station entrances.
+    pk: stop_id / self-ref: parent_station=stop/stop_id
+
+    Args:
+      location: _TableLocation info on current GTFS table
+      count: row count, starting on 1
+      row: the row as a dict {field_name: Optional[field_data]}
+
+    Raises:
+      RowError: error parsing this record
+    """
+
+  def _HandleStopTimesRow(
+      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+    """Handler: "stop_times.txt" Times that a vehicle arrives/departs from stops for each trip.
+
+    pk: (trips/trip_id, stop_sequence) / ref: stops/stop_id
+
+    Args:
+      location: _TableLocation info on current GTFS table
+      count: row count, starting on 1
+      row: the row as a dict {field_name: Optional[field_data]}
+
+    Raises:
+      RowError: error parsing this record
+    """
 
   def LoadData(
       self, freshness: int = _DEFAULT_DAYS_FRESHNESS, force_replace: bool = False) -> None:
