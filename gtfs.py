@@ -106,10 +106,19 @@ class OfficialFiles(TypedDict):
   files: dict[str, dict[str, Optional[FileMetadata]]]  # {provider: {url: FileMetadata}}
 
 
+class Agency(TypedDict):
+  """Transit agency."""
+  id: int    # (PK)
+  name: str  # name
+  url: str   # URL
+  zone: str  # TZ timezone from the https://www.iana.org/time-zones
+
+
 class GTFSData(TypedDict):
   """GTFS data."""
-  tm: float              # timestamp of last DB save
-  files: OfficialFiles  # the available GTFS files
+  tm: float                    # timestamp of last DB save
+  files: OfficialFiles         # the available GTFS files
+  agencies: dict[int, Agency]  # {agency_id, Agency}
 
 
 # useful aliases
@@ -146,6 +155,7 @@ class GTFS:
               'tm': 0.0,
               'files': {},
           },
+          'agencies': {},
       }
       self.Save(force=True)
     # create file handlers structure
@@ -272,6 +282,11 @@ class GTFS:
   def _files(self) -> OfficialFiles:
     """Official index of GTFS files available for download."""
     return self._db['files']
+
+  @property
+  def _agencies(self) -> dict[int, Agency]:
+    """Official index of GTFS files available for download."""
+    return self._db['agencies']
 
   def _LoadCSVSources(self) -> None:
     """Loads GTFS official sources from CSV."""
@@ -504,6 +519,24 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
+    # there can be only one!
+    if count != 1:
+      raise RowError(
+          f'agency.txt table ({location}) is only supported to have 1 row (got {count}): {row}')
+    # get data, check if empty
+    agency_id: int = int(row['agency_id'], 10) if row['agency_id'] else 0
+    name: str = row['agency_name'] if row['agency_name'] else ''
+    url: str = row['agency_url'] if row['agency_url'] else ''
+    tz: str = row['agency_timezone'] if row['agency_timezone'] else ''
+    if not agency_id or not name or not url or not tz:
+      raise RowError(f'empty row @{count} / {location}: {row}')
+    # update
+    self._agencies[agency_id] = {
+        'id': agency_id,
+        'name': name,
+        'url': url,
+        'zone': tz,
+    }
 
   def _HandleCalendarRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
