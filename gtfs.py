@@ -103,11 +103,13 @@ class GTFS:
     Args:
       db_path: Complete path to save DB to
     """
+    # save the path
     if not db_path:
       raise Error('DB path cannot be empty')
     self._db_path: str = db_path.strip()
     self._db: GTFSData
     self._changed = False
+    # load DB, or create if new
     if os.path.exists(self._db_path):
       # DB exists: load
       with base.Timer() as tm_load:
@@ -124,6 +126,20 @@ class GTFS:
           },
       }
       self.Save(force=True)
+    # create file handlers structure
+    self._file_handlers: dict[str, tuple[_GTFSRowHandler, set[str]]] = {
+        # file_name: (handler, {field1, field2, ...})
+        'feed_info.txt': (
+            self._HandleFeedInfoRow,
+            {
+                'feed_publisher_name',
+                'feed_publisher_url',
+                'feed_lang',
+                'feed_start_date',
+                'feed_end_date',
+                'feed_version',
+            }),
+    }
 
   def Save(self, force: bool = False) -> None:
     """Save DB to file.
@@ -231,23 +247,9 @@ class GTFS:
       ParseError: missing fields
       ParseImplementationError: unknown file or field (if "allow" is False)
     """
-    # the handlers
-    file_handlers: dict[str, tuple[_GTFSRowHandler, set[str]]] = {
-        # file_name: (handler, {field1, field2, ...})
-        'feed_info.txt': (
-            self._HandleFeedInfoRow,
-            {
-                'feed_publisher_name',
-                'feed_publisher_url',
-                'feed_lang',
-                'feed_start_date',
-                'feed_end_date',
-                'feed_version',
-            }),
-    }
     # check if we know how to process this file
     file_name: str = location['file_name']
-    if file_name not in file_handlers or not file_data:
+    if file_name not in self._file_handlers or not file_data:
       message: str = (
           f'Unsupported GTFS file: {file_name if file_name else "<empty>"} '
           f'({base.HumanizedBytes(len(file_data))})')
@@ -257,7 +259,7 @@ class GTFS:
       raise ParseImplementationError(message)
     # supported type of GTFS file, so process the data into the DB
     logging.info('Processing: %s (%s)', file_name, base.HumanizedBytes(len(file_data)))
-    file_handler, file_fields = file_handlers[file_name]
+    file_handler, file_fields = self._file_handlers[file_name]
     i: int = 0
     actual_fields: list[str] = []
     for i, row in enumerate(csv.reader(
@@ -282,7 +284,22 @@ class GTFS:
           location, i,
           dict(zip(actual_fields,
                    [(k if k else None) for k in (j.strip() for j in row)])))
+    self._changed = True
     logging.info('Read %d records from %s', i, file_name)  # 1st row of CSV is not a record
+
+  # HANDLER TEMPLATE (copy and uncomment)
+  # def _HandleTABLENAMERow(
+  #     self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+  #   """Handler: "FILENAME.txt" DESCRIPTION.
+  #
+  #   Args:
+  #     location: _TableLocation info on current GTFS table
+  #     count: row count, starting on 1
+  #     row: the row as a dict {field_name: Optional[field_data]}
+  #
+  #   Raises:
+  #     RowError: error parsing this record
+  #   """
 
   def _HandleFeedInfoRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
