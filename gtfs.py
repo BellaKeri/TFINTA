@@ -44,6 +44,22 @@ _KNOWN_OPERATORS: set[str] = {
 }
 
 
+class Error(Exception):
+  """GTFS exception."""
+
+
+class ParseError(Error):
+  """Exception parsing a GTFS file."""
+
+
+class ParseImplementationError(ParseError):
+  """Exception parsing a GTFS row."""
+
+
+class RowError(ParseError):
+  """Exception parsing a GTFS row."""
+
+
 class _TableLocation(TypedDict):
   """GTFS table coordinates (just for parsing use for now)."""
   operator: str   # GTFS Operator, from CSV Official Sources
@@ -88,7 +104,7 @@ class GTFS:
       db_path: Complete path to save DB to
     """
     if not db_path:
-      raise AttributeError('DB path cannot be empty')
+      raise Error('DB path cannot be empty')
     self._db_path: str = db_path.strip()
     self._db: GTFSData
     self._changed = False
@@ -136,17 +152,17 @@ class GTFS:
       text_csv = io.TextIOWrapper(gtfs_csv, encoding='utf-8')
       for i, row in enumerate(csv.reader(text_csv)):
         if len(row) != 2:
-          raise AttributeError(f'Unexpected row in GTFS CSV list: {row!r}')
+          raise Error(f'Unexpected row in GTFS CSV list: {row!r}')
         if not i:
           if row != ['Operator', 'Link']:
-            raise AttributeError(f'Unexpected start of GTFS CSV list: {row!r}')
+            raise Error(f'Unexpected start of GTFS CSV list: {row!r}')
           continue  # first row is as expected: skip it
         # we have a row
         new_files.setdefault(row[0], {})[row[1]] = None
     # check the operators we care about are included!
     for operator in _KNOWN_OPERATORS:
       if operator not in new_files:
-        raise AttributeError(f'Operator {operator!r} not in loaded CSV!')
+        raise Error(f'Operator {operator!r} not in loaded CSV!')
     # we have the file loaded
     self._files['files'] = new_files
     self._files['tm'] = time.time()
@@ -167,16 +183,16 @@ class GTFS:
       allow_unknown_field: (default False) If False will raise on unknown field in file
 
     Raises:
-      AttributeError: expected file field was not in file or missing files
-      NotImplementedError: unknown file or field (if "allow" is False)
+      ParseError: missing files or fields
+      ParseImplementationError: unknown file or field (if "allow" is False)
     """
     # check that we are asking for a valid and known source
     operator, link = operator.strip(), link.strip()
     if not operator or operator not in self._files['files']:
-      raise ValueError(f'invalid operator {operator!r}')
+      raise Error(f'invalid operator {operator!r}')
     operator_files: dict[str, Optional[FileMetadata]] = self._files['files'][operator]
     if not link or link not in operator_files:
-      raise ValueError(f'invalid URL {link!r}')
+      raise Error(f'invalid URL {link!r}')
     # load ZIP from URL
     done_files: set[str] = set()
     file_name: str
@@ -197,7 +213,7 @@ class GTFS:
         done_files.add(file_name)
     # finished loading the files, check that we loaded all required files
     if (missing_files := _REQUIRED_FILES - done_files):
-      raise AttributeError(f'Missing required files: {operator} {missing_files!r}')
+      raise ParseError(f'Missing required files: {operator} {missing_files!r}')
     self._changed = True
 
   def _LoadGTFSFile(
@@ -212,8 +228,8 @@ class GTFS:
       allow_unknown_field: If False will raise on unknown field in file
 
     Raises:
-      AttributeError: expected file field was not in file
-      NotImplementedError: unknown file or field (if "allow" is False)
+      ParseError: missing fields
+      ParseImplementationError: unknown file or field (if "allow" is False)
     """
     # the handlers
     file_handlers: dict[str, tuple[_GTFSRowHandler, set[str]]] = {
@@ -238,7 +254,7 @@ class GTFS:
       if allow_unknown_file:
         logging.warning(message)
         return
-      raise NotImplementedError(message)
+      raise ParseImplementationError(message)
     # supported type of GTFS file, so process the data into the DB
     logging.info('Processing: %s (%s)', file_name, base.HumanizedBytes(len(file_data)))
     file_handler, file_fields = file_handlers[file_name]
@@ -252,14 +268,14 @@ class GTFS:
         actual_fields = row  # save for later: we need the order of fields
         # find missing fields (TODO in future: optional fields)
         if (missing_fields := file_fields - set(actual_fields)):
-          raise AttributeError(f'Missing fields found: {file_name} {missing_fields!r}')
+          raise ParseError(f'Missing fields found: {file_name} {missing_fields!r}')
         # find unknown/unimplemented fields
         if (extra_fields := set(actual_fields) - file_fields):
           message = f'Extra fields found: {file_name} {extra_fields!r}'
           if allow_unknown_field:
             logging.warning(message)
           else:
-            raise NotImplementedError(message)
+            raise ParseImplementationError(message)
         continue  # first row is as expected: skip it
       # we have a row that is not the 1st, should be data
       file_handler(
@@ -270,6 +286,19 @@ class GTFS:
 
   def _HandleFeedInfoRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+    """Handler: "feed_info.txt" Information on the GTFS ZIP file being processed.
+
+    Args:
+      location: _TableLocation info on current GTFS table
+      count: row count, starting on 1
+      row: the row as a dict {field_name: Optional[field_data]}
+
+    Raises:
+      RowError: error parsing this record
+    """
+    if count != 1:
+      raise RowError('feed_info.txt table is only supported to have 1 row')
+    print(location)
     print(row)
 
   def LoadData(self, freshness: int = _DEFAULT_DAYS_FRESHNESS) -> None:
