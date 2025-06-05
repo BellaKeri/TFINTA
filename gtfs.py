@@ -530,6 +530,8 @@ class GTFS:
     tz: str = row['agency_timezone'] if row['agency_timezone'] else ''
     if not agency_id or not name or not url or not tz:
       raise RowError(f'empty row @{count} / {location}: {row}')
+    if tz != 'Europe/London':
+      raise NotImplementedError(f'For now timezones are only UTC (got {tz})')
     # update
     self._agencies[agency_id] = {
         'id': agency_id,
