@@ -10,6 +10,7 @@ See: https://gtfs.org/documentation/schedule/reference/
 
 import argparse
 import csv
+import datetime
 import io
 import logging
 import os
@@ -30,7 +31,7 @@ __version__ = (1, 0)
 _DEFAULT_DAYS_FRESHNESS = 1
 _SECONDS_IN_DAY = 60 * 60 * 24
 _DAYS_OLD: Callable[[float], float] = lambda t: (time.time() - t) / _SECONDS_IN_DAY
-_DATA_DIR: str = base.MODULE_PRIVATE_DIR(__file__, '.data')
+_DATA_DIR: str = base.MODULE_PRIVATE_DIR(__file__, '.tfinta-data')
 _DEFAULT_DB_FILE: str = os.path.join(_DATA_DIR, 'transit.db')
 _REQUIRED_FILES: set[str] = {
     'feed_info.txt',  # required because it has the date ranges and the version info
@@ -43,6 +44,10 @@ _KNOWN_OPERATORS: set[str] = {
     'Iarnród Éireann / Irish Rail',
 }
 
+# data parsing utils
+_UTC_DATE: Callable[[str], float] = lambda s: datetime.datetime.strptime(
+    s, '%Y%m%d').replace(tzinfo=datetime.timezone.utc).timestamp()
+
 
 class Error(Exception):
   """GTFS exception."""
@@ -53,6 +58,10 @@ class ParseError(Error):
 
 
 class ParseImplementationError(ParseError):
+  """Exception parsing a GTFS row."""
+
+
+class ParseIdenticalVersionError(ParseError):
   """Exception parsing a GTFS row."""
 
 
@@ -73,8 +82,8 @@ class FileMetadata(TypedDict):
   publisher: str  # feed_info.txt/feed_publisher_name (required)
   url: str        # feed_info.txt/feed_publisher_url  (required)
   language: str   # feed_info.txt/feed_lang           (required)
-  start: int      # feed_info.txt/feed_start_date     (required)
-  end: int        # feed_info.txt/feed_end_date       (required)
+  start: float    # feed_info.txt/feed_start_date     (required) - interpreted as UTC
+  end: float      # feed_info.txt/feed_end_date       (required) - interpreted as UTC
   version: str    # feed_info.txt/feed_version        (required)
 
 
@@ -189,7 +198,8 @@ class GTFS:
 
   def _LoadGTFSSource(
       self, operator: str, link: str,
-      allow_unknown_file: bool = True, allow_unknown_field: bool = False) -> None:
+      allow_unknown_file: bool = True, allow_unknown_field: bool = False,
+      force_replace: bool = False) -> None:
     """Loads a single GTFS ZIP file and parses all inner data files.
 
     Args:
@@ -197,6 +207,7 @@ class GTFS:
       link: URL for GTFS file
       allow_unknown_file: (default True) If False will raise on unknown GTFS file
       allow_unknown_field: (default False) If False will raise on unknown field in file
+      force_replace: (default False) If True will parse a repeated version of the ZIP file
 
     Raises:
       ParseError: missing files or fields
@@ -225,8 +236,16 @@ class GTFS:
             'link': link,
             'file_name': file_name,
         }
-        self._LoadGTFSFile(location, file_data, allow_unknown_file, allow_unknown_field)
-        done_files.add(file_name)
+        try:
+          self._LoadGTFSFile(location, file_data, allow_unknown_file, allow_unknown_field)
+        except ParseIdenticalVersionError as err:
+          if force_replace:
+            logging.warning('Replacing existing data: %s', err)
+            continue
+          logging.warning('Version already known (will SKIP): %s', err)
+          return
+        finally:
+          done_files.add(file_name)
     # finished loading the files, check that we loaded all required files
     if (missing_files := _REQUIRED_FILES - done_files):
       raise ParseError(f'Missing required files: {operator} {missing_files!r}')
@@ -312,18 +331,63 @@ class GTFS:
 
     Raises:
       RowError: error parsing this record
+      ParseIdenticalVersionError: version is already known/parsed
     """
+    # there can be only one!
     if count != 1:
-      raise RowError('feed_info.txt table is only supported to have 1 row')
-    print(location)
-    print(row)
+      raise RowError(
+          f'feed_info.txt table ({location}) is only supported to have 1 row (got {count}): {row}')
+    # get data, check if empty
+    publisher: str = row['feed_publisher_name'] if row['feed_publisher_name'] else ''
+    url: str = row['feed_publisher_url'] if row['feed_publisher_url'] else ''
+    lang: str = row['feed_lang'] if row['feed_lang'] else ''
+    start: float = _UTC_DATE(row['feed_start_date']) if row['feed_start_date'] else 0.0
+    end: float = _UTC_DATE(row['feed_end_date']) if row['feed_end_date'] else 0.0
+    version: str = row['feed_version'] if row['feed_version'] else ''
+    if not publisher or not url or not lang or not version:
+      raise RowError(f'missing data in {location}: {row}')
+    if start < 1.0 or end < 1.0:
+      raise RowError(f'missing start/end dates in {location}: {row}')
+    # check against current version (and log)
+    tm: float = time.time()
+    current_data = self._files['files'][location['operator']][location['link']]
+    if current_data is None:
+      logging.info(
+          'Loading version %r @ %s for %s/%s',
+          version, base.STD_TIME_STRING(tm), location['operator'], location['link'])
+    else:
+      if (version == current_data['version'] and
+          publisher == current_data['publisher'] and
+          lang == current_data['language'] and
+          abs(start - current_data['start']) < 10.0 and
+          abs(end - current_data['end']) < 10.0):
+        # same version of the data!
+        raise ParseIdenticalVersionError(
+            f'{version} @ {base.STD_TIME_STRING(current_data["tm"])} '
+            f'{location["operator"]} / {location["link"]}')
+      logging.info(
+          'Updating version %r @ %s -> %r @ %s for %s/%s',
+          current_data['version'], base.STD_TIME_STRING(current_data['tm']),
+          version, base.STD_TIME_STRING(tm), location['operator'], location['link'])
+    # update
+    self._files['files'][location['operator']][location['link']] = {
+        'tm': tm,
+        'publisher': publisher,
+        'url': url,
+        'language': lang,
+        'start': start,
+        'end': end,
+        'version': version,
+    }
 
-  def LoadData(self, freshness: int = _DEFAULT_DAYS_FRESHNESS) -> None:
+  def LoadData(
+      self, freshness: int = _DEFAULT_DAYS_FRESHNESS, force_replace: bool = False) -> None:
     """Downloads and parses GTFS data.
 
     Args:
       freshness: (default 1) Number of days before data is not fresh anymore and
           has to be reloaded from source
+      force_replace: (default False) If True will parse a repeated version of the ZIP file
     """
     # first load the list of GTFS, if needed
     if (age := _DAYS_OLD(self._files['tm'])) > freshness:
@@ -334,11 +398,14 @@ class GTFS:
     # load GTFS data we are interested in
     self._LoadGTFSSource(
         'Iarnród Éireann / Irish Rail',
-        'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip')
+        'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip',
+        force_replace=force_replace)
 
 
 def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
   """Unzips `in_file` bytes buffer. Manages multiple files.
+
+  File 'feed_info.txt' will be sorted first.
 
   Args:
     in_file: bytes buffer (io.BytesIO for example) with ZIP data
@@ -350,7 +417,11 @@ def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
     BadZipFile: ZIP error
   """
   with zipfile.ZipFile(in_file, 'r') as zip_ref:
-    for file_name in sorted(zip_ref.namelist()):
+    file_names: list[str] = sorted(zip_ref.namelist())
+    if 'feed_info.txt' in file_names:
+      file_names.remove('feed_info.txt')
+      file_names = ['feed_info.txt'] + file_names
+    for file_name in file_names:
       with zip_ref.open(file_name) as file_data:
         yield (file_name, file_data.read())
 
@@ -366,6 +437,9 @@ def Main() -> None:
   read_parser.add_argument(
       '-f', '--freshness', type=int, default=_DEFAULT_DAYS_FRESHNESS,
       help=f'Number of days to cache; 0 == always load (default: {_DEFAULT_DAYS_FRESHNESS})')
+  read_parser.add_argument(
+      '-r', '--replace', type=int, default=0,
+      help='0 == does not load the same version again ; 1 == forces replace version (default: 0)')
   # "print" command
   _: argparse.ArgumentParser = command_arg_subparsers.add_parser(
       'print', help='Print DB')
@@ -393,7 +467,7 @@ def Main() -> None:
       # "read" command
       if command == 'read':
         try:
-          database.LoadData(freshness=args.freshness)
+          database.LoadData(freshness=args.freshness, force_replace=bool(args.replace))
         finally:
           database.Save()
       # "print" command
