@@ -162,6 +162,96 @@ class GTFS:
                 'feed_version',
                 'feed_contact_email',
             }),
+        'agency.txt': (
+            self._HandleAgencyRow,
+            {
+                'agency_id',
+                'agency_name',
+                'agency_url',
+                'agency_timezone',
+            }),
+        'calendar.txt': (
+            self._HandleCalendarRow,
+            {
+                'service_id',
+                'monday',
+                'tuesday',
+                'wednesday',
+                'thursday',
+                'friday',
+                'saturday',
+                'sunday',
+                'start_date',
+                'end_date',
+            }),
+        'calendar_dates.txt': (
+            self._HandleCalendarDatesRow,
+            {
+                'service_id',
+                'date',
+                'exception_type',
+            }),
+        'routes.txt': (
+            self._HandleRoutesRow,
+            {
+                'route_id',
+                'agency_id',
+                'route_short_name',
+                'route_long_name',
+                'route_desc',
+                'route_type',
+                'route_url',
+                'route_color',
+                'route_text_color',
+            }),
+        'shapes.txt': (
+            self._HandleShapesRow,
+            {
+                'shape_id',
+                'shape_pt_lat',
+                'shape_pt_lon',
+                'shape_pt_sequence',
+                'shape_dist_traveled',
+            }),
+        'trips.txt': (
+            self._HandleTripsRow,
+            {
+                'route_id',
+                'service_id',
+                'trip_id',
+                'trip_headsign',
+                'trip_short_name',
+                'direction_id',
+                'block_id',
+                'shape_id',
+            }),
+        'stops.txt': (
+            self._HandleStopsRow,
+            {
+                'stop_id',
+                'stop_code',
+                'stop_name',
+                'stop_desc',
+                'stop_lat',
+                'stop_lon',
+                'zone_id',
+                'stop_url',
+                'location_type',
+                'parent_station',
+            }),
+        'stop_times.txt': (
+            self._HandleStopTimesRow,
+            {
+                'trip_id',
+                'arrival_time',
+                'departure_time',
+                'stop_id',
+                'stop_sequence',
+                'stop_headsign',
+                'pickup_type',
+                'drop_off_type',
+                'timepoint',
+            }),
     }
 
   def Save(self, force: bool = False) -> None:
