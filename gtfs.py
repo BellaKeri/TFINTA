@@ -32,6 +32,9 @@ _SECONDS_IN_DAY = 60 * 60 * 24
 _DAYS_OLD: Callable[[float], float] = lambda t: (time.time() - t) / _SECONDS_IN_DAY
 _DATA_DIR: str = base.MODULE_PRIVATE_DIR(__file__, '.data')
 _DEFAULT_DB_FILE: str = os.path.join(_DATA_DIR, 'transit.db')
+_REQUIRED_FILES: set[str] = {
+    'feed_info.txt',  # required because it has the date ranges and the version info
+}
 
 # URLs
 _OFFICIAL_GTFS_CSV = 'https://www.transportforireland.ie/transitData/Data/GTFS%20Operator%20Files.csv'
@@ -41,21 +44,30 @@ _KNOWN_OPERATORS: set[str] = {
 }
 
 # useful aliases
-_GTFSRowHandler = Callable[[dict[str, Optional[str]]], None]
+_GTFSRowHandler = Callable[[tuple[str, str, str], int, dict[str, Optional[str]]], None]
 
 
-class _OfficialFiles(TypedDict):
+class FileMetadata(TypedDict):
+  """GTFS file metadata (mostly from loading feed_info.txt tables)."""
+  tm: float       # timestamp of last load of this GTFS ZIP file
+  publisher: str  # feed_info.txt/feed_publisher_name (required)
+  url: str        # feed_info.txt/feed_publisher_url  (required)
+  language: str   # feed_info.txt/feed_lang           (required)
+  start: int      # feed_info.txt/feed_start_date     (required)
+  end: int        # feed_info.txt/feed_end_date       (required)
+  version: str    # feed_info.txt/feed_version        (required)
+
+
+class OfficialFiles(TypedDict):
   """Official GTFS files."""
+  tm: float  # timestamp of last pull of the official CSV
+  files: dict[str, dict[str, Optional[FileMetadata]]]  # {provider: {url: FileMetadata}}
 
-  tm: float                                     # timestamp of last pull of the official CSV
-  files: dict[str, dict[str, Optional[float]]]  # {provider: {url: timestamp}}
 
-
-class _GTFSData(TypedDict):
+class GTFSData(TypedDict):
   """GTFS data."""
-
   tm: float              # timestamp of last DB save
-  files: _OfficialFiles  # the available GTFS files
+  files: OfficialFiles  # the available GTFS files
 
 
 class GTFS:
@@ -70,7 +82,7 @@ class GTFS:
     if not db_path:
       raise AttributeError('DB path cannot be empty')
     self._db_path: str = db_path.strip()
-    self._db: _GTFSData
+    self._db: GTFSData
     self._changed = False
     if os.path.exists(self._db_path):
       # DB exists: load
@@ -104,14 +116,14 @@ class GTFS:
       logging.info('Saved DB to %r (%s)', self._db_path, tm_save.readable)
 
   @property
-  def _files(self) -> _OfficialFiles:
+  def _files(self) -> OfficialFiles:
     """Official index of GTFS files available for download."""
     return self._db['files']
 
   def _LoadCSVSources(self) -> None:
     """Loads GTFS official sources from CSV."""
     # get the file and parse it
-    new_files: dict[str, dict[str, Optional[float]]] = {}
+    new_files: dict[str, dict[str, Optional[FileMetadata]]] = {}
     with urllib.request.urlopen(_OFFICIAL_GTFS_CSV) as gtfs_csv:
       text_csv = io.TextIOWrapper(gtfs_csv, encoding='utf-8')
       for i, row in enumerate(csv.reader(text_csv)):
@@ -147,17 +159,19 @@ class GTFS:
       allow_unknown_field: (default False) If False will raise on unknown field in file
 
     Raises:
-      AttributeError: expected file field was not in file
+      AttributeError: expected file field was not in file or missing files
       NotImplementedError: unknown file or field (if "allow" is False)
     """
     # check that we are asking for a valid and known source
     operator, link = operator.strip(), link.strip()
     if not operator or operator not in self._files['files']:
       raise ValueError(f'invalid operator {operator!r}')
-    operator_files: dict[str, Optional[float]] = self._files['files'][operator]
+    operator_files: dict[str, Optional[FileMetadata]] = self._files['files'][operator]
     if not link or link not in operator_files:
       raise ValueError(f'invalid URL {link!r}')
     # load ZIP from URL
+    done_files: set[str] = set()
+    file_name: str
     with urllib.request.urlopen(link) as gtfs_zip:
       # extract files from ZIP
       gtfs_zip_bytes: bytes = gtfs_zip.read()
@@ -165,18 +179,22 @@ class GTFS:
           'Loading %r data, %s,from %r',
           operator, base.HumanizedBytes(len(gtfs_zip_bytes)), link)
       for file_name, file_data in _UnzipFiles(io.BytesIO(gtfs_zip_bytes)):
-        self._LoadGTFSFile(file_name, file_data, allow_unknown_file, allow_unknown_field)
-    # finished loading the files, mark the time
-    operator_files[link] = time.time()
+        file_name = file_name.strip()
+        location: tuple[str, str, str] = (operator, link, file_name)
+        self._LoadGTFSFile(location, file_data, allow_unknown_file, allow_unknown_field)
+        done_files.add(file_name)
+    # finished loading the files, check that we loaded all required files
+    if (missing_files := _REQUIRED_FILES - done_files):
+      raise AttributeError(f'Missing required files: {operator} {missing_files!r}')
     self._changed = True
 
   def _LoadGTFSFile(
-      self, file_name: str, file_data: bytes,
+      self, location: tuple[str, str, str], file_data: bytes,
       allow_unknown_file: bool, allow_unknown_field: bool) -> None:
     """Loads a single txt (actually CSV) file and parses all fields, sending rows to handlers.
 
     Args:
-      file_name: File name to process (ex: 'feed_info.txt')
+      location: (operator, link, file_name)
       file_data: File bytes
       allow_unknown_file: If False will raise on unknown GTFS file
       allow_unknown_field: If False will raise on unknown field in file
@@ -200,9 +218,9 @@ class GTFS:
             }),
     }
     # check if we know how to process this file
-    file_name = file_name.strip()
+    file_name: str = location[2]
     if file_name not in file_handlers or not file_data:
-      message = (
+      message: str = (
           f'Unsupported GTFS file: {file_name if file_name else "<empty>"} '
           f'({base.HumanizedBytes(len(file_data))})')
       if allow_unknown_file:
@@ -233,11 +251,13 @@ class GTFS:
         continue  # first row is as expected: skip it
       # we have a row that is not the 1st, should be data
       file_handler(
+          location, i,
           dict(zip(actual_fields,
                    [(k if k else None) for k in (j.strip() for j in row)])))
     logging.info('Read %d records from %s', i, file_name)  # 1st row of CSV is not a record
 
-  def _HandleFeedInfoRow(self, row: dict[str, Optional[str]]) -> None:
+  def _HandleFeedInfoRow(
+      self, location: tuple[str, str, str], count: int, row: dict[str, Optional[str]]) -> None:
     print(row)
 
   def LoadData(self, freshness: int = _DEFAULT_DAYS_FRESHNESS) -> None:
