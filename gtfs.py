@@ -57,8 +57,11 @@ _KNOWN_OPERATORS: set[str] = {
 }
 
 # data parsing utils
-_UTC_DATE: Callable[[str], float] = lambda s: datetime.datetime.strptime(
-    s, '%Y%m%d').replace(tzinfo=datetime.timezone.utc).timestamp()
+_DATETIME_OBJ: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(
+    s, '%Y%m%d')
+_UTC_DATE: Callable[[str], float] = lambda s: _DATETIME_OBJ(s).replace(
+    tzinfo=datetime.timezone.utc).timestamp()
+_DATE_OBJ: Callable[[str], datetime.date] = lambda s: _DATETIME_OBJ(s).date()
 
 
 class Error(Exception):
@@ -91,12 +94,12 @@ class _TableLocation(TypedDict):
 class FileMetadata(TypedDict):
   """GTFS file metadata (mostly from loading feed_info.txt tables)."""
   tm: float       # timestamp of first load of this version of this GTFS ZIP file
-  publisher: str  # feed_info.txt/feed_publisher_name (required)
-  url: str        # feed_info.txt/feed_publisher_url  (required)
-  language: str   # feed_info.txt/feed_lang           (required)
-  start: float    # feed_info.txt/feed_start_date     (required) - interpreted as UTC
-  end: float      # feed_info.txt/feed_end_date       (required) - interpreted as UTC
-  version: str    # feed_info.txt/feed_version        (required)
+  publisher: str  # feed_info.txt/feed_publisher_name   (required)
+  url: str        # feed_info.txt/feed_publisher_url    (required)
+  language: str   # feed_info.txt/feed_lang             (required)
+  start: datetime.date  # feed_info.txt/feed_start_date (required)
+  end: datetime.date    # feed_info.txt/feed_end_date   (required)
+  version: str    # feed_info.txt/feed_version          (required)
   email: Optional[str]  # feed_info.txt/feed_contact_email (optional)
 
 
@@ -108,17 +111,28 @@ class OfficialFiles(TypedDict):
 
 class Agency(TypedDict):
   """Transit agency."""
-  id: int    # (PK)
-  name: str  # name
-  url: str   # URL
-  zone: str  # TZ timezone from the https://www.iana.org/time-zones
+  id: int    # (PK) agency.txt/agency_id (required)
+  name: str  # agency.txt/agency_name    (required)
+  url: str   # agency.txt/agency_url     (required)
+  zone: str  # agency.txt/agency_timezone: TZ timezone from the https://www.iana.org/time-zones (required)
+
+
+class CalendarService(TypedDict):
+  """Service dates specified using a weekly schedule & start/end dates. Includes the exceptions."""
+  id: int  # (PK) calendar.txt/service_id (required)
+  week: tuple[bool, bool, bool, bool, bool, bool, bool]  # calendar.txt/sunday...saturday (required)
+  start: datetime.date  # calendar.txt/start_date (required)
+  end: datetime.date    # calendar.txt/end_date   (required)
+  exceptions: dict[datetime.date, bool]  # {calendar_dates.txt/date: has_service}
+  # where `has_service` comes from calendar_dates.txt/exception_type
 
 
 class GTFSData(TypedDict):
   """GTFS data."""
-  tm: float                    # timestamp of last DB save
-  files: OfficialFiles         # the available GTFS files
-  agencies: dict[int, Agency]  # {agency_id, Agency}
+  tm: float             # timestamp of last DB save
+  files: OfficialFiles  # the available GTFS files
+  agencies: dict[int, Agency]           # {agency_id, Agency}
+  calendar: dict[int, CalendarService]  # {service_id, CalendarService}
 
 
 # useful aliases
@@ -156,6 +170,7 @@ class GTFS:
               'files': {},
           },
           'agencies': {},
+          'calendar': {},
       }
       self.Save(force=True)
     # create file handlers structure
@@ -285,8 +300,13 @@ class GTFS:
 
   @property
   def _agencies(self) -> dict[int, Agency]:
-    """Official index of GTFS files available for download."""
+    """Agencies."""
     return self._db['agencies']
+
+  @property
+  def _calendar(self) -> dict[int, CalendarService]:
+    """Calendar services."""
+    return self._db['calendar']
 
   def _LoadCSVSources(self) -> None:
     """Loads GTFS official sources from CSV."""
@@ -462,13 +482,13 @@ class GTFS:
     publisher: str = row['feed_publisher_name'] if row['feed_publisher_name'] else ''
     url: str = row['feed_publisher_url'] if row['feed_publisher_url'] else ''
     lang: str = row['feed_lang'] if row['feed_lang'] else ''
-    start: float = _UTC_DATE(row['feed_start_date']) if row['feed_start_date'] else 0.0
-    end: float = _UTC_DATE(row['feed_end_date']) if row['feed_end_date'] else 0.0
+    start: datetime.date = _DATE_OBJ(row['feed_start_date']) if row['feed_start_date'] else datetime.date.min
+    end: datetime.date = _DATE_OBJ(row['feed_end_date']) if row['feed_end_date'] else datetime.date.min
     version: str = row['feed_version'] if row['feed_version'] else ''
     email: Optional[str] = row['feed_contact_email']
     if not publisher or not url or not lang or not version:
       raise RowError(f'missing data in {location}: {row}')
-    if start < 1.0 or end < 1.0:
+    if start == datetime.date.min or end == datetime.date.min:
       raise RowError(f'missing start/end dates in {location}: {row}')
     # check against current version (and log)
     tm: float = time.time()
@@ -481,8 +501,8 @@ class GTFS:
       if (version == current_data['version'] and
           publisher == current_data['publisher'] and
           lang == current_data['language'] and
-          abs(start - current_data['start']) < 10.0 and
-          abs(end - current_data['end']) < 10.0):
+          start == current_data['start'] and
+          end == current_data['end']):
         # same version of the data!
         # note that since we `raise` we don't update the timestamp, so the timestamp
         # is the time we first processed this version of the ZIP file
@@ -554,6 +574,23 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
+    # get data, check if empty
+    service_id: int = int(row['service_id'], 10) if row['service_id'] else 0
+    days: list[bool] = []
+    for day in ('sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'):
+      days.append(bool(int(row[day], 10) if row[day] else 0))  # type:ignore
+    start: datetime.date = _DATE_OBJ(row['start_date']) if row['start_date'] else datetime.date.min
+    end: datetime.date = _DATE_OBJ(row['end_date']) if row['end_date'] else datetime.date.min
+    if not service_id or start == datetime.date.min or end == datetime.date.min:
+      raise RowError(f'empty row @{count} / {location}: {row}')
+    # update
+    self._calendar[service_id] = {  # type:ignore
+        'id': service_id,
+        'week': tuple(days),
+        'start': start,
+        'end': end,
+        'exceptions': {},
+    }
 
   def _HandleCalendarDatesRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
@@ -569,6 +606,14 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
+    # get data, check if empty
+    service_id: int = int(row['service_id'], 10) if row['service_id'] else 0
+    date: datetime.date = _DATE_OBJ(row['date']) if row['date'] else datetime.date.min
+    has_service: bool = (int(row['exception_type'], 10) == 1) if row['exception_type'] else False
+    if not service_id or date == datetime.date.min:
+      raise RowError(f'empty row @{count} / {location}: {row}')
+    # add to calendar
+    self._calendar[service_id]['exceptions'][date] = has_service
 
   def _HandleRoutesRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
