@@ -11,6 +11,7 @@ See: https://gtfs.org/documentation/schedule/reference/
 import argparse
 import csv
 import datetime
+import enum
 import io
 import logging
 import os
@@ -109,12 +110,41 @@ class OfficialFiles(TypedDict):
   files: dict[str, dict[str, Optional[FileMetadata]]]  # {provider: {url: FileMetadata}}
 
 
+class RouteType(enum.Enum):
+  """Route type."""
+  # https://gtfs.org/documentation/schedule/reference/?utm_source=chatgpt.com#routestxt
+  LIGHT_RAIL = 0   # Tram, Streetcar, Light rail. Any light rail or street level system within a metropolitan area
+  SUBWAY = 1       # Subway, Metro. Any underground rail system within a metropolitan area
+  RAIL = 2         # Used for intercity or long-distance travel
+  BUS = 3          # Used for short- and long-distance bus routes
+  FERRY = 4        # Used for short- and long-distance boat service
+  CABLE_TRAM = 5   # Used for street-level rail cars where the cable runs beneath the vehicle (e.g., cable car in San Francisco)
+  AERIAL_LIFT = 6  # Aerial lift, suspended cable car (e.g., gondola lift, aerial tramway). Cable transport where cabins, cars, gondolas or open chairs are suspended by means of one or more cables
+  FUNICULAR = 7    # Any rail system designed for steep inclines
+  TROLLEYBUS = 11  # Electric buses that draw power from overhead wires using poles
+  MONORAIL = 12    # Railway in which the track consists of a single rail or a beam
+
+
+class Route(TypedDict):
+  """Route: group of trips that are displayed to riders as a single service"""
+  id: int                # routes.txt/route_id (required)
+  agency: int            # routes.txt/agency_id (required) -> agency.txt/agency_id
+  short_name: str        # routes.txt/route_short_name (required)
+  long_name: str         # routes.txt/route_long_name (required)
+  route_type: RouteType  # routes.txt/route_type (required)
+  description: Optional[str]  # routes.txt/route_desc
+  url: Optional[str]          # routes.txt/route_url
+  color: Optional[str]        # routes.txt/route_color: encoded as a six-digit hexadecimal number (https://htmlcolorcodes.com)
+  text_color: Optional[str]   # routes.txt/route_text_color: encoded as a six-digit hexadecimal number
+
+
 class Agency(TypedDict):
   """Transit agency."""
   id: int    # (PK) agency.txt/agency_id (required)
   name: str  # agency.txt/agency_name    (required)
   url: str   # agency.txt/agency_url     (required)
   zone: str  # agency.txt/agency_timezone: TZ timezone from the https://www.iana.org/time-zones (required)
+  routes: dict[int, Route]
 
 
 class CalendarService(TypedDict):
@@ -558,6 +588,7 @@ class GTFS:
         'name': name,
         'url': url,
         'zone': tz,
+        'routes': {},
     }
 
   def _HandleCalendarRow(
@@ -629,7 +660,26 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
-    # route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url,route_color,route_text_color
+    # get data, check if empty
+    route_id: int = int(row['route_id'], 10) if row['route_id'] else 0
+    agency_id: int = int(row['agency_id'], 10) if row['agency_id'] else 0
+    short_name: str = row['route_short_name'] if row['route_short_name'] else ''
+    long_name: str = row['route_long_name'] if row['route_long_name'] else ''
+    route_type: RouteType = RouteType(int(row['route_type'], 10)) if row['route_type'] else RouteType.RAIL
+    if not route_id or not agency_id or not short_name or not long_name:
+      raise RowError(f'empty row @{count} / {location}: {row}')
+    # update
+    self._agencies[agency_id]['routes'][route_id] = {
+        'id': route_id,
+        'agency': agency_id,
+        'short_name': short_name,
+        'long_name': long_name,
+        'route_type': route_type,
+        'description': row['route_desc'],
+        'url': row['route_url'],
+        'color': row['route_color'],
+        'text_color': row['route_text_color'],
+    }
 
   def _HandleShapesRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
