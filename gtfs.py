@@ -107,6 +107,68 @@ class FileMetadata:
   email: Optional[str]  # feed_info.txt/feed_contact_email
 
 
+class LocationType(enum.Enum):
+  """Location type."""
+  # https://gtfs.org/documentation/schedule/reference/?utm_source=chatgpt.com#stopstxt
+  STOP = 0           # (or empty) - Stop (or Platform). A location where passengers board or disembark from a transit vehicle. Is called a platform when defined within a parent_station
+  STATION = 1        # A physical structure or area that contains one or more platform
+  ENTRANCE_EXIT = 2  # A location where passengers can enter or exit a station from the street. If an entrance/exit belongs to multiple stations, it may be linked by pathways to both, but the data provider must pick one of them as parent
+  STATION_NODE = 3   # A location within a station, not matching any other location_type, that may be used to link together pathways define in pathways.txt
+  BOARDING_AREA = 4  # A specific location on a platform, where passengers can board and/or alight vehicles
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class Stop:
+  """Stop where vehicles pick up or drop off riders."""
+  id: str                # (PK) stops.txt/stop_id (required)
+  parent: Optional[int]  # stops.txt/parent_station -> stops.txt/stop_id (required)
+  code: str              # stops.txt/stop_code    (required)
+  name: str              # stops.txt/stop_name    (required)
+  desc: Optional[str]    # stops.txt/stop_desc
+  latitude: float        # stops.txt/stop_lat     (required)
+  longitude: float       # stops.txt/stop_lon     (required)
+  zone: Optional[int]    # stops.txt/zone_id
+  url: Optional[str]     # stops.txt/stop_url
+  location: LocationType = LocationType.STOP  # stops.txt/location_type
+
+
+class StopPointType(enum.Enum):
+  """Pickup/Drop-off type."""
+  # https://gtfs.org/documentation/schedule/reference/?utm_source=chatgpt.com#stop_timestxt
+  REGULAR = 0        # (or empty) Regularly scheduled pickup/drop-off
+  NOT_AVAILABLE = 1  # No pickup/drop-off available
+  AGENCY_ONLY = 2    # Must phone agency to arrange pickup/drop-off
+  DRIVER_ONLY = 3    # Must coordinate with driver to arrange pickup/drop-off
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class StopTime:
+  """Time that a vehicle arrives/departs from a stop for a trip."""
+  id: str    # (PK) stop_times.txt/trip_id            (required) -> trips.txt/trip_id
+  seq: int   # (PK) stop_times.txt/stop_sequence      (required)
+  stop: str  # stop_times.txt/stop_id                 (required) -> stops.txt/stop_id
+  arrival: int    # stop_times.txt/arrival_time - seconds from midnight, to represent 'HH:MM:SS'     (required)
+  departure: int  # stop_times.txt/departure_time - seconds from midnight, to represent 'HH:MM:SS' (required)
+  timepoint: bool          # stop_times.txt/timepoint (required)
+  headsign: Optional[str]  # stop_times.txt/stop_headsign
+  pickup: StopPointType = StopPointType.REGULAR   # stop_times.txt/pickup_type
+  dropoff: StopPointType = StopPointType.REGULAR  # stop_times.txt/drop_off_type
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class Trip:
+  """Trip for a route."""
+  id: str          # (PK) trips.txt/trip_id     (required)
+  route: str       # trips.txt/route_id         (required) -> routes.txt/route_id
+  service: int     # trips.txt/service_id       (required) -> calendar.txt/service_id
+  shape: str       # trips.txt/shape_id         (required) -> shapes.txt/shape_id
+  headsign: str    # trips.txt/trip_headsign    (required)
+  name: str        # trips.txt/trip_short_name  (required)
+  direction: bool  # trips.txt/direction_id     (required)
+  block: str       # trips.txt/block_id         (required)
+  stops: dict[int, StopTime]  # {stop_times.txt/stop_sequence: StopTime}
+
+
 class RouteType(enum.Enum):
   """Route type."""
   # https://gtfs.org/documentation/schedule/reference/?utm_source=chatgpt.com#routestxt
@@ -124,8 +186,8 @@ class RouteType(enum.Enum):
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class Route:
-  """Route: group of trips that are displayed to riders as a single service"""
-  id: int                # routes.txt/route_id         (required)
+  """Route: group of trips that are displayed to riders as a single service."""
+  id: str                # (PK) routes.txt/route_id    (required)
   agency: int            # routes.txt/agency_id        (required) -> agency.txt/agency_id
   short_name: str        # routes.txt/route_short_name (required)
   long_name: str         # routes.txt/route_long_name  (required)
@@ -134,6 +196,7 @@ class Route:
   url: Optional[str]          # routes.txt/route_url
   color: Optional[str]        # routes.txt/route_color: encoded as a six-digit hexadecimal number (https://htmlcolorcodes.com)
   text_color: Optional[str]   # routes.txt/route_text_color: encoded as a six-digit hexadecimal number
+  trips: dict[str, Trip]      # {trips.txt/trip_id: Trip}
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
@@ -143,7 +206,7 @@ class Agency:
   name: str  # agency.txt/agency_name    (required)
   url: str   # agency.txt/agency_url     (required)
   zone: str  # agency.txt/agency_timezone: TZ timezone from the https://www.iana.org/time-zones (required)
-  routes: dict[int, Route]  # {routes.txt/route_id: Route}
+  routes: dict[str, Route]  # {routes.txt/route_id: Route}
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
@@ -160,16 +223,17 @@ class CalendarService:
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class ShapePoint:
   """Point in a shape, a place in the real world."""
+  id: str           # (PK) shapes.txt/shape_id          (required) -> shapes.txt/shape_id
   seq: int          # (PK) shapes.txt/shape_pt_sequence (required)
-  latitude: float   # shapes.txt/shape_pt_lat - WGS84 latitude in decimal degrees (-90.0 <= lat <= 90.0) (required)
+  latitude: float   # shapes.txt/shape_pt_lat - WGS84 latitude in decimal degrees (-90.0 <= lat <= 90.0)    (required)
   longitude: float  # shapes.txt/shape_pt_lon - WGS84 longitude in decimal degrees (-180.0 <= lat <= 180.0) (required)
-  distance: float   # shapes.txt/shape_dist_traveled (required)
+  distance: float   # shapes.txt/shape_dist_traveled    (required)
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class Shape:
   """Rule for mapping vehicle travel paths (aka. route alignments)."""
-  id: int                        # (PK) shapes.txt/shape_id (required)
+  id: str                        # (PK) shapes.txt/shape_id (required)
   points: dict[int, ShapePoint]  # {shapes.txt/shape_pt_sequence: ShapePoint}
 
 
@@ -187,7 +251,8 @@ class GTFSData:
   files: OfficialFiles  # the available GTFS files
   agencies: dict[int, Agency]           # {agency.txt/agency_id, Agency}
   calendar: dict[int, CalendarService]  # {calendar.txt/service_id, CalendarService}
-  shapes: dict[int, Shape]              # {shapes.txt/shape_id, Shape}
+  shapes: dict[str, Shape]              # {shapes.txt/shape_id, Shape}
+  stops: dict[str, Stop]                # {stops.txt/stop_id, Stop}
 
 
 # useful aliases
@@ -219,7 +284,8 @@ class GTFS:
     else:
       # DB does not exist: create empty
       self._db = GTFSData(  # empty DB
-          tm=0.0, files=OfficialFiles(tm=0.0, files={}), agencies={}, calendar={}, shapes={})
+          tm=0.0, files=OfficialFiles(tm=0.0, files={}),
+          agencies={}, calendar={}, shapes={}, stops={})
       self.Save(force=True)
     # create file handlers structure
     self._file_handlers: dict[str, tuple[_GTFSRowHandler, set[str]]] = {
@@ -233,7 +299,7 @@ class GTFS:
                 'feed_start_date',
                 'feed_end_date',
                 'feed_version',
-                'feed_contact_email',
+                # 'feed_contact_email',
             }),
         'agency.txt': (
             self._HandleAgencyRow,
@@ -395,7 +461,8 @@ class GTFS:
     # load ZIP from URL
     done_files: set[str] = set()
     file_name: str
-    with urllib.request.urlopen(link) as gtfs_zip:
+    # with urllib.request.urlopen(link) as gtfs_zip:
+    with open('/Users/balparda/Downloads/GTFS_Irish_Rail.zip', 'rb') as gtfs_zip:
       # extract files from ZIP
       gtfs_zip_bytes: bytes = gtfs_zip.read()
       logging.info(
@@ -642,7 +709,7 @@ class GTFS:
       RowError: error parsing this record
     """
     # get data, check if empty
-    route_id: int = int(row['route_id'], 10) if row['route_id'] else 0
+    route_id: str = row['route_id'] if row['route_id'] else ''
     agency_id: int = int(row['agency_id'], 10) if row['agency_id'] else 0
     short_name: str = row['route_short_name'] if row['route_short_name'] else ''
     long_name: str = row['route_long_name'] if row['route_long_name'] else ''
@@ -654,7 +721,7 @@ class GTFS:
         id=route_id, agency=agency_id,
         short_name=short_name, long_name=long_name, route_type=route_type,
         description=row['route_desc'], url=row['route_url'],
-        color=row['route_color'], text_color=row['route_text_color'])
+        color=row['route_color'], text_color=row['route_text_color'], trips={})
 
   def _HandleShapesRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
@@ -671,7 +738,7 @@ class GTFS:
       RowError: error parsing this record
     """
     # get data, check if empty
-    shape_id: int = int(row['shape_id'], 10) if row['shape_id'] else 0
+    shape_id: str = row['shape_id'] if row['shape_id'] else ''
     sequence: int = int(row['shape_pt_sequence'], 10) if row['shape_pt_sequence'] else 0
     latitude: float = float(row['shape_pt_lat']) if row['shape_pt_lat'] else -1000.0
     longitude: float = float(row['shape_pt_lon']) if row['shape_pt_lon'] else -1000.0
@@ -685,7 +752,7 @@ class GTFS:
     if shape_id not in self._db.shapes:
       self._db.shapes[shape_id] = Shape(id=shape_id, points={})
     self._db.shapes[shape_id].points[sequence] = ShapePoint(
-        seq=sequence, latitude=latitude, longitude=longitude, distance=distance)
+        id=shape_id, seq=sequence, latitude=latitude, longitude=longitude, distance=distance)
 
   def _HandleTripsRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
@@ -780,6 +847,36 @@ def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
     for file_name in file_names:
       with zip_ref.open(file_name) as file_data:
         yield (file_name, file_data.read())
+
+
+def HMSToSeconds(time_str: str) -> int:
+  """Accepts 'H:MM:SS' or 'HH:MM:SS' and returns total seconds since 00:00:00.
+
+  Supports hours ≥ 0 with no upper bound.
+
+  Args:
+    time_str: String to convert ('H:MM:SS' or 'HH:MM:SS')
+
+  Raises:
+    ValueError: malformed input
+  """
+  try:
+    h_str, m_str, s_str = time_str.split(':')
+  except ValueError as err:
+    raise ValueError(f'bad time literal {time_str!r}') from err
+  h, m, s = int(h_str), int(m_str), int(s_str)
+  if not (0 <= m < 60 and 0 <= s < 60):
+    raise ValueError(f'bad time literal {time_str!r}: minute and second must be 0-59')
+  return h * 3600 + m * 60 + s
+
+
+def SecondsToHMS(sec: int) -> str:
+  """Seconds from midnight to 'HH:MM:SS' representation. Supports any positive integer."""
+  if sec < 0:
+    raise ValueError(f'no negative time allowed, got {sec}')
+  h, sec = divmod(sec, 3600)
+  m, s = divmod(sec, 60)
+  return f'{h:02d}:{m:02d}:{s:02d}'
 
 
 def Main() -> None:
