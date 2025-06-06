@@ -13,6 +13,7 @@ import csv
 import dataclasses
 import datetime
 import enum
+import functools
 import io
 import logging
 import os
@@ -118,16 +119,16 @@ class LocationType(enum.Enum):
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class Stop:
+class BaseStop:  # stops.txt
   """Stop where vehicles pick up or drop off riders."""
   id: str                # (PK) stops.txt/stop_id (required)
-  parent: Optional[int]  # stops.txt/parent_station -> stops.txt/stop_id (required)
+  parent: Optional[str]  # stops.txt/parent_station -> stops.txt/stop_id (required)
   code: str              # stops.txt/stop_code    (required)
   name: str              # stops.txt/stop_name    (required)
-  desc: Optional[str]    # stops.txt/stop_desc
-  latitude: float        # stops.txt/stop_lat     (required)
-  longitude: float       # stops.txt/stop_lon     (required)
-  zone: Optional[int]    # stops.txt/zone_id
+  latitude: float        # stops.txt/stop_lat - WGS84 latitude in decimal degrees (-90.0 <= lat <= 90.0)    (required)
+  longitude: float       # stops.txt/stop_lon - WGS84 longitude in decimal degrees (-180.0 <= lat <= 180.0) (required)
+  zone: Optional[str]    # stops.txt/zone_id
+  description: Optional[str]  # stops.txt/stop_desc
   url: Optional[str]     # stops.txt/stop_url
   location: LocationType = LocationType.STOP  # stops.txt/location_type
 
@@ -142,14 +143,16 @@ class StopPointType(enum.Enum):
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class StopTime:
+class Stop:  # stop_times.txt
   """Time that a vehicle arrives/departs from a stop for a trip."""
   id: str    # (PK) stop_times.txt/trip_id            (required) -> trips.txt/trip_id
   seq: int   # (PK) stop_times.txt/stop_sequence      (required)
   stop: str  # stop_times.txt/stop_id                 (required) -> stops.txt/stop_id
+  agency: int     # <<INFERRED>> -> agency.txt/agency_id
+  route: str      # <<INFERRED>> -> routes.txt/route_id
   arrival: int    # stop_times.txt/arrival_time - seconds from midnight, to represent 'HH:MM:SS'     (required)
   departure: int  # stop_times.txt/departure_time - seconds from midnight, to represent 'HH:MM:SS' (required)
-  timepoint: bool          # stop_times.txt/timepoint (required)
+  timepoint: bool          # stop_times.txt/timepoint (required) - False==Times are considered approximate; True==Times are considered exact
   headsign: Optional[str]  # stop_times.txt/stop_headsign
   pickup: StopPointType = StopPointType.REGULAR   # stop_times.txt/pickup_type
   dropoff: StopPointType = StopPointType.REGULAR  # stop_times.txt/drop_off_type
@@ -160,13 +163,14 @@ class Trip:
   """Trip for a route."""
   id: str          # (PK) trips.txt/trip_id     (required)
   route: str       # trips.txt/route_id         (required) -> routes.txt/route_id
+  agency: int      # <<INFERRED>> -> agency.txt/agency_id
   service: int     # trips.txt/service_id       (required) -> calendar.txt/service_id
   shape: str       # trips.txt/shape_id         (required) -> shapes.txt/shape_id
   headsign: str    # trips.txt/trip_headsign    (required)
   name: str        # trips.txt/trip_short_name  (required)
   direction: bool  # trips.txt/direction_id     (required)
   block: str       # trips.txt/block_id         (required)
-  stops: dict[int, StopTime]  # {stop_times.txt/stop_sequence: StopTime}
+  stops: dict[int, Stop]  # {stop_times.txt/stop_sequence: Stop}
 
 
 class RouteType(enum.Enum):
@@ -252,7 +256,7 @@ class GTFSData:
   agencies: dict[int, Agency]           # {agency.txt/agency_id, Agency}
   calendar: dict[int, CalendarService]  # {calendar.txt/service_id, CalendarService}
   shapes: dict[str, Shape]              # {shapes.txt/shape_id, Shape}
-  stops: dict[str, Stop]                # {stops.txt/stop_id, Stop}
+  stops: dict[str, BaseStop]            # {stops.txt/stop_id, BaseStop}
 
 
 # useful aliases
@@ -299,7 +303,7 @@ class GTFS:
                 'feed_start_date',
                 'feed_end_date',
                 'feed_version',
-                # 'feed_contact_email',
+                'feed_contact_email',
             }),
         'agency.txt': (
             self._HandleAgencyRow,
@@ -404,8 +408,26 @@ class GTFS:
         # (compressing is responsible for ~95% of save time)
         self._db.tm = time.time()
         base.BinSerialize(self._db, file_path=self._db_path, compress=True)
+        self._FindRoute.cache_clear()
       self._changed = False
       logging.info('Saved DB to %r (%s)', self._db_path, tm_save.readable)
+
+  @functools.lru_cache(maxsize=1 << 10)
+  def _FindRoute(self, route_id: str) -> Optional[Agency]:
+    """Find route by finding its Agency."""
+    for agency in self._db.agencies.values():
+      if route_id in agency.routes:
+        return agency
+    return None
+
+  @functools.lru_cache(maxsize=1 << 14)
+  def _FindTrip(self, trip_id: str) -> tuple[Optional[Agency], Optional[Route]]:
+    """Find route by finding its Agency & Route."""
+    for agency in self._db.agencies.values():
+      for route in agency.routes.values():
+        if trip_id in route.trips:
+          return (agency, route)
+    return (None, None)
 
   def _LoadCSVSources(self) -> None:
     """Loads GTFS official sources from CSV."""
@@ -461,8 +483,8 @@ class GTFS:
     # load ZIP from URL
     done_files: set[str] = set()
     file_name: str
-    # with urllib.request.urlopen(link) as gtfs_zip:
-    with open('/Users/balparda/Downloads/GTFS_Irish_Rail.zip', 'rb') as gtfs_zip:
+    self._FindRoute.cache_clear()
+    with urllib.request.urlopen(link) as gtfs_zip:
       # extract files from ZIP
       gtfs_zip_bytes: bytes = gtfs_zip.read()
       logging.info(
@@ -769,7 +791,25 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
-    # route_id,service_id,trip_id,trip_headsign,trip_short_name,direction_id,block_id,shape_id
+    # get data, check if empty
+    trip_id: str = row['trip_id'] if row['trip_id'] else ''
+    route: str = row['route_id'] if row['route_id'] else ''
+    service: int = int(row['service_id'], 10) if row['service_id'] else 0
+    shape: str = row['shape_id'] if row['shape_id'] else ''
+    headsign: str = row['trip_headsign'] if row['trip_headsign'] else ''
+    name: str = row['trip_short_name'] if row['trip_short_name'] else ''
+    block: str = row['block_id'] if row['block_id'] else ''
+    direction: bool = bool(int(row['direction_id'], 10)) if row['direction_id'] else False
+    if (not trip_id or not route or not service or not shape or
+        not headsign or not name or not block):
+      raise RowError(f'empty/invalid row @{count} / {location}: {row}')
+    agency: Optional[Agency] = self._FindRoute(route)
+    if agency is None:
+      raise RowError(f'agency in row was not found @{count} / {location}: {row}')
+    # update
+    self._db.agencies[agency.id].routes[route].trips[trip_id] = Trip(
+        id=trip_id, route=route, agency=agency.id, service=service, shape=shape,
+        headsign=headsign, name=name, block=block, direction=direction, stops={})
 
   def _HandleStopsRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
@@ -786,7 +826,28 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
-    # stop_id,stop_code,stop_name,stop_desc,stop_lat,stop_lon,zone_id,stop_url,location_type,parent_station
+    # get data, check if empty
+    stop_id: str = row['stop_id'] if row['stop_id'] else ''
+    parent_id: Optional[str] = row['parent_station']
+    code: str = row['stop_code'] if row['stop_code'] else ''
+    name: str = row['stop_name'] if row['stop_name'] else ''
+    latitude: float = float(row['stop_lat']) if row['stop_lat'] else -1000.0
+    longitude: float = float(row['stop_lon']) if row['stop_lon'] else -1000.0
+    zone: Optional[str] = row['zone_id']
+    description: Optional[str] = row['stop_desc']
+    url: Optional[str] = row['stop_url']
+    location_type: LocationType = LocationType(int(row['location_type'], 10)) if row['location_type'] else LocationType.STOP
+    if (not stop_id or not code or not name or
+        not -90.0 <= latitude <= 90.0 or
+        not -180.0 <= longitude <= 180.0):
+      raise RowError(f'empty row @{count} / {location}: {row}')
+    if parent_id and parent_id not in self._db.stops:
+      raise RowError(f'parent_station in row was not found @{count} / {location}: {row}')
+    # update
+    self._db.stops[stop_id] = BaseStop(
+        id=stop_id, parent=parent_id, code=code, name=name,
+        latitude=latitude, longitude=longitude, zone=zone, description=description,
+        url=url, location=location_type)
 
   def _HandleStopTimesRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
@@ -802,7 +863,28 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
-    # trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,timepoint
+    # get data, check if empty
+    trip_id: str = row['trip_id'] if row['trip_id'] else ''
+    seq: int = int(row['stop_sequence'], 10) if row['stop_sequence'] else 0
+    stop: str = row['stop_id'] if row['stop_id'] else ''
+    arrival: int = HMSToSeconds(row['arrival_time']) if row['arrival_time'] else -1
+    departure: int = HMSToSeconds(row['departure_time']) if row['departure_time'] else -1
+    timepoint: bool = bool(int(row['timepoint'], 10)) if row['timepoint'] else False
+    headsign: Optional[str] = row['stop_headsign']
+    pickup: StopPointType = StopPointType(int(row['pickup_type'], 10)) if row['pickup_type'] else StopPointType.REGULAR
+    dropoff: StopPointType = StopPointType(int(row['drop_off_type'], 10)) if row['drop_off_type'] else StopPointType.REGULAR
+    if not trip_id or not seq or not stop or arrival < 0 or departure < 0:
+      raise RowError(f'empty row @{count} / {location}: {row}')
+    if stop not in self._db.stops:
+      raise RowError(f'stop_id in row was not found @{count} / {location}: {row}')
+    agency, route = self._FindTrip(trip_id)
+    if not agency or not route:
+      raise RowError(f'trip_id in row was not found @{count} / {location}: {row}')
+    # update
+    self._db.agencies[agency.id].routes[route.id].trips[trip_id].stops[seq] = Stop(
+        id=trip_id, seq=seq, stop=stop, agency=agency.id, route=route.id,
+        arrival=arrival, departure=departure, timepoint=timepoint, headsign=headsign,
+        pickup=pickup, dropoff=dropoff)
 
   def LoadData(
       self, freshness: int = _DEFAULT_DAYS_FRESHNESS, force_replace: bool = False) -> None:
