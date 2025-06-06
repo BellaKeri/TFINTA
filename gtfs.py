@@ -86,15 +86,15 @@ class RowError(ParseError):
   """Exception parsing a GTFS row."""
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class _TableLocation:
   """GTFS table coordinates (just for parsing use for now)."""
-  operator: str   # GTFS Operator, from CSV Official Sources
-  link: str       # GTFS ZIP file URL location
-  file_name: str  # file name (ex: 'feed_info.txt')
+  operator: str   # GTFS Operator, from CSV Official Sources (required)
+  link: str       # GTFS ZIP file URL location               (required)
+  file_name: str  # file name (ex: 'feed_info.txt')          (required)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class FileMetadata:
   """GTFS file metadata (mostly from loading feed_info.txt tables)."""
   tm: float       # timestamp of first load of this version of this GTFS ZIP file
@@ -103,8 +103,8 @@ class FileMetadata:
   language: str   # feed_info.txt/feed_lang             (required)
   start: datetime.date  # feed_info.txt/feed_start_date (required)
   end: datetime.date    # feed_info.txt/feed_end_date   (required)
-  version: str    # feed_info.txt/feed_version          (required)
-  email: Optional[str]  # feed_info.txt/feed_contact_email (optional)
+  version: str          # feed_info.txt/feed_version    (required)
+  email: Optional[str]  # feed_info.txt/feed_contact_email
 
 
 class RouteType(enum.Enum):
@@ -122,34 +122,34 @@ class RouteType(enum.Enum):
   MONORAIL = 12    # Railway in which the track consists of a single rail or a beam
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class Route:
   """Route: group of trips that are displayed to riders as a single service"""
-  id: int                # routes.txt/route_id (required)
-  agency: int            # routes.txt/agency_id (required) -> agency.txt/agency_id
+  id: int                # routes.txt/route_id         (required)
+  agency: int            # routes.txt/agency_id        (required) -> agency.txt/agency_id
   short_name: str        # routes.txt/route_short_name (required)
-  long_name: str         # routes.txt/route_long_name (required)
-  route_type: RouteType  # routes.txt/route_type (required)
+  long_name: str         # routes.txt/route_long_name  (required)
+  route_type: RouteType  # routes.txt/route_type       (required)
   description: Optional[str]  # routes.txt/route_desc
   url: Optional[str]          # routes.txt/route_url
   color: Optional[str]        # routes.txt/route_color: encoded as a six-digit hexadecimal number (https://htmlcolorcodes.com)
   text_color: Optional[str]   # routes.txt/route_text_color: encoded as a six-digit hexadecimal number
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class Agency:
   """Transit agency."""
   id: int    # (PK) agency.txt/agency_id (required)
   name: str  # agency.txt/agency_name    (required)
   url: str   # agency.txt/agency_url     (required)
   zone: str  # agency.txt/agency_timezone: TZ timezone from the https://www.iana.org/time-zones (required)
-  routes: dict[int, Route]
+  routes: dict[int, Route]  # {routes.txt/route_id: Route}
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class CalendarService:
   """Service dates specified using a weekly schedule & start/end dates. Includes the exceptions."""
-  id: int  # (PK) calendar.txt/service_id (required)
+  id: int  # (PK) calendar.txt/service_id         (required)
   week: tuple[bool, bool, bool, bool, bool, bool, bool]  # calendar.txt/sunday...saturday (required)
   start: datetime.date  # calendar.txt/start_date (required)
   end: datetime.date    # calendar.txt/end_date   (required)
@@ -157,14 +157,14 @@ class CalendarService:
   # where `has_service` comes from calendar_dates.txt/exception_type
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # NOT IMMUTABLE!
 class OfficialFiles:
   """Official GTFS files."""
   tm: float  # timestamp of last pull of the official CSV
   files: dict[str, dict[str, Optional[FileMetadata]]]  # {provider: {url: FileMetadata}}
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # NOT IMMUTABLE!
 class GTFSData:
   """GTFS data."""
   tm: float             # timestamp of last DB save

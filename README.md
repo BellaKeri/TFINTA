@@ -77,9 +77,9 @@ cd TFINTA
 uv venv --python 3.11
 source .venv/bin/activate
 uv pip install --upgrade pip
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 
-./gtfs.py read
+python3 gtfs.py read
 
 deactivate
 ```
@@ -87,5 +87,5 @@ deactivate
 ### Running GTFS to load the database
 
 ```sh
-./gtfs.py read
+python3 gtfs.py read
 ```
