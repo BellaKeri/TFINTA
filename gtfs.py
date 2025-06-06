@@ -157,6 +157,22 @@ class CalendarService:
   # where `has_service` comes from calendar_dates.txt/exception_type
 
 
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class ShapePoint:
+  """Point in a shape, a place in the real world."""
+  seq: int          # (PK) shapes.txt/shape_pt_sequence (required)
+  latitude: float   # shapes.txt/shape_pt_lat - WGS84 latitude in decimal degrees (-90.0 <= lat <= 90.0) (required)
+  longitude: float  # shapes.txt/shape_pt_lon - WGS84 longitude in decimal degrees (-180.0 <= lat <= 180.0) (required)
+  distance: float   # shapes.txt/shape_dist_traveled (required)
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class Shape:
+  """Rule for mapping vehicle travel paths (aka. route alignments)."""
+  id: int                        # (PK) shapes.txt/shape_id (required)
+  points: dict[int, ShapePoint]  # {shapes.txt/shape_pt_sequence: ShapePoint}
+
+
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # NOT IMMUTABLE!
 class OfficialFiles:
   """Official GTFS files."""
@@ -169,8 +185,9 @@ class GTFSData:
   """GTFS data."""
   tm: float             # timestamp of last DB save
   files: OfficialFiles  # the available GTFS files
-  agencies: dict[int, Agency]           # {agency_id, Agency}
-  calendar: dict[int, CalendarService]  # {service_id, CalendarService}
+  agencies: dict[int, Agency]           # {agency.txt/agency_id, Agency}
+  calendar: dict[int, CalendarService]  # {calendar.txt/service_id, CalendarService}
+  shapes: dict[int, Shape]              # {shapes.txt/shape_id, Shape}
 
 
 # useful aliases
@@ -202,7 +219,7 @@ class GTFS:
     else:
       # DB does not exist: create empty
       self._db = GTFSData(  # empty DB
-          tm=0.0, files=OfficialFiles(tm=0.0, files={}), agencies={}, calendar={})
+          tm=0.0, files=OfficialFiles(tm=0.0, files={}), agencies={}, calendar={}, shapes={})
       self.Save(force=True)
     # create file handlers structure
     self._file_handlers: dict[str, tuple[_GTFSRowHandler, set[str]]] = {
@@ -497,7 +514,7 @@ class GTFS:
     start: datetime.date = _DATE_OBJ(row['feed_start_date']) if row['feed_start_date'] else datetime.date.min
     end: datetime.date = _DATE_OBJ(row['feed_end_date']) if row['feed_end_date'] else datetime.date.min
     version: str = row['feed_version'] if row['feed_version'] else ''
-    email: Optional[str] = row['feed_contact_email']
+    email: Optional[str] = row.get('feed_contact_email', None)
     if not publisher or not url or not lang or not version:
       raise RowError(f'missing data in {location}: {row}')
     if start == datetime.date.min or end == datetime.date.min:
@@ -653,7 +670,22 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
-    # shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence,shape_dist_traveled
+    # get data, check if empty
+    shape_id: int = int(row['shape_id'], 10) if row['shape_id'] else 0
+    sequence: int = int(row['shape_pt_sequence'], 10) if row['shape_pt_sequence'] else 0
+    latitude: float = float(row['shape_pt_lat']) if row['shape_pt_lat'] else -1000.0
+    longitude: float = float(row['shape_pt_lon']) if row['shape_pt_lon'] else -1000.0
+    distance: float = float(row['shape_dist_traveled']) if row['shape_dist_traveled'] else -1000.0
+    if (not shape_id or not sequence or
+        not -90.0 <= latitude <= 90.0 or
+        not -180.0 <= longitude <= 180.0 or
+        distance < 0.0):
+      raise RowError(f'empty/invalid row @{count} / {location}: {row}')
+    # update
+    if shape_id not in self._db.shapes:
+      self._db.shapes[shape_id] = Shape(id=shape_id, points={})
+    self._db.shapes[shape_id].points[sequence] = ShapePoint(
+        seq=sequence, latitude=latitude, longitude=longitude, distance=distance)
 
   def _HandleTripsRow(
       self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
