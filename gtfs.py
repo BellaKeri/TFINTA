@@ -20,7 +20,10 @@ import os
 import os.path
 # import pdb
 import time
-from typing import Callable, Generator, IO, Optional
+import types
+from typing import Callable, Generator, IO, Optional, TypedDict, Union
+from typing import get_args as GetTypeArgs
+from typing import get_type_hints as GetTypeHints
 import urllib.request
 import zipfile
 
@@ -108,6 +111,17 @@ class FileMetadata:
   email: Optional[str]  # feed_info.txt/feed_contact_email
 
 
+class _ExpectedFeedInfoCSVRowType(TypedDict):
+  """feed_info.txt"""
+  feed_publisher_name: str
+  feed_publisher_url: str
+  feed_lang: str
+  feed_start_date: str
+  feed_end_date: str
+  feed_version: str
+  feed_contact_email: Optional[str]
+
+
 class LocationType(enum.Enum):
   """Location type."""
   # https://gtfs.org/documentation/schedule/reference/?utm_source=chatgpt.com#stopstxt
@@ -123,7 +137,7 @@ class BaseStop:  # stops.txt
   """Stop where vehicles pick up or drop off riders."""
   id: str                # (PK) stops.txt/stop_id (required)
   parent: Optional[str]  # stops.txt/parent_station -> stops.txt/stop_id (required)
-  code: str              # stops.txt/stop_code    (required)
+  code: int              # stops.txt/stop_code    (required)
   name: str              # stops.txt/stop_name    (required)
   latitude: float        # stops.txt/stop_lat - WGS84 latitude in decimal degrees (-90.0 <= lat <= 90.0)    (required)
   longitude: float       # stops.txt/stop_lon - WGS84 longitude in decimal degrees (-180.0 <= lat <= 180.0) (required)
@@ -131,6 +145,20 @@ class BaseStop:  # stops.txt
   description: Optional[str]  # stops.txt/stop_desc
   url: Optional[str]     # stops.txt/stop_url
   location: LocationType = LocationType.STOP  # stops.txt/location_type
+
+
+class _ExpectedStopsCSVRowType(TypedDict):
+  """stops.txt"""
+  stop_id: str
+  parent_station: Optional[str]
+  stop_code: int
+  stop_name: str
+  stop_lat: float
+  stop_lon: float
+  zone_id: Optional[str]
+  stop_desc: Optional[str]
+  stop_url: Optional[str]
+  location_type: Optional[int]
 
 
 class StopPointType(enum.Enum):
@@ -150,12 +178,25 @@ class Stop:  # stop_times.txt
   stop: str  # stop_times.txt/stop_id                 (required) -> stops.txt/stop_id
   agency: int     # <<INFERRED>> -> agency.txt/agency_id
   route: str      # <<INFERRED>> -> routes.txt/route_id
-  arrival: int    # stop_times.txt/arrival_time - seconds from midnight, to represent 'HH:MM:SS'     (required)
+  arrival: int    # stop_times.txt/arrival_time - seconds from midnight, to represent 'HH:MM:SS'   (required)
   departure: int  # stop_times.txt/departure_time - seconds from midnight, to represent 'HH:MM:SS' (required)
   timepoint: bool          # stop_times.txt/timepoint (required) - False==Times are considered approximate; True==Times are considered exact
   headsign: Optional[str]  # stop_times.txt/stop_headsign
   pickup: StopPointType = StopPointType.REGULAR   # stop_times.txt/pickup_type
   dropoff: StopPointType = StopPointType.REGULAR  # stop_times.txt/drop_off_type
+
+
+class _ExpectedStopTimesCSVRowType(TypedDict):
+  """stop_times.txt"""
+  trip_id: str
+  stop_sequence: int
+  stop_id: str
+  arrival_time: str
+  departure_time: str
+  timepoint: bool
+  stop_headsign: Optional[str]
+  pickup_type: Optional[int]
+  drop_off_type: Optional[int]
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
@@ -171,6 +212,18 @@ class Trip:
   direction: bool  # trips.txt/direction_id     (required)
   block: str       # trips.txt/block_id         (required)
   stops: dict[int, Stop]  # {stop_times.txt/stop_sequence: Stop}
+
+
+class _ExpectedTripsCSVRowType(TypedDict):
+  """trips.txt"""
+  trip_id: str
+  route_id: str
+  service_id: int
+  shape_id: str
+  trip_headsign: str
+  trip_short_name: str
+  direction_id: bool
+  block_id: str
 
 
 class RouteType(enum.Enum):
@@ -203,6 +256,19 @@ class Route:
   trips: dict[str, Trip]      # {trips.txt/trip_id: Trip}
 
 
+class _ExpectedRoutesCSVRowType(TypedDict):
+  """routes.txt"""
+  route_id: str
+  agency_id: int
+  route_short_name: str
+  route_long_name: str
+  route_type: int
+  route_desc: Optional[str]
+  route_url: Optional[str]
+  route_color: Optional[str]
+  route_text_color: Optional[str]
+
+
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
 class Agency:
   """Transit agency."""
@@ -211,6 +277,14 @@ class Agency:
   url: str   # agency.txt/agency_url     (required)
   zone: str  # agency.txt/agency_timezone: TZ timezone from the https://www.iana.org/time-zones (required)
   routes: dict[str, Route]  # {routes.txt/route_id: Route}
+
+
+class _ExpectedAgencyCSVRowType(TypedDict):
+  """agency.txt"""
+  agency_id: int
+  agency_name: str
+  agency_url: str
+  agency_timezone: str
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
@@ -224,6 +298,27 @@ class CalendarService:
   # where `has_service` comes from calendar_dates.txt/exception_type
 
 
+class _ExpectedCalendarCSVRowType(TypedDict):
+  """calendar.txt"""
+  service_id: int
+  monday: bool
+  tuesday: bool
+  wednesday: bool
+  thursday: bool
+  friday: bool
+  saturday: bool
+  sunday: bool
+  start_date: str
+  end_date: str
+
+
+class _ExpectedCalendarDatesCSVRowType(TypedDict):
+  """calendar_dates.txt"""
+  service_id: int
+  date: str
+  exception_type: bool
+
+
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class ShapePoint:
   """Point in a shape, a place in the real world."""
@@ -232,6 +327,15 @@ class ShapePoint:
   latitude: float   # shapes.txt/shape_pt_lat - WGS84 latitude in decimal degrees (-90.0 <= lat <= 90.0)    (required)
   longitude: float  # shapes.txt/shape_pt_lon - WGS84 longitude in decimal degrees (-180.0 <= lat <= 180.0) (required)
   distance: float   # shapes.txt/shape_dist_traveled    (required)
+
+
+class _ExpectedShapesCSVRowType(TypedDict):
+  """shapes.txt"""
+  shape_id: str
+  shape_pt_sequence: int
+  shape_pt_lat: float
+  shape_pt_lon: float
+  shape_dist_traveled: float
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
@@ -260,7 +364,8 @@ class GTFSData:
 
 
 # useful aliases
-_GTFSRowHandler = Callable[[_TableLocation, int, dict[str, Optional[str]]], None]
+_GTFSRowHandler = Callable[
+    [_TableLocation, int, dict[str, Union[None, str, int, float, bool]]], None]
 
 
 class GTFS:
@@ -292,110 +397,35 @@ class GTFS:
           agencies={}, calendar={}, shapes={}, stops={})
       self.Save(force=True)
     # create file handlers structure
-    self._file_handlers: dict[str, tuple[_GTFSRowHandler, set[str]]] = {
-        # file_name: (handler, {field1, field2, ...})
-        'feed_info.txt': (
-            self._HandleFeedInfoRow,
-            {
-                'feed_publisher_name',
-                'feed_publisher_url',
-                'feed_lang',
-                'feed_start_date',
-                'feed_end_date',
-                'feed_version',
-                'feed_contact_email',
-            }),
-        'agency.txt': (
-            self._HandleAgencyRow,
-            {
-                'agency_id',
-                'agency_name',
-                'agency_url',
-                'agency_timezone',
-            }),
-        'calendar.txt': (
-            self._HandleCalendarRow,
-            {
-                'service_id',
-                'monday',
-                'tuesday',
-                'wednesday',
-                'thursday',
-                'friday',
-                'saturday',
-                'sunday',
-                'start_date',
-                'end_date',
-            }),
-        'calendar_dates.txt': (
-            self._HandleCalendarDatesRow,
-            {
-                'service_id',
-                'date',
-                'exception_type',
-            }),
-        'routes.txt': (
-            self._HandleRoutesRow,
-            {
-                'route_id',
-                'agency_id',
-                'route_short_name',
-                'route_long_name',
-                'route_desc',
-                'route_type',
-                'route_url',
-                'route_color',
-                'route_text_color',
-            }),
-        'shapes.txt': (
-            self._HandleShapesRow,
-            {
-                'shape_id',
-                'shape_pt_lat',
-                'shape_pt_lon',
-                'shape_pt_sequence',
-                'shape_dist_traveled',
-            }),
-        'trips.txt': (
-            self._HandleTripsRow,
-            {
-                'route_id',
-                'service_id',
-                'trip_id',
-                'trip_headsign',
-                'trip_short_name',
-                'direction_id',
-                'block_id',
-                'shape_id',
-            }),
-        'stops.txt': (
-            self._HandleStopsRow,
-            {
-                'stop_id',
-                'stop_code',
-                'stop_name',
-                'stop_desc',
-                'stop_lat',
-                'stop_lon',
-                'zone_id',
-                'stop_url',
-                'location_type',
-                'parent_station',
-            }),
-        'stop_times.txt': (
-            self._HandleStopTimesRow,
-            {
-                'trip_id',
-                'arrival_time',
-                'departure_time',
-                'stop_id',
-                'stop_sequence',
-                'stop_headsign',
-                'pickup_type',
-                'drop_off_type',
-                'timepoint',
-            }),
+    self._file_handlers: dict[str, tuple[_GTFSRowHandler, type, dict[str, tuple[type, bool]], set[str]]] = {  # type:ignore
+        # {file_name: (handler, TypedDict_row_definition,
+        #              {field: (type, required?)}, {required1, required2, ...})}
+        'feed_info.txt': (self._HandleFeedInfoRow, _ExpectedFeedInfoCSVRowType, {}, set()),
+        'agency.txt': (self._HandleAgencyRow, _ExpectedAgencyCSVRowType, {}, set()),
+        'calendar.txt': (self._HandleCalendarRow, _ExpectedCalendarCSVRowType, {}, set()),
+        'calendar_dates.txt': (self._HandleCalendarDatesRow, _ExpectedCalendarDatesCSVRowType, {}, set()),
+        'routes.txt': (self._HandleRoutesRow, _ExpectedRoutesCSVRowType, {}, set()),
+        'shapes.txt': (self._HandleShapesRow, _ExpectedShapesCSVRowType, {}, set()),
+        'trips.txt': (self._HandleTripsRow, _ExpectedTripsCSVRowType, {}, set()),
+        'stops.txt': (self._HandleStopsRow, _ExpectedStopsCSVRowType, {}, set()),
+        'stop_times.txt': (self._HandleStopTimesRow, _ExpectedStopTimesCSVRowType, {}, set()),
     }
+    # fill in types, derived from the _Expected*CSVRowType TypedDicts
+    for file_name, (_, expected, fields, required) in self._file_handlers.items():
+      for field, type_descriptor in GetTypeHints(expected).items():
+        if type_descriptor in (str, int, float, bool):
+          # no optional, so field is required
+          required.add(field)
+          fields[field] = (type_descriptor, True)
+        else:
+          # it is optional and something else, so find out which
+          field_args = GetTypeArgs(type_descriptor)
+          if len(field_args) != 2:
+            raise Error(f'incorrect type len {file_name}/{field}: {field_args!r}')
+          field_type = field_args[0] if field_args[1] == types.NoneType else field_args[1]
+          if field_type not in (str, int, float, bool):
+            raise Error(f'incorrect type {file_name}/{field}: {field_args!r}')
+          fields[field] = (field_type, False)
 
   def Save(self, force: bool = False) -> None:
     """Save DB to file.
@@ -539,30 +569,56 @@ class GTFS:
       raise ParseImplementationError(message)
     # supported type of GTFS file, so process the data into the DB
     logging.info('Processing: %s (%s)', file_name, base.HumanizedBytes(len(file_data)))
-    file_handler, file_fields = self._file_handlers[file_name]
+    # get fields data, and process CSV with a dict reader
+    file_handler, _, field_types, required_fields = self._file_handlers[file_name]
     i: int = 0
     for i, row in enumerate(csv.DictReader(
         io.TextIOWrapper(io.BytesIO(file_data), encoding='utf-8'))):
-      # check for 1st row
-      if not i:
-        # on the first row only: check the rows
-        actual_fields = set(row.keys())
-        # find missing fields (TODO in future: optional fields)
-        if (missing_fields := file_fields - actual_fields):
-          raise ParseError(f'Missing fields found: {file_name} {missing_fields!r}')
-        # find unknown/unimplemented fields
-        if (extra_fields := actual_fields - file_fields):
-          message = f'Extra fields found: {file_name} {extra_fields!r}'
-          if allow_unknown_field:
-            logging.warning(message)
+      parsed_row: dict[str, Union[None, str, int, float, bool]] = {}
+      field_value: Optional[str]
+      # process field-by-field
+      for field_name, field_value in row.items():
+        # strip and nullify the empty value
+        field_value = field_value.strip()  # type:ignore
+        field_value = field_value if field_value else None
+        if field_name in field_types:
+          # known/expected field
+          field_type, field_required = field_types[field_name]
+          if field_value is None:
+            # field is empty
+            if field_required:
+              raise ParseError(f'Empty required field: {file_name}/{i} {field_name!r}: {row}')
+            parsed_row[field_name] = None
           else:
-            raise ParseImplementationError(message)
-      # send row to handler
-      file_handler(
-          location, i + 1,
-          {ck: (cv if cv else None) for ck, cv in ((k, v.strip()) for k, v in row.items())})
+            # field has a value
+            if field_type == str:
+              parsed_row[field_name] = field_value  # vanilla string
+            elif field_type == bool:
+              parsed_row[field_name] = field_value == '1'  # convert to bool '0'/'1'
+            else:
+              parsed_row[field_name] = field_type(field_value)  # convert int/float
+        else:
+          # unknown field, check if we message/raise only in first row
+          if not i:
+            message = f'Extra fields found: {file_name}/0 {field_name!r}'
+            if allow_unknown_field:
+              logging.warning(message)
+            else:
+              raise ParseImplementationError(message)
+          # if allowed, then place as nullable string
+          parsed_row[field_name] = field_value
+      # we have a row, check for missing required fields
+      parsed_row_fields = set(parsed_row.keys())
+      if (missing_required := required_fields - parsed_row_fields):
+        raise ParseError(f'Missing required fields: {file_name}/{i} {missing_required!r}: {row}')
+      # add known fields that are missing (with None as value)
+      for field in (set(field_types.keys()) - parsed_row_fields):
+        parsed_row[field] = None
+      # done: send to row handler
+      file_handler(location, i, parsed_row)
+    # finished
     self._changed = True
-    logging.info('Read %d records from %s', i, file_name)  # 1st row of CSV is not a record
+    logging.info('Read %d records from %s', i + 1, file_name)
 
   # HANDLER TEMPLATE (copy and uncomment)
   # def _HandleTABLENAMERow(
@@ -579,14 +635,14 @@ class GTFS:
   #   """
 
   def _HandleFeedInfoRow(
-      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+      self, location: _TableLocation, count: int, row: _ExpectedFeedInfoCSVRowType) -> None:
     """Handler: "feed_info.txt" Information on the GTFS ZIP file being processed.
 
     (no primary key)
 
     Args:
       location: _TableLocation info on current GTFS table
-      count: row count, starting on 1
+      count: row count, starting on 0
       row: the row as a dict {field_name: Optional[field_data]}
 
     Raises:
@@ -594,191 +650,162 @@ class GTFS:
       ParseIdenticalVersionError: version is already known/parsed
     """
     # there can be only one!
-    if count != 1:
+    if count != 0:
       raise RowError(
           f'feed_info.txt table ({location}) is only supported to have 1 row (got {count}): {row}')
-    # get data, check if empty
-    publisher: str = row['feed_publisher_name'] if row['feed_publisher_name'] else ''
-    url: str = row['feed_publisher_url'] if row['feed_publisher_url'] else ''
-    lang: str = row['feed_lang'] if row['feed_lang'] else ''
-    start: datetime.date = _DATE_OBJ(row['feed_start_date']) if row['feed_start_date'] else datetime.date.min
-    end: datetime.date = _DATE_OBJ(row['feed_end_date']) if row['feed_end_date'] else datetime.date.min
-    version: str = row['feed_version'] if row['feed_version'] else ''
-    email: Optional[str] = row.get('feed_contact_email', None)
-    if not publisher or not url or not lang or not version:
-      raise RowError(f'missing data in {location}: {row}')
-    if start == datetime.date.min or end == datetime.date.min:
-      raise RowError(f'missing start/end dates in {location}: {row}')
+    # get data, check
+    start: datetime.date = _DATE_OBJ(row['feed_start_date'])
+    end: datetime.date = _DATE_OBJ(row['feed_end_date'])
+    if start > end:
+      raise RowError(f'incompatible start/end dates in {location}: {row}')
     # check against current version (and log)
     tm: float = time.time()
     current_data: Optional[FileMetadata] = self._db.files.files[location.operator][location.link]
     if current_data is None:
       logging.info(
           'Loading version %r @ %s for %s/%s',
-          version, base.STD_TIME_STRING(tm), location.operator, location.link)
+          row['feed_version'], base.STD_TIME_STRING(tm), location.operator, location.link)
     else:
-      if (version == current_data.version and
-          publisher == current_data.publisher and
-          lang == current_data.language and
+      if (row['feed_version'] == current_data.version and
+          row['feed_publisher_name'] == current_data.publisher and
+          row['feed_lang'] == current_data.language and
           start == current_data.start and
           end == current_data.end):
         # same version of the data!
         # note that since we `raise` we don't update the timestamp, so the timestamp
         # is the time we first processed this version of the ZIP file
         raise ParseIdenticalVersionError(
-            f'{version} @ {base.STD_TIME_STRING(current_data.tm)} '
+            f'{row["feed_version"]} @ {base.STD_TIME_STRING(current_data.tm)} '
             f'{location.operator} / {location.link}')
       logging.info(
           'Updating version %r @ %s -> %r @ %s for %s/%s',
           current_data.version, base.STD_TIME_STRING(current_data.tm),
-          version, base.STD_TIME_STRING(tm), location.operator, location.link)
+          row['feed_version'], base.STD_TIME_STRING(tm), location.operator, location.link)
     # update
     self._db.files.files[location.operator][location.link] = FileMetadata(
-        tm=tm, publisher=publisher, url=url, language=lang,
-        start=start, end=end, version=version, email=email)
+        tm=tm, publisher=row['feed_publisher_name'], url=row['feed_publisher_url'],
+        language=row['feed_lang'], start=start, end=end,
+        version=row['feed_version'], email=row['feed_contact_email'])
 
   def _HandleAgencyRow(
-      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+      self, location: _TableLocation, count: int, row: _ExpectedAgencyCSVRowType) -> None:
     """Handler: "agency.txt" Transit agencies.
 
     pk: agency_id
 
     Args:
       location: _TableLocation info on current GTFS table
-      count: row count, starting on 1
+      count: row count, starting on 0
       row: the row as a dict {field_name: Optional[field_data]}
 
     Raises:
       RowError: error parsing this record
     """
     # there can be only one!
-    if count != 1:
+    if count != 0:
       raise RowError(
           f'agency.txt table ({location}) is only supported to have 1 row (got {count}): {row}')
-    # get data, check if empty
-    agency_id: int = int(row['agency_id'], 10) if row['agency_id'] else 0
-    name: str = row['agency_name'] if row['agency_name'] else ''
-    url: str = row['agency_url'] if row['agency_url'] else ''
-    tz: str = row['agency_timezone'] if row['agency_timezone'] else ''
-    if not agency_id or not name or not url or not tz:
-      raise RowError(f'empty row @{count} / {location}: {row}')
-    if tz != 'Europe/London':
-      raise NotImplementedError(f'For now timezones are only UTC (got {tz})')
+    # check
+    if row['agency_timezone'] != 'Europe/London':
+      raise NotImplementedError(f'For now timezones are only UTC (got {row["agency_timezone"]})')
     # update
-    self._db.agencies[agency_id] = Agency(id=agency_id, name=name, url=url, zone=tz, routes={})
+    self._db.agencies[row['agency_id']] = Agency(
+        id=row['agency_id'], name=row['agency_name'], url=row['agency_url'],
+        zone=row['agency_timezone'], routes={})
 
   def _HandleCalendarRow(
-      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+      self, location: _TableLocation, count: int, row: _ExpectedCalendarCSVRowType) -> None:
     """Handler: "calendar.txt" Service dates specified using a weekly schedule & start/end dates.
 
     pk: service_id
 
     Args:
       location: _TableLocation info on current GTFS table
-      count: row count, starting on 1
+      count: row count, starting on 0
       row: the row as a dict {field_name: Optional[field_data]}
 
     Raises:
       RowError: error parsing this record
     """
-    # get data, check if empty
-    service_id: int = int(row['service_id'], 10) if row['service_id'] else 0
-    days: list[bool] = []
-    for day in ('sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'):
-      days.append(bool(int(row[day], 10) if row[day] else 0))  # type:ignore
-    start: datetime.date = _DATE_OBJ(row['start_date']) if row['start_date'] else datetime.date.min
-    end: datetime.date = _DATE_OBJ(row['end_date']) if row['end_date'] else datetime.date.min
-    if not service_id or start == datetime.date.min or end == datetime.date.min:
-      raise RowError(f'empty row @{count} / {location}: {row}')
+    # get data, check
+    start: datetime.date = _DATE_OBJ(row['start_date'])
+    end: datetime.date = _DATE_OBJ(row['end_date'])
+    if start > end:
+      raise RowError(f'inconsistent row @{count} / {location}: {row}')
     # update
-    self._db.calendar[service_id] = CalendarService(
-        id=service_id, week=tuple(days), start=start, end=end, exceptions={})  # type:ignore
+    self._db.calendar[row['service_id']] = CalendarService(
+        id=row['service_id'],
+        week=(row['sunday'], row['monday'], row['tuesday'], row['wednesday'],
+              row['thursday'], row['friday'], row['saturday']),
+        start=start, end=end, exceptions={})
 
   def _HandleCalendarDatesRow(
-      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+      self, unused_location: _TableLocation, unused_count: int,
+      row: _ExpectedCalendarDatesCSVRowType) -> None:
     """Handler: "calendar_dates.txt" Exceptions for the services defined in the calendar table.
 
     pk: (calendar/service_id, date) / ref: calendar/service_id
 
     Args:
       location: _TableLocation info on current GTFS table
-      count: row count, starting on 1
+      count: row count, starting on 0
       row: the row as a dict {field_name: Optional[field_data]}
 
     Raises:
       RowError: error parsing this record
     """
-    # get data, check if empty
-    service_id: int = int(row['service_id'], 10) if row['service_id'] else 0
-    date: datetime.date = _DATE_OBJ(row['date']) if row['date'] else datetime.date.min
-    has_service: bool = (int(row['exception_type'], 10) == 1) if row['exception_type'] else False
-    if not service_id or date == datetime.date.min:
-      raise RowError(f'empty row @{count} / {location}: {row}')
-    # add to calendar
-    self._db.calendar[service_id].exceptions[date] = has_service
+    self._db.calendar[row['service_id']].exceptions[_DATE_OBJ(row['date'])] = row['exception_type']
 
   def _HandleRoutesRow(
-      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+      self, unused_location: _TableLocation, unused_count: int,
+      row: _ExpectedRoutesCSVRowType) -> None:
     """Handler: "routes.txt" Routes: group of trips that are displayed to riders as a single service.
 
     pk: route_id / ref: agency/agency_id
 
     Args:
       location: _TableLocation info on current GTFS table
-      count: row count, starting on 1
+      count: row count, starting on 0
       row: the row as a dict {field_name: Optional[field_data]}
 
     Raises:
       RowError: error parsing this record
     """
-    # get data, check if empty
-    route_id: str = row['route_id'] if row['route_id'] else ''
-    agency_id: int = int(row['agency_id'], 10) if row['agency_id'] else 0
-    short_name: str = row['route_short_name'] if row['route_short_name'] else ''
-    long_name: str = row['route_long_name'] if row['route_long_name'] else ''
-    route_type: RouteType = RouteType(int(row['route_type'], 10)) if row['route_type'] else RouteType.RAIL
-    if not route_id or not agency_id or not short_name or not long_name:
-      raise RowError(f'empty row @{count} / {location}: {row}')
-    # update
-    self._db.agencies[agency_id].routes[route_id] = Route(
-        id=route_id, agency=agency_id,
-        short_name=short_name, long_name=long_name, route_type=route_type,
+    self._db.agencies[row['agency_id']].routes[row['route_id']] = Route(
+        id=row['route_id'], agency=row['agency_id'], short_name=row['route_short_name'],
+        long_name=row['route_long_name'], route_type=RouteType(row['route_type']),
         description=row['route_desc'], url=row['route_url'],
         color=row['route_color'], text_color=row['route_text_color'], trips={})
 
   def _HandleShapesRow(
-      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+      self, location: _TableLocation, count: int, row: _ExpectedShapesCSVRowType) -> None:
     """Handler: "shapes.txt" Rules for mapping vehicle travel paths (aka. route alignments).
 
     pk: (shape_id, shape_pt_sequence)
 
     Args:
       location: _TableLocation info on current GTFS table
-      count: row count, starting on 1
+      count: row count, starting on 0
       row: the row as a dict {field_name: Optional[field_data]}
 
     Raises:
       RowError: error parsing this record
     """
-    # get data, check if empty
-    shape_id: str = row['shape_id'] if row['shape_id'] else ''
-    sequence: int = int(row['shape_pt_sequence'], 10) if row['shape_pt_sequence'] else 0
-    latitude: float = float(row['shape_pt_lat']) if row['shape_pt_lat'] else -1000.0
-    longitude: float = float(row['shape_pt_lon']) if row['shape_pt_lon'] else -1000.0
-    distance: float = float(row['shape_dist_traveled']) if row['shape_dist_traveled'] else -1000.0
-    if (not shape_id or not sequence or
-        not -90.0 <= latitude <= 90.0 or
-        not -180.0 <= longitude <= 180.0 or
-        distance < 0.0):
+    # check
+    if (not -90.0 <= row['shape_pt_lat'] <= 90.0 or
+        not -180.0 <= row['shape_pt_lon'] <= 180.0 or
+        row['shape_dist_traveled'] < 0.0):
       raise RowError(f'empty/invalid row @{count} / {location}: {row}')
     # update
-    if shape_id not in self._db.shapes:
-      self._db.shapes[shape_id] = Shape(id=shape_id, points={})
-    self._db.shapes[shape_id].points[sequence] = ShapePoint(
-        id=shape_id, seq=sequence, latitude=latitude, longitude=longitude, distance=distance)
+    if row['shape_id'] not in self._db.shapes:
+      self._db.shapes[row['shape_id']] = Shape(id=row['shape_id'], points={})
+    self._db.shapes[row['shape_id']].points[row['shape_pt_sequence']] = ShapePoint(
+        id=row['shape_id'], seq=row['shape_pt_sequence'],
+        latitude=row['shape_pt_lat'], longitude=row['shape_pt_lon'],
+        distance=row['shape_dist_traveled'])
 
   def _HandleTripsRow(
-      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+      self, location: _TableLocation, count: int, row: _ExpectedTripsCSVRowType) -> None:
     """Handler: "trips.txt" Trips for each route.
 
     A trip is a sequence of two or more stops that occur during a specific time period.
@@ -786,34 +813,25 @@ class GTFS:
 
     Args:
       location: _TableLocation info on current GTFS table
-      count: row count, starting on 1
+      count: row count, starting on 0
       row: the row as a dict {field_name: Optional[field_data]}
 
     Raises:
       RowError: error parsing this record
     """
-    # get data, check if empty
-    trip_id: str = row['trip_id'] if row['trip_id'] else ''
-    route: str = row['route_id'] if row['route_id'] else ''
-    service: int = int(row['service_id'], 10) if row['service_id'] else 0
-    shape: str = row['shape_id'] if row['shape_id'] else ''
-    headsign: str = row['trip_headsign'] if row['trip_headsign'] else ''
-    name: str = row['trip_short_name'] if row['trip_short_name'] else ''
-    block: str = row['block_id'] if row['block_id'] else ''
-    direction: bool = bool(int(row['direction_id'], 10)) if row['direction_id'] else False
-    if (not trip_id or not route or not service or not shape or
-        not headsign or not name or not block):
-      raise RowError(f'empty/invalid row @{count} / {location}: {row}')
-    agency: Optional[Agency] = self._FindRoute(route)
+    # check
+    agency: Optional[Agency] = self._FindRoute(row['route_id'])
     if agency is None:
       raise RowError(f'agency in row was not found @{count} / {location}: {row}')
     # update
-    self._db.agencies[agency.id].routes[route].trips[trip_id] = Trip(
-        id=trip_id, route=route, agency=agency.id, service=service, shape=shape,
-        headsign=headsign, name=name, block=block, direction=direction, stops={})
+    self._db.agencies[agency.id].routes[row['route_id']].trips[row['trip_id']] = Trip(
+        id=row['trip_id'], route=row['route_id'], agency=agency.id,
+        service=row['service_id'], shape=row['shape_id'], headsign=row['trip_headsign'],
+        name=row['trip_short_name'], block=row['block_id'],
+        direction=row['direction_id'], stops={})
 
   def _HandleStopsRow(
-      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+      self, location: _TableLocation, count: int, row: _ExpectedStopsCSVRowType) -> None:
     """Handler: "stops.txt" Stops where vehicles pick up or drop off riders.
 
     Also defines stations and station entrances.
@@ -821,70 +839,56 @@ class GTFS:
 
     Args:
       location: _TableLocation info on current GTFS table
-      count: row count, starting on 1
+      count: row count, starting on 0
       row: the row as a dict {field_name: Optional[field_data]}
 
     Raises:
       RowError: error parsing this record
     """
-    # get data, check if empty
-    stop_id: str = row['stop_id'] if row['stop_id'] else ''
-    parent_id: Optional[str] = row['parent_station']
-    code: str = row['stop_code'] if row['stop_code'] else ''
-    name: str = row['stop_name'] if row['stop_name'] else ''
-    latitude: float = float(row['stop_lat']) if row['stop_lat'] else -1000.0
-    longitude: float = float(row['stop_lon']) if row['stop_lon'] else -1000.0
-    zone: Optional[str] = row['zone_id']
-    description: Optional[str] = row['stop_desc']
-    url: Optional[str] = row['stop_url']
-    location_type: LocationType = LocationType(int(row['location_type'], 10)) if row['location_type'] else LocationType.STOP
-    if (not stop_id or not code or not name or
-        not -90.0 <= latitude <= 90.0 or
-        not -180.0 <= longitude <= 180.0):
-      raise RowError(f'empty row @{count} / {location}: {row}')
-    if parent_id and parent_id not in self._db.stops:
+    # get data, check
+    location_type: LocationType = LocationType(row['location_type']) if row['location_type'] else LocationType.STOP
+    if not -90.0 <= row['stop_lat'] <= 90.0 or not -180.0 <= row['stop_lon'] <= 180.0:
+      raise RowError(f'invalid latitude/longitude @{count} / {location}: {row}')
+    if row['parent_station'] and row['parent_station'] not in self._db.stops:
       raise RowError(f'parent_station in row was not found @{count} / {location}: {row}')
     # update
-    self._db.stops[stop_id] = BaseStop(
-        id=stop_id, parent=parent_id, code=code, name=name,
-        latitude=latitude, longitude=longitude, zone=zone, description=description,
-        url=url, location=location_type)
+    self._db.stops[row['stop_id']] = BaseStop(
+        id=row['stop_id'], parent=row['parent_station'], code=row['stop_code'],
+        name=row['stop_name'], latitude=row['stop_lat'], longitude=row['stop_lon'],
+        zone=row['zone_id'], description=row['stop_desc'],
+        url=row['stop_url'], location=location_type)
 
   def _HandleStopTimesRow(
-      self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+      self, location: _TableLocation, count: int, row: _ExpectedStopTimesCSVRowType) -> None:
     """Handler: "stop_times.txt" Times that a vehicle arrives/departs from stops for each trip.
 
     pk: (trips/trip_id, stop_sequence) / ref: stops/stop_id
 
     Args:
       location: _TableLocation info on current GTFS table
-      count: row count, starting on 1
+      count: row count, starting on 0
       row: the row as a dict {field_name: Optional[field_data]}
 
     Raises:
       RowError: error parsing this record
     """
     # get data, check if empty
-    trip_id: str = row['trip_id'] if row['trip_id'] else ''
-    seq: int = int(row['stop_sequence'], 10) if row['stop_sequence'] else 0
-    stop: str = row['stop_id'] if row['stop_id'] else ''
-    arrival: int = HMSToSeconds(row['arrival_time']) if row['arrival_time'] else -1
-    departure: int = HMSToSeconds(row['departure_time']) if row['departure_time'] else -1
-    timepoint: bool = bool(int(row['timepoint'], 10)) if row['timepoint'] else False
-    headsign: Optional[str] = row['stop_headsign']
-    pickup: StopPointType = StopPointType(int(row['pickup_type'], 10)) if row['pickup_type'] else StopPointType.REGULAR
-    dropoff: StopPointType = StopPointType(int(row['drop_off_type'], 10)) if row['drop_off_type'] else StopPointType.REGULAR
-    if not trip_id or not seq or not stop or arrival < 0 or departure < 0 or arrival > departure:
-      raise RowError(f'empty row @{count} / {location}: {row}')
-    if stop not in self._db.stops:
+    arrival: int = HMSToSeconds(row['arrival_time'])
+    departure: int = HMSToSeconds(row['departure_time'])
+    pickup: StopPointType = StopPointType(row['pickup_type']) if row['pickup_type'] else StopPointType.REGULAR
+    dropoff: StopPointType = StopPointType(row['drop_off_type']) if row['drop_off_type'] else StopPointType.REGULAR
+    if arrival < 0 or departure < 0 or arrival > departure:
+      raise RowError(f'invalid row @{count} / {location}: {row}')
+    if row['stop_id'] not in self._db.stops:
       raise RowError(f'stop_id in row was not found @{count} / {location}: {row}')
-    agency, route = self._FindTrip(trip_id)
+    agency, route = self._FindTrip(row['trip_id'])
     if not agency or not route:
       raise RowError(f'trip_id in row was not found @{count} / {location}: {row}')
     # update
-    self._db.agencies[agency.id].routes[route.id].trips[trip_id].stops[seq] = Stop(
-        id=trip_id, seq=seq, stop=stop, agency=agency.id, route=route.id,
-        arrival=arrival, departure=departure, timepoint=timepoint, headsign=headsign,
+    self._db.agencies[agency.id].routes[route.id].trips[row['trip_id']].stops[row['stop_sequence']] = Stop(
+        id=row['trip_id'], seq=row['stop_sequence'], stop=row['stop_id'],
+        agency=agency.id, route=route.id, arrival=arrival, departure=departure,
+        timepoint=row['timepoint'], headsign=row['stop_headsign'],
         pickup=pickup, dropoff=dropoff)
 
   def LoadData(
