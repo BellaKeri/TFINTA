@@ -158,7 +158,7 @@ class Stop:  # stop_times.txt
   dropoff: StopPointType = StopPointType.REGULAR  # stop_times.txt/drop_off_type
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
 class Trip:
   """Trip for a route."""
   id: str          # (PK) trips.txt/trip_id     (required)
@@ -188,7 +188,7 @@ class RouteType(enum.Enum):
   MONORAIL = 12    # Railway in which the track consists of a single rail or a beam
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
 class Route:
   """Route: group of trips that are displayed to riders as a single service."""
   id: str                # (PK) routes.txt/route_id    (required)
@@ -203,7 +203,7 @@ class Route:
   trips: dict[str, Trip]      # {trips.txt/trip_id: Trip}
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
 class Agency:
   """Transit agency."""
   id: int    # (PK) agency.txt/agency_id (required)
@@ -213,7 +213,7 @@ class Agency:
   routes: dict[str, Route]  # {routes.txt/route_id: Route}
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
 class CalendarService:
   """Service dates specified using a weekly schedule & start/end dates. Includes the exceptions."""
   id: int  # (PK) calendar.txt/service_id         (required)
@@ -234,21 +234,21 @@ class ShapePoint:
   distance: float   # shapes.txt/shape_dist_traveled    (required)
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
 class Shape:
   """Rule for mapping vehicle travel paths (aka. route alignments)."""
   id: str                        # (PK) shapes.txt/shape_id (required)
   points: dict[int, ShapePoint]  # {shapes.txt/shape_pt_sequence: ShapePoint}
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # NOT IMMUTABLE!
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
 class OfficialFiles:
   """Official GTFS files."""
   tm: float  # timestamp of last pull of the official CSV
   files: dict[str, dict[str, Optional[FileMetadata]]]  # {provider: {url: FileMetadata}}
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # NOT IMMUTABLE!
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
 class GTFSData:
   """GTFS data."""
   tm: float             # timestamp of last DB save
@@ -408,11 +408,11 @@ class GTFS:
         # (compressing is responsible for ~95% of save time)
         self._db.tm = time.time()
         base.BinSerialize(self._db, file_path=self._db_path, compress=True)
-        self._FindRoute.cache_clear()
+        self._InvalidateCaches()
       self._changed = False
       logging.info('Saved DB to %r (%s)', self._db_path, tm_save.readable)
 
-  @functools.lru_cache(maxsize=1 << 10)
+  @functools.lru_cache(maxsize=1 << 14)
   def _FindRoute(self, route_id: str) -> Optional[Agency]:
     """Find route by finding its Agency."""
     for agency in self._db.agencies.values():
@@ -420,7 +420,7 @@ class GTFS:
         return agency
     return None
 
-  @functools.lru_cache(maxsize=1 << 14)
+  @functools.lru_cache(maxsize=1 << 16)
   def _FindTrip(self, trip_id: str) -> tuple[Optional[Agency], Optional[Route]]:
     """Find route by finding its Agency & Route."""
     for agency in self._db.agencies.values():
@@ -428,6 +428,10 @@ class GTFS:
         if trip_id in route.trips:
           return (agency, route)
     return (None, None)
+
+  def _InvalidateCaches(self) -> None:
+    self._FindRoute.cache_clear()
+    self._FindTrip.cache_clear()
 
   def _LoadCSVSources(self) -> None:
     """Loads GTFS official sources from CSV."""
@@ -483,7 +487,7 @@ class GTFS:
     # load ZIP from URL
     done_files: set[str] = set()
     file_name: str
-    self._FindRoute.cache_clear()
+    self._InvalidateCaches()
     with urllib.request.urlopen(link) as gtfs_zip:
       # extract files from ZIP
       gtfs_zip_bytes: bytes = gtfs_zip.read()
@@ -537,29 +541,26 @@ class GTFS:
     logging.info('Processing: %s (%s)', file_name, base.HumanizedBytes(len(file_data)))
     file_handler, file_fields = self._file_handlers[file_name]
     i: int = 0
-    actual_fields: list[str] = []
-    for i, row in enumerate(csv.reader(
+    for i, row in enumerate(csv.DictReader(
         io.TextIOWrapper(io.BytesIO(file_data), encoding='utf-8'))):
       # check for 1st row
       if not i:
-        # should be the fields: check them
-        actual_fields = row  # save for later: we need the order of fields
+        # on the first row only: check the rows
+        actual_fields = set(row.keys())
         # find missing fields (TODO in future: optional fields)
-        if (missing_fields := file_fields - set(actual_fields)):
+        if (missing_fields := file_fields - actual_fields):
           raise ParseError(f'Missing fields found: {file_name} {missing_fields!r}')
         # find unknown/unimplemented fields
-        if (extra_fields := set(actual_fields) - file_fields):
+        if (extra_fields := actual_fields - file_fields):
           message = f'Extra fields found: {file_name} {extra_fields!r}'
           if allow_unknown_field:
             logging.warning(message)
           else:
             raise ParseImplementationError(message)
-        continue  # first row is as expected: skip it
-      # we have a row that is not the 1st, should be data
+      # send row to handler
       file_handler(
-          location, i,
-          dict(zip(actual_fields,
-                   [(k if k else None) for k in (j.strip() for j in row)])))
+          location, i + 1,
+          {ck: (cv if cv else None) for ck, cv in ((k, v.strip()) for k, v in row.items())})
     self._changed = True
     logging.info('Read %d records from %s', i, file_name)  # 1st row of CSV is not a record
 
@@ -873,7 +874,7 @@ class GTFS:
     headsign: Optional[str] = row['stop_headsign']
     pickup: StopPointType = StopPointType(int(row['pickup_type'], 10)) if row['pickup_type'] else StopPointType.REGULAR
     dropoff: StopPointType = StopPointType(int(row['drop_off_type'], 10)) if row['drop_off_type'] else StopPointType.REGULAR
-    if not trip_id or not seq or not stop or arrival < 0 or departure < 0:
+    if not trip_id or not seq or not stop or arrival < 0 or departure < 0 or arrival > departure:
       raise RowError(f'empty row @{count} / {location}: {row}')
     if stop not in self._db.stops:
       raise RowError(f'stop_id in row was not found @{count} / {location}: {row}')
@@ -909,7 +910,7 @@ class GTFS:
 
 
 def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
-  """Unzips `in_file` bytes buffer. Manages multiple files, preserving _LOAD_ORDER.
+  """Unzips `in_file` bytes buffer. Manages multiple files, preserving case-sensitive _LOAD_ORDER.
 
   Args:
     in_file: bytes buffer (io.BytesIO for example) with ZIP data
