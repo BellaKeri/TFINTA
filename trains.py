@@ -6,43 +6,58 @@
 """Running Trains Loader."""
 
 # import logging
-# import pdb
+import pdb
+from typing import Optional
+import urllib.request
+import xml.dom.minidom
 
 __author__ = 'BellaKeri@github.com'
 __version__ = (1, 0)
 
 
-ALL_RUNNING_TRAINS_URL = ''
+ALL_RUNNING_TRAINS_URL = 'http://api.irishrail.ie/realtime/realtime.asmx/getCurrentTrainsXML'
 
-# Get the Trains code.
-
-def LoadTrains() -> [str]:
-  pass 
+XMLType = xml.dom.minidom.Document
+XMLElement = xml.dom.minidom.Element
 
 
-def ConvertToXml(xml_data_trains: str) -> []:
-  pass
+def LoadTrains() -> str:
+  return urllib.request.urlopen(ALL_RUNNING_TRAINS_URL).read()
 
 
-def GetTrains(xml_trains_obj) ->[]:
-  pass
+def ConvertToXML(xml_data_trains: str) -> XMLType:
+  return xml.dom.minidom.parseString(xml_data_trains)
 
 
-def TrainsData(message_data) -> []:
-  pass
+def GetTrains(xml_trains_obj: XMLType) -> list[XMLElement]:
+  return list(xml_trains_obj.getElementsByTagName('objTrainPositions'))
 
+
+def TrainsData(message_data : list[XMLElement]) -> list[tuple[str, str, str]]:
+  names: list[tuple[str, str, str]] = []
+  for message in message_data:
+    code = message.getElementsByTagName('TrainCode')[0].firstChild.nodeValue
+    direct = message.getElementsByTagName('Direction')[0].firstChild.nodeValue
+    public_mss = message.getElementsByTagName('PublicMessage')[0].firstChild.nodeValue
+    names.append(
+      ('-' if code is None else code.upper().strip(),
+       '-' if direct is None else direct.strip(),
+       '-' if public_mss is None else public_mss))
+  return sorted(names)
 
 
 def Main() -> None:
   """Main entry point."""
   xml_data = LoadTrains()
-  xml_trains_obj = ConvertToXml(xml_data)
+  xml_trains_obj = ConvertToXML(xml_data)
   message_data = GetTrains(xml_trains_obj)
-  public_message = TrainsData(message_data)
+  parsed_data = TrainsData(message_data)
 
   print()
   print()
   print()
+  for i, (code, direct, public_mss) in enumerate(parsed_data, start=1):
+    print(f'{i}: {code}, {direct} : {public_mss.strip()}')
   print()
   print()
   print()
