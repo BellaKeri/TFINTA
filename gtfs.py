@@ -9,6 +9,7 @@ See: https://gtfs.org/documentation/schedule/reference/
 """
 
 import argparse
+import contextlib
 import csv
 import dataclasses
 import datetime
@@ -20,7 +21,7 @@ import os.path
 # import pdb
 import time
 import types
-from typing import Callable, Generator, IO, Optional, Union
+from typing import Any, Callable, Generator, IO, Optional, Union
 from typing import get_args as GetTypeArgs
 from typing import get_type_hints as GetTypeHints
 import urllib.request
@@ -158,7 +159,6 @@ class GTFS:
         # (compressing is responsible for ~95% of save time)
         self._db.tm = time.time()
         base.BinSerialize(self._db, file_path=self._db_path, compress=True)
-        self._InvalidateCaches()
       self._changed = False
       logging.info('Saved DB to %r (%s)', self._db_path, tm_save.readable)
 
@@ -210,6 +210,21 @@ class GTFS:
         'Loaded GTFS official sources with %d operators and %d links',
         len(new_files), sum(len(urls) for urls in new_files.values()))
 
+  @contextlib.contextmanager
+  def _ParsingSession(self) -> Generator[None, Any, None]:
+    """Context manager that invalidates caches before/after a parsing block."""
+    self._InvalidateCaches()  # fresh start
+    try:
+      yield  # run parsing body
+    except Exception:
+      # ensure caches are clean even on failure
+      self._InvalidateCaches()
+      raise  # propagate the original error
+    finally:
+      # success path – still clear once more for safety
+      self.Save()
+      self._InvalidateCaches()
+
   def _LoadGTFSSource(
       self, operator: str, link: str,
       allow_unknown_file: bool = True, allow_unknown_field: bool = False,
@@ -237,30 +252,30 @@ class GTFS:
     # load ZIP from URL
     done_files: set[str] = set()
     file_name: str
-    self._InvalidateCaches()
-    with urllib.request.urlopen(link) as gtfs_zip:
-      # extract files from ZIP
-      gtfs_zip_bytes: bytes = gtfs_zip.read()
-      logging.info(
-          'Loading %r data, %s,from %r',
-          operator, base.HumanizedBytes(len(gtfs_zip_bytes)), link)
-      for file_name, file_data in _UnzipFiles(io.BytesIO(gtfs_zip_bytes)):
-        file_name = file_name.strip()
-        location = _TableLocation(operator=operator, link=link, file_name=file_name)
-        try:
-          self._LoadGTFSFile(location, file_data, allow_unknown_file, allow_unknown_field)
-        except ParseIdenticalVersionError as err:
-          if force_replace:
-            logging.warning('Replacing existing data: %s', err)
-            continue
-          logging.warning('Version already known (will SKIP): %s', err)
-          return
-        finally:
-          done_files.add(file_name)
-    # finished loading the files, check that we loaded all required files
-    if (missing_files := dm.REQUIRED_FILES - done_files):
-      raise ParseError(f'Missing required files: {operator} {missing_files!r}')
-    self._changed = True
+    with self._ParsingSession():
+      with urllib.request.urlopen(link) as gtfs_zip:
+        # extract files from ZIP
+        gtfs_zip_bytes: bytes = gtfs_zip.read()
+        logging.info(
+            'Loading %r data, %s,from %r',
+            operator, base.HumanizedBytes(len(gtfs_zip_bytes)), link)
+        for file_name, file_data in _UnzipFiles(io.BytesIO(gtfs_zip_bytes)):
+          file_name = file_name.strip()
+          location = _TableLocation(operator=operator, link=link, file_name=file_name)
+          try:
+            self._LoadGTFSFile(location, file_data, allow_unknown_file, allow_unknown_field)
+          except ParseIdenticalVersionError as err:
+            if force_replace:
+              logging.warning('Replacing existing data: %s', err)
+              continue
+            logging.warning('Version already known (will SKIP): %s', err)
+            return
+          finally:
+            done_files.add(file_name)
+      # finished loading the files, check that we loaded all required files
+      if (missing_files := dm.REQUIRED_FILES - done_files):
+        raise ParseError(f'Missing required files: {operator} {missing_files!r}')
+      self._changed = True
 
   def _LoadGTFSFile(
       self, location: _TableLocation, file_data: bytes,
@@ -734,10 +749,7 @@ def Main() -> None:
     with base.Timer() as op_timer:
       # "read" command
       if command == 'read':
-        try:
-          database.LoadData(freshness=args.freshness, force_replace=bool(args.replace))
-        finally:
-          database.Save()
+        database.LoadData(freshness=args.freshness, force_replace=bool(args.replace))
       # "print" command
       elif command == 'print':
         raise NotImplementedError()
