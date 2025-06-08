@@ -26,6 +26,7 @@ from typing import get_args as GetTypeArgs
 from typing import get_type_hints as GetTypeHints
 import urllib.request
 import zipfile
+import zoneinfo
 
 from baselib import base
 
@@ -65,8 +66,8 @@ _KNOWN_OPERATORS: set[str] = {
 # data parsing utils
 _DATETIME_OBJ: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(
     s, '%Y%m%d')
-_UTC_DATE: Callable[[str], float] = lambda s: _DATETIME_OBJ(s).replace(
-    tzinfo=datetime.timezone.utc).timestamp()
+# _UTC_DATE: Callable[[str], float] = lambda s: _DATETIME_OBJ(s).replace(
+#     tzinfo=datetime.timezone.utc).timestamp()
 _DATE_OBJ: Callable[[str], datetime.date] = lambda s: _DATETIME_OBJ(s).date()
 
 
@@ -132,12 +133,15 @@ class LocationType(enum.Enum):
   BOARDING_AREA = 4  # A specific location on a platform, where passengers can board and/or alight vehicles
 
 
+_LOCATION_TYPE_MAP: dict[int, LocationType] = {e.value: e for e in LocationType}
+
+
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class BaseStop:  # stops.txt
-  """Stop where vehicles pick up or drop off riders."""
+  """Stop where vehicles pick up or drop-off riders."""
   id: str                # (PK) stops.txt/stop_id (required)
   parent: Optional[str]  # stops.txt/parent_station -> stops.txt/stop_id (required)
-  code: int              # stops.txt/stop_code    (required)
+  code: str              # stops.txt/stop_code    (required)
   name: str              # stops.txt/stop_name    (required)
   latitude: float        # stops.txt/stop_lat - WGS84 latitude in decimal degrees (-90.0 <= lat <= 90.0)    (required)
   longitude: float       # stops.txt/stop_lon - WGS84 longitude in decimal degrees (-180.0 <= lat <= 180.0) (required)
@@ -151,7 +155,7 @@ class _ExpectedStopsCSVRowType(TypedDict):
   """stops.txt"""
   stop_id: str
   parent_station: Optional[str]
-  stop_code: int
+  stop_code: str
   stop_name: str
   stop_lat: float
   stop_lon: float
@@ -168,6 +172,9 @@ class StopPointType(enum.Enum):
   NOT_AVAILABLE = 1  # No pickup/drop-off available
   AGENCY_ONLY = 2    # Must phone agency to arrange pickup/drop-off
   DRIVER_ONLY = 3    # Must coordinate with driver to arrange pickup/drop-off
+
+
+_STOP_POINT_TYPE_MAP: dict[int, StopPointType] = {e.value: e for e in StopPointType}
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
@@ -197,6 +204,7 @@ class _ExpectedStopTimesCSVRowType(TypedDict):
   stop_headsign: Optional[str]
   pickup_type: Optional[int]
   drop_off_type: Optional[int]
+  dropoff_type: Optional[int]  # legacy spelling, here for backwards compatibility
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
@@ -239,6 +247,104 @@ class RouteType(enum.Enum):
   FUNICULAR = 7    # Any rail system designed for steep inclines
   TROLLEYBUS = 11  # Electric buses that draw power from overhead wires using poles
   MONORAIL = 12    # Railway in which the track consists of a single rail or a beam
+  # Extended types, from https://ipeagit.github.io/gtfstools/reference/filter_by_route_type.html
+  # 100-199 : detailed rail
+  RAILWAY_SERVICE = 100       # N/A
+  HIGH_SPEED_RAIL = 101       # TGV, ICE, Eurostar
+  LONG_DISTANCE_RAIL = 102    # InterCity / EuroCity
+  INTER_REGIONAL_RAIL = 103   # InterRegio, Cross-Country
+  CAR_TRANSPORT_RAIL = 104
+  SLEEPER_RAIL = 105          # Night trains / sleeper cars
+  REGIONAL_RAIL = 106         # TER, Regionalzug
+  TOURIST_RAILWAY = 107       # Heritage / tourist lines
+  RAIL_SHUTTLE_WITHIN_COMPLEX = 108  # Airport shuttles, etc.
+  SUBURBAN_RAIL = 109         # S-Bahn, RER
+  REPLACEMENT_RAIL = 110      # Rail replacement (planned)
+  SPECIAL_RAIL = 111
+  LORRY_TRANSPORT_RAIL = 112
+  ALL_RAIL = 113              # *All* rail services
+  CROSS_COUNTRY_RAIL = 114
+  VEHICLE_TRANSPORT_RAIL = 115
+  RACK_AND_PINION_RAIL = 116  # Mountain cog railways
+  ADDITIONAL_RAIL = 117
+  # 200-299 : coach (inter-urban bus)
+  COACH_SERVICE = 200
+  INTERNATIONAL_COACH = 201  # Eurolines, Touring
+  NATIONAL_COACH = 202       # National Express
+  SHUTTLE_COACH = 203
+  REGIONAL_COACH = 204
+  SPECIAL_COACH = 205
+  SIGHTSEEING_COACH = 206
+  TOURIST_COACH = 207
+  COMMUTER_COACH = 208
+  ALL_COACH = 209
+  # 400-499 : urban rail
+  URBAN_RAILWAY = 400
+  METRO = 401        # Métro de Paris
+  UNDERGROUND = 402  # London Underground, U-Bahn
+  URBAN_RAILWAY_SPECIAL = 403
+  ALL_URBAN_RAILWAY = 404
+  MONORAIL_URBAN = 405
+  # 700-799 : detailed bus
+  BUS_SERVICE_GENERAL = 700
+  REGIONAL_BUS = 701
+  EXPRESS_BUS = 702
+  STOPPING_BUS = 703
+  LOCAL_BUS = 704
+  NIGHT_BUS = 705
+  POST_BUS = 706
+  SPECIAL_NEEDS_BUS = 707
+  MOBILITY_BUS = 708
+  MOBILITY_BUS_DISABLED = 709
+  SIGHTSEEING_BUS = 710
+  SHUTTLE_BUS = 711
+  SCHOOL_BUS = 712
+  SCHOOL_AND_PUBLIC_BUS = 713
+  RAIL_REPLACEMENT_BUS = 714
+  DEMAND_RESPONSE_BUS = 715
+  ALL_BUS = 716
+  # 800-899 : trolleybus
+  TROLLEYBUS_SERVICE = 800
+  # 900-999 : tram / light rail variants
+  TRAM_SERVICE = 900
+  CITY_TRAM = 901
+  LOCAL_TRAM = 902
+  REGIONAL_TRAM = 903
+  SIGHTSEEING_TRAM = 904
+  SHUTTLE_TRAM = 905
+  ALL_TRAM = 906
+  # 1000 : water
+  WATER_TRANSPORT = 1000
+  # 1100 : air
+  AIR_SERVICE = 1100
+  # 1200 : ferry (kept separate from 1000 in some feeds)
+  FERRY_SERVICE_EXT = 1200
+  # 1300-1399 : aerial lifts
+  AERIAL_LIFT_SERVICE = 1300  # Telefèric de Montjuïc, etc.
+  TELECABIN_SERVICE = 1301
+  CABLE_CAR_SERVICE = 1302
+  ELEVATOR_SERVICE = 1303
+  CHAIR_LIFT_SERVICE = 1304
+  DRAG_LIFT_SERVICE = 1305
+  SMALL_TELECABIN_SERVICE = 1306
+  ALL_TELECABIN = 1307
+  # 1400 : funicular
+  FUNICULAR_SERVICE = 1400  # Rigiblick (Zürich)
+  # 1500-1599 : taxi
+  TAXI_SERVICE = 1500
+  COMMUNAL_TAXI = 1501      # Marshrutka, dolmuş
+  WATER_TAXI = 1502
+  RAIL_TAXI = 1503
+  BIKE_TAXI = 1504
+  LICENSED_TAXI = 1505
+  PRIVATE_HIRE_VEHICLE = 1506
+  ALL_TAXI = 1507
+  # 1700-1799 : miscellaneous
+  MISCELLANEOUS_SERVICE = 1700
+  HORSE_DRAWN_CARRIAGE = 1702
+
+
+_ROUTE_TYPE_MAP: dict[int, RouteType] = {e.value: e for e in RouteType}
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
@@ -275,7 +381,7 @@ class Agency:
   id: int    # (PK) agency.txt/agency_id (required)
   name: str  # agency.txt/agency_name    (required)
   url: str   # agency.txt/agency_url     (required)
-  zone: str  # agency.txt/agency_timezone: TZ timezone from the https://www.iana.org/time-zones (required)
+  zone: zoneinfo.ZoneInfo   # agency.txt/agency_timezone: TZ timezone from the https://www.iana.org/time-zones (required)
   routes: dict[str, Route]  # {routes.txt/route_id: Route}
 
 
@@ -292,16 +398,18 @@ class CalendarService:
   """Service dates specified using a weekly schedule & start/end dates. Includes the exceptions."""
   id: int  # (PK) calendar.txt/service_id         (required)
   week: tuple[bool, bool, bool, bool, bool, bool, bool]  # calendar.txt/sunday...saturday (required)
+  # NOTE: `week` starts on SUNDAY so that the index matches datetime.date.weekday();
+  #       the CSV originally has another order
   start: datetime.date  # calendar.txt/start_date (required)
   end: datetime.date    # calendar.txt/end_date   (required)
-  exceptions: dict[datetime.date, bool]  # {calendar_dates.txt/date: has_service}
+  exceptions: dict[datetime.date, bool]  # {calendar_dates.txt/date: has_service?}
   # where `has_service` comes from calendar_dates.txt/exception_type
 
 
 class _ExpectedCalendarCSVRowType(TypedDict):
   """calendar.txt"""
   service_id: int
-  monday: bool
+  monday: bool  # CSV originally starts on Monday, but we store starting on Sunday
   tuesday: bool
   wednesday: bool
   thursday: bool
@@ -316,7 +424,7 @@ class _ExpectedCalendarDatesCSVRowType(TypedDict):
   """calendar_dates.txt"""
   service_id: int
   date: str
-  exception_type: bool
+  exception_type: str  # cannot be bool: field is '1'==added service;'2'==removed service
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
@@ -705,13 +813,10 @@ class GTFS:
     if count != 0:
       raise RowError(
           f'agency.txt table ({location}) is only supported to have 1 row (got {count}): {row}')
-    # check
-    if row['agency_timezone'] != 'Europe/London':
-      raise NotImplementedError(f'For now timezones are only UTC (got {row["agency_timezone"]})')
     # update
     self._db.agencies[row['agency_id']] = Agency(
         id=row['agency_id'], name=row['agency_name'], url=row['agency_url'],
-        zone=row['agency_timezone'], routes={})
+        zone=zoneinfo.ZoneInfo(row['agency_timezone']), routes={})
 
   def _HandleCalendarRow(
       self, location: _TableLocation, count: int, row: _ExpectedCalendarCSVRowType) -> None:
@@ -754,7 +859,8 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
-    self._db.calendar[row['service_id']].exceptions[_DATE_OBJ(row['date'])] = row['exception_type']
+    self._db.calendar[row['service_id']].exceptions[_DATE_OBJ(row['date'])] = (
+        row['exception_type'] == '1')
 
   def _HandleRoutesRow(
       self, unused_location: _TableLocation, unused_count: int,
@@ -773,7 +879,7 @@ class GTFS:
     """
     self._db.agencies[row['agency_id']].routes[row['route_id']] = Route(
         id=row['route_id'], agency=row['agency_id'], short_name=row['route_short_name'],
-        long_name=row['route_long_name'], route_type=RouteType(row['route_type']),
+        long_name=row['route_long_name'], route_type=_ROUTE_TYPE_MAP[row['route_type']],
         description=row['route_desc'], url=row['route_url'],
         color=row['route_color'], text_color=row['route_text_color'], trips={})
 
@@ -832,7 +938,7 @@ class GTFS:
 
   def _HandleStopsRow(
       self, location: _TableLocation, count: int, row: _ExpectedStopsCSVRowType) -> None:
-    """Handler: "stops.txt" Stops where vehicles pick up or drop off riders.
+    """Handler: "stops.txt" Stops where vehicles pick up or drop-off riders.
 
     Also defines stations and station entrances.
     pk: stop_id / self-ref: parent_station=stop/stop_id
@@ -846,7 +952,8 @@ class GTFS:
       RowError: error parsing this record
     """
     # get data, check
-    location_type: LocationType = LocationType(row['location_type']) if row['location_type'] else LocationType.STOP
+    location_type: LocationType = (
+        _LOCATION_TYPE_MAP[row['location_type']] if row['location_type'] else LocationType.STOP)
     if not -90.0 <= row['stop_lat'] <= 90.0 or not -180.0 <= row['stop_lon'] <= 180.0:
       raise RowError(f'invalid latitude/longitude @{count} / {location}: {row}')
     if row['parent_station'] and row['parent_station'] not in self._db.stops:
@@ -875,8 +982,14 @@ class GTFS:
     # get data, check if empty
     arrival: int = HMSToSeconds(row['arrival_time'])
     departure: int = HMSToSeconds(row['departure_time'])
-    pickup: StopPointType = StopPointType(row['pickup_type']) if row['pickup_type'] else StopPointType.REGULAR
-    dropoff: StopPointType = StopPointType(row['drop_off_type']) if row['drop_off_type'] else StopPointType.REGULAR
+    pickup: StopPointType = (
+        _STOP_POINT_TYPE_MAP[row['pickup_type']] if row['pickup_type'] else StopPointType.REGULAR)
+    if row['drop_off_type'] is None and row['dropoff_type'] is not None:
+      dropoff: StopPointType = StopPointType(row['dropoff_type'])  # old spelling
+    else:
+      dropoff: StopPointType = (
+          _STOP_POINT_TYPE_MAP[row['drop_off_type']] if row['drop_off_type'] else
+          StopPointType.REGULAR)
     if arrival < 0 or departure < 0 or arrival > departure:
       raise RowError(f'invalid row @{count} / {location}: {row}')
     if row['stop_id'] not in self._db.stops:
@@ -902,10 +1015,10 @@ class GTFS:
     """
     # first load the list of GTFS, if needed
     if (age := _DAYS_OLD(self._db.files.tm)) > freshness:
-      logging.info('Loading stations (%0.1f days old)', age)
+      logging.info('Loading CSV sources (%0.1f days old)', age)
       self._LoadCSVSources()
     else:
-      logging.info('Stations are fresh (%0.1f days old) - SKIP', age)
+      logging.info('Sources are fresh (%0.1f days old) - SKIP', age)
     # load GTFS data we are interested in
     self._LoadGTFSSource(
         'Iarnród Éireann / Irish Rail',
@@ -939,7 +1052,7 @@ def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
 def HMSToSeconds(time_str: str) -> int:
   """Accepts 'H:MM:SS' or 'HH:MM:SS' and returns total seconds since 00:00:00.
 
-  Supports hours ≥ 0 with no upper bound.
+  Supports hours ≥ 0 with no upper bound. Very flexible, will even accept 'H:M:S' for example.
 
   Args:
     time_str: String to convert ('H:MM:SS' or 'HH:MM:SS')
