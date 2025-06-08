@@ -12,7 +12,6 @@ import argparse
 import csv
 import dataclasses
 import datetime
-import enum
 import functools
 import io
 import logging
@@ -21,7 +20,7 @@ import os.path
 # import pdb
 import time
 import types
-from typing import Callable, Generator, IO, Optional, TypedDict, Union
+from typing import Callable, Generator, IO, Optional, Union
 from typing import get_args as GetTypeArgs
 from typing import get_type_hints as GetTypeHints
 import urllib.request
@@ -29,6 +28,8 @@ import zipfile
 import zoneinfo
 
 from baselib import base
+
+from TFINTA import gtfs_data_model as dm
 
 __author__ = 'balparda@github.com'
 __version__ = (1, 0)
@@ -40,28 +41,6 @@ _SECONDS_IN_DAY = 60 * 60 * 24
 _DAYS_OLD: Callable[[float], float] = lambda t: (time.time() - t) / _SECONDS_IN_DAY
 _DATA_DIR: str = base.MODULE_PRIVATE_DIR(__file__, '.tfinta-data')
 _DEFAULT_DB_FILE: str = os.path.join(_DATA_DIR, 'transit.db')
-_REQUIRED_FILES: set[str] = {
-    'feed_info.txt',  # required because it has the date ranges and the version info
-}
-_LOAD_ORDER: list[str] = [
-    # there must be a load order because of the table foreign ID references (listed below)
-    'feed_info.txt',  # no primary key -> added to ZIP metadata
-    'agency.txt',     # pk: agency_id
-    'calendar.txt',        # pk: service_id
-    'calendar_dates.txt',  # pk: (calendar/service_id, date) / ref: calendar/service_id
-    'routes.txt',      # pk: route_id / ref: agency/agency_id
-    'shapes.txt',      # pk: (shape_id, shape_pt_sequence)
-    'trips.txt',       # pk: trip_id / ref: routes.route_id, calendar.service_id, shapes.shape_id
-    'stops.txt',       # pk: stop_id / self-ref: parent_station=stop/stop_id
-    'stop_times.txt',  # pk: (trips/trip_id, stop_sequence) / ref: stops/stop_id
-]
-
-# URLs
-_OFFICIAL_GTFS_CSV = 'https://www.transportforireland.ie/transitData/Data/GTFS%20Operator%20Files.csv'
-_KNOWN_OPERATORS: set[str] = {
-    # the operators we care about and will load GTFS for
-    'Iarnród Éireann / Irish Rail',
-}
 
 # data parsing utils
 _DATETIME_OBJ: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(
@@ -69,6 +48,11 @@ _DATETIME_OBJ: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.
 # _UTC_DATE: Callable[[str], float] = lambda s: _DATETIME_OBJ(s).replace(
 #     tzinfo=datetime.timezone.utc).timestamp()
 _DATE_OBJ: Callable[[str], datetime.date] = lambda s: _DATETIME_OBJ(s).date()
+
+# type maps for efficiency and memory (so we don't build countless enum objects)
+_LOCATION_TYPE_MAP: dict[int, dm.LocationType] = {e.value: e for e in dm.LocationType}
+_STOP_POINT_TYPE_MAP: dict[int, dm.StopPointType] = {e.value: e for e in dm.StopPointType}
+_ROUTE_TYPE_MAP: dict[int, dm.RouteType] = {e.value: e for e in dm.RouteType}
 
 
 class Error(Exception):
@@ -99,378 +83,6 @@ class _TableLocation:
   file_name: str  # file name (ex: 'feed_info.txt')          (required)
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class FileMetadata:
-  """GTFS file metadata (mostly from loading feed_info.txt tables)."""
-  tm: float       # timestamp of first load of this version of this GTFS ZIP file
-  publisher: str  # feed_info.txt/feed_publisher_name   (required)
-  url: str        # feed_info.txt/feed_publisher_url    (required)
-  language: str   # feed_info.txt/feed_lang             (required)
-  start: datetime.date  # feed_info.txt/feed_start_date (required)
-  end: datetime.date    # feed_info.txt/feed_end_date   (required)
-  version: str          # feed_info.txt/feed_version    (required)
-  email: Optional[str]  # feed_info.txt/feed_contact_email
-
-
-class _ExpectedFeedInfoCSVRowType(TypedDict):
-  """feed_info.txt"""
-  feed_publisher_name: str
-  feed_publisher_url: str
-  feed_lang: str
-  feed_start_date: str
-  feed_end_date: str
-  feed_version: str
-  feed_contact_email: Optional[str]
-
-
-class LocationType(enum.Enum):
-  """Location type."""
-  # https://gtfs.org/documentation/schedule/reference/?utm_source=chatgpt.com#stopstxt
-  STOP = 0           # (or empty) - Stop (or Platform). A location where passengers board or disembark from a transit vehicle. Is called a platform when defined within a parent_station
-  STATION = 1        # A physical structure or area that contains one or more platform
-  ENTRANCE_EXIT = 2  # A location where passengers can enter or exit a station from the street. If an entrance/exit belongs to multiple stations, it may be linked by pathways to both, but the data provider must pick one of them as parent
-  STATION_NODE = 3   # A location within a station, not matching any other location_type, that may be used to link together pathways define in pathways.txt
-  BOARDING_AREA = 4  # A specific location on a platform, where passengers can board and/or alight vehicles
-
-
-_LOCATION_TYPE_MAP: dict[int, LocationType] = {e.value: e for e in LocationType}
-
-
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class BaseStop:  # stops.txt
-  """Stop where vehicles pick up or drop-off riders."""
-  id: str                # (PK) stops.txt/stop_id (required)
-  parent: Optional[str]  # stops.txt/parent_station -> stops.txt/stop_id (required)
-  code: str              # stops.txt/stop_code    (required)
-  name: str              # stops.txt/stop_name    (required)
-  latitude: float        # stops.txt/stop_lat - WGS84 latitude in decimal degrees (-90.0 <= lat <= 90.0)    (required)
-  longitude: float       # stops.txt/stop_lon - WGS84 longitude in decimal degrees (-180.0 <= lat <= 180.0) (required)
-  zone: Optional[str]    # stops.txt/zone_id
-  description: Optional[str]  # stops.txt/stop_desc
-  url: Optional[str]     # stops.txt/stop_url
-  location: LocationType = LocationType.STOP  # stops.txt/location_type
-
-
-class _ExpectedStopsCSVRowType(TypedDict):
-  """stops.txt"""
-  stop_id: str
-  parent_station: Optional[str]
-  stop_code: str
-  stop_name: str
-  stop_lat: float
-  stop_lon: float
-  zone_id: Optional[str]
-  stop_desc: Optional[str]
-  stop_url: Optional[str]
-  location_type: Optional[int]
-
-
-class StopPointType(enum.Enum):
-  """Pickup/Drop-off type."""
-  # https://gtfs.org/documentation/schedule/reference/?utm_source=chatgpt.com#stop_timestxt
-  REGULAR = 0        # (or empty) Regularly scheduled pickup/drop-off
-  NOT_AVAILABLE = 1  # No pickup/drop-off available
-  AGENCY_ONLY = 2    # Must phone agency to arrange pickup/drop-off
-  DRIVER_ONLY = 3    # Must coordinate with driver to arrange pickup/drop-off
-
-
-_STOP_POINT_TYPE_MAP: dict[int, StopPointType] = {e.value: e for e in StopPointType}
-
-
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class Stop:  # stop_times.txt
-  """Time that a vehicle arrives/departs from a stop for a trip."""
-  id: str    # (PK) stop_times.txt/trip_id            (required) -> trips.txt/trip_id
-  seq: int   # (PK) stop_times.txt/stop_sequence      (required)
-  stop: str  # stop_times.txt/stop_id                 (required) -> stops.txt/stop_id
-  agency: int     # <<INFERRED>> -> agency.txt/agency_id
-  route: str      # <<INFERRED>> -> routes.txt/route_id
-  arrival: int    # stop_times.txt/arrival_time - seconds from midnight, to represent 'HH:MM:SS'   (required)
-  departure: int  # stop_times.txt/departure_time - seconds from midnight, to represent 'HH:MM:SS' (required)
-  timepoint: bool          # stop_times.txt/timepoint (required) - False==Times are considered approximate; True==Times are considered exact
-  headsign: Optional[str]  # stop_times.txt/stop_headsign
-  pickup: StopPointType = StopPointType.REGULAR   # stop_times.txt/pickup_type
-  dropoff: StopPointType = StopPointType.REGULAR  # stop_times.txt/drop_off_type
-
-
-class _ExpectedStopTimesCSVRowType(TypedDict):
-  """stop_times.txt"""
-  trip_id: str
-  stop_sequence: int
-  stop_id: str
-  arrival_time: str
-  departure_time: str
-  timepoint: bool
-  stop_headsign: Optional[str]
-  pickup_type: Optional[int]
-  drop_off_type: Optional[int]
-  dropoff_type: Optional[int]  # legacy spelling, here for backwards compatibility
-
-
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
-class Trip:
-  """Trip for a route."""
-  id: str          # (PK) trips.txt/trip_id     (required)
-  route: str       # trips.txt/route_id         (required) -> routes.txt/route_id
-  agency: int      # <<INFERRED>> -> agency.txt/agency_id
-  service: int     # trips.txt/service_id       (required) -> calendar.txt/service_id
-  shape: str       # trips.txt/shape_id         (required) -> shapes.txt/shape_id
-  headsign: str    # trips.txt/trip_headsign    (required)
-  name: str        # trips.txt/trip_short_name  (required)
-  direction: bool  # trips.txt/direction_id     (required)
-  block: str       # trips.txt/block_id         (required)
-  stops: dict[int, Stop]  # {stop_times.txt/stop_sequence: Stop}
-
-
-class _ExpectedTripsCSVRowType(TypedDict):
-  """trips.txt"""
-  trip_id: str
-  route_id: str
-  service_id: int
-  shape_id: str
-  trip_headsign: str
-  trip_short_name: str
-  direction_id: bool
-  block_id: str
-
-
-class RouteType(enum.Enum):
-  """Route type."""
-  # https://gtfs.org/documentation/schedule/reference/?utm_source=chatgpt.com#routestxt
-  LIGHT_RAIL = 0   # Tram, Streetcar, Light rail. Any light rail or street level system within a metropolitan area
-  SUBWAY = 1       # Subway, Metro. Any underground rail system within a metropolitan area
-  RAIL = 2         # Used for intercity or long-distance travel
-  BUS = 3          # Used for short- and long-distance bus routes
-  FERRY = 4        # Used for short- and long-distance boat service
-  CABLE_TRAM = 5   # Used for street-level rail cars where the cable runs beneath the vehicle (e.g., cable car in San Francisco)
-  AERIAL_LIFT = 6  # Aerial lift, suspended cable car (e.g., gondola lift, aerial tramway). Cable transport where cabins, cars, gondolas or open chairs are suspended by means of one or more cables
-  FUNICULAR = 7    # Any rail system designed for steep inclines
-  TROLLEYBUS = 11  # Electric buses that draw power from overhead wires using poles
-  MONORAIL = 12    # Railway in which the track consists of a single rail or a beam
-  # Extended types, from https://ipeagit.github.io/gtfstools/reference/filter_by_route_type.html
-  # 100-199 : detailed rail
-  RAILWAY_SERVICE = 100       # N/A
-  HIGH_SPEED_RAIL = 101       # TGV, ICE, Eurostar
-  LONG_DISTANCE_RAIL = 102    # InterCity / EuroCity
-  INTER_REGIONAL_RAIL = 103   # InterRegio, Cross-Country
-  CAR_TRANSPORT_RAIL = 104
-  SLEEPER_RAIL = 105          # Night trains / sleeper cars
-  REGIONAL_RAIL = 106         # TER, Regionalzug
-  TOURIST_RAILWAY = 107       # Heritage / tourist lines
-  RAIL_SHUTTLE_WITHIN_COMPLEX = 108  # Airport shuttles, etc.
-  SUBURBAN_RAIL = 109         # S-Bahn, RER
-  REPLACEMENT_RAIL = 110      # Rail replacement (planned)
-  SPECIAL_RAIL = 111
-  LORRY_TRANSPORT_RAIL = 112
-  ALL_RAIL = 113              # *All* rail services
-  CROSS_COUNTRY_RAIL = 114
-  VEHICLE_TRANSPORT_RAIL = 115
-  RACK_AND_PINION_RAIL = 116  # Mountain cog railways
-  ADDITIONAL_RAIL = 117
-  # 200-299 : coach (inter-urban bus)
-  COACH_SERVICE = 200
-  INTERNATIONAL_COACH = 201  # Eurolines, Touring
-  NATIONAL_COACH = 202       # National Express
-  SHUTTLE_COACH = 203
-  REGIONAL_COACH = 204
-  SPECIAL_COACH = 205
-  SIGHTSEEING_COACH = 206
-  TOURIST_COACH = 207
-  COMMUTER_COACH = 208
-  ALL_COACH = 209
-  # 400-499 : urban rail
-  URBAN_RAILWAY = 400
-  METRO = 401        # Métro de Paris
-  UNDERGROUND = 402  # London Underground, U-Bahn
-  URBAN_RAILWAY_SPECIAL = 403
-  ALL_URBAN_RAILWAY = 404
-  MONORAIL_URBAN = 405
-  # 700-799 : detailed bus
-  BUS_SERVICE_GENERAL = 700
-  REGIONAL_BUS = 701
-  EXPRESS_BUS = 702
-  STOPPING_BUS = 703
-  LOCAL_BUS = 704
-  NIGHT_BUS = 705
-  POST_BUS = 706
-  SPECIAL_NEEDS_BUS = 707
-  MOBILITY_BUS = 708
-  MOBILITY_BUS_DISABLED = 709
-  SIGHTSEEING_BUS = 710
-  SHUTTLE_BUS = 711
-  SCHOOL_BUS = 712
-  SCHOOL_AND_PUBLIC_BUS = 713
-  RAIL_REPLACEMENT_BUS = 714
-  DEMAND_RESPONSE_BUS = 715
-  ALL_BUS = 716
-  # 800-899 : trolleybus
-  TROLLEYBUS_SERVICE = 800
-  # 900-999 : tram / light rail variants
-  TRAM_SERVICE = 900
-  CITY_TRAM = 901
-  LOCAL_TRAM = 902
-  REGIONAL_TRAM = 903
-  SIGHTSEEING_TRAM = 904
-  SHUTTLE_TRAM = 905
-  ALL_TRAM = 906
-  # 1000 : water
-  WATER_TRANSPORT = 1000
-  # 1100 : air
-  AIR_SERVICE = 1100
-  # 1200 : ferry (kept separate from 1000 in some feeds)
-  FERRY_SERVICE_EXT = 1200
-  # 1300-1399 : aerial lifts
-  AERIAL_LIFT_SERVICE = 1300  # Telefèric de Montjuïc, etc.
-  TELECABIN_SERVICE = 1301
-  CABLE_CAR_SERVICE = 1302
-  ELEVATOR_SERVICE = 1303
-  CHAIR_LIFT_SERVICE = 1304
-  DRAG_LIFT_SERVICE = 1305
-  SMALL_TELECABIN_SERVICE = 1306
-  ALL_TELECABIN = 1307
-  # 1400 : funicular
-  FUNICULAR_SERVICE = 1400  # Rigiblick (Zürich)
-  # 1500-1599 : taxi
-  TAXI_SERVICE = 1500
-  COMMUNAL_TAXI = 1501      # Marshrutka, dolmuş
-  WATER_TAXI = 1502
-  RAIL_TAXI = 1503
-  BIKE_TAXI = 1504
-  LICENSED_TAXI = 1505
-  PRIVATE_HIRE_VEHICLE = 1506
-  ALL_TAXI = 1507
-  # 1700-1799 : miscellaneous
-  MISCELLANEOUS_SERVICE = 1700
-  HORSE_DRAWN_CARRIAGE = 1702
-
-
-_ROUTE_TYPE_MAP: dict[int, RouteType] = {e.value: e for e in RouteType}
-
-
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
-class Route:
-  """Route: group of trips that are displayed to riders as a single service."""
-  id: str                # (PK) routes.txt/route_id    (required)
-  agency: int            # routes.txt/agency_id        (required) -> agency.txt/agency_id
-  short_name: str        # routes.txt/route_short_name (required)
-  long_name: str         # routes.txt/route_long_name  (required)
-  route_type: RouteType  # routes.txt/route_type       (required)
-  description: Optional[str]  # routes.txt/route_desc
-  url: Optional[str]          # routes.txt/route_url
-  color: Optional[str]        # routes.txt/route_color: encoded as a six-digit hexadecimal number (https://htmlcolorcodes.com)
-  text_color: Optional[str]   # routes.txt/route_text_color: encoded as a six-digit hexadecimal number
-  trips: dict[str, Trip]      # {trips.txt/trip_id: Trip}
-
-
-class _ExpectedRoutesCSVRowType(TypedDict):
-  """routes.txt"""
-  route_id: str
-  agency_id: int
-  route_short_name: str
-  route_long_name: str
-  route_type: int
-  route_desc: Optional[str]
-  route_url: Optional[str]
-  route_color: Optional[str]
-  route_text_color: Optional[str]
-
-
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
-class Agency:
-  """Transit agency."""
-  id: int    # (PK) agency.txt/agency_id (required)
-  name: str  # agency.txt/agency_name    (required)
-  url: str   # agency.txt/agency_url     (required)
-  zone: zoneinfo.ZoneInfo   # agency.txt/agency_timezone: TZ timezone from the https://www.iana.org/time-zones (required)
-  routes: dict[str, Route]  # {routes.txt/route_id: Route}
-
-
-class _ExpectedAgencyCSVRowType(TypedDict):
-  """agency.txt"""
-  agency_id: int
-  agency_name: str
-  agency_url: str
-  agency_timezone: str
-
-
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
-class CalendarService:
-  """Service dates specified using a weekly schedule & start/end dates. Includes the exceptions."""
-  id: int  # (PK) calendar.txt/service_id         (required)
-  week: tuple[bool, bool, bool, bool, bool, bool, bool]  # calendar.txt/sunday...saturday (required)
-  # NOTE: `week` starts on SUNDAY so that the index matches datetime.date.weekday();
-  #       the CSV originally has another order
-  start: datetime.date  # calendar.txt/start_date (required)
-  end: datetime.date    # calendar.txt/end_date   (required)
-  exceptions: dict[datetime.date, bool]  # {calendar_dates.txt/date: has_service?}
-  # where `has_service` comes from calendar_dates.txt/exception_type
-
-
-class _ExpectedCalendarCSVRowType(TypedDict):
-  """calendar.txt"""
-  service_id: int
-  monday: bool  # CSV originally starts on Monday, but we store starting on Sunday
-  tuesday: bool
-  wednesday: bool
-  thursday: bool
-  friday: bool
-  saturday: bool
-  sunday: bool
-  start_date: str
-  end_date: str
-
-
-class _ExpectedCalendarDatesCSVRowType(TypedDict):
-  """calendar_dates.txt"""
-  service_id: int
-  date: str
-  exception_type: str  # cannot be bool: field is '1'==added service;'2'==removed service
-
-
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class ShapePoint:
-  """Point in a shape, a place in the real world."""
-  id: str           # (PK) shapes.txt/shape_id          (required) -> shapes.txt/shape_id
-  seq: int          # (PK) shapes.txt/shape_pt_sequence (required)
-  latitude: float   # shapes.txt/shape_pt_lat - WGS84 latitude in decimal degrees (-90.0 <= lat <= 90.0)    (required)
-  longitude: float  # shapes.txt/shape_pt_lon - WGS84 longitude in decimal degrees (-180.0 <= lat <= 180.0) (required)
-  distance: float   # shapes.txt/shape_dist_traveled    (required)
-
-
-class _ExpectedShapesCSVRowType(TypedDict):
-  """shapes.txt"""
-  shape_id: str
-  shape_pt_sequence: int
-  shape_pt_lat: float
-  shape_pt_lon: float
-  shape_dist_traveled: float
-
-
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
-class Shape:
-  """Rule for mapping vehicle travel paths (aka. route alignments)."""
-  id: str                        # (PK) shapes.txt/shape_id (required)
-  points: dict[int, ShapePoint]  # {shapes.txt/shape_pt_sequence: ShapePoint}
-
-
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
-class OfficialFiles:
-  """Official GTFS files."""
-  tm: float  # timestamp of last pull of the official CSV
-  files: dict[str, dict[str, Optional[FileMetadata]]]  # {provider: {url: FileMetadata}}
-
-
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
-class GTFSData:
-  """GTFS data."""
-  tm: float             # timestamp of last DB save
-  files: OfficialFiles  # the available GTFS files
-  agencies: dict[int, Agency]           # {agency.txt/agency_id, Agency}
-  calendar: dict[int, CalendarService]  # {calendar.txt/service_id, CalendarService}
-  shapes: dict[str, Shape]              # {shapes.txt/shape_id, Shape}
-  stops: dict[str, BaseStop]            # {stops.txt/stop_id, BaseStop}
-
-
 # useful aliases
 _GTFSRowHandler = Callable[
     [_TableLocation, int, dict[str, Union[None, str, int, float, bool]]], None]
@@ -489,7 +101,7 @@ class GTFS:
     if not db_path:
       raise Error('DB path cannot be empty')
     self._db_path: str = db_path.strip()
-    self._db: GTFSData
+    self._db: dm.GTFSData
     self._changed = False
     # load DB, or create if new
     if os.path.exists(self._db_path):
@@ -500,23 +112,23 @@ class GTFS:
       logging.info('DB freshness: %s', base.STD_TIME_STRING(self._db.tm))
     else:
       # DB does not exist: create empty
-      self._db = GTFSData(  # empty DB
-          tm=0.0, files=OfficialFiles(tm=0.0, files={}),
+      self._db = dm.GTFSData(  # empty DB
+          tm=0.0, files=dm.OfficialFiles(tm=0.0, files={}),
           agencies={}, calendar={}, shapes={}, stops={})
       self.Save(force=True)
     # create file handlers structure
     self._file_handlers: dict[str, tuple[_GTFSRowHandler, type, dict[str, tuple[type, bool]], set[str]]] = {  # type:ignore
         # {file_name: (handler, TypedDict_row_definition,
         #              {field: (type, required?)}, {required1, required2, ...})}
-        'feed_info.txt': (self._HandleFeedInfoRow, _ExpectedFeedInfoCSVRowType, {}, set()),
-        'agency.txt': (self._HandleAgencyRow, _ExpectedAgencyCSVRowType, {}, set()),
-        'calendar.txt': (self._HandleCalendarRow, _ExpectedCalendarCSVRowType, {}, set()),
-        'calendar_dates.txt': (self._HandleCalendarDatesRow, _ExpectedCalendarDatesCSVRowType, {}, set()),
-        'routes.txt': (self._HandleRoutesRow, _ExpectedRoutesCSVRowType, {}, set()),
-        'shapes.txt': (self._HandleShapesRow, _ExpectedShapesCSVRowType, {}, set()),
-        'trips.txt': (self._HandleTripsRow, _ExpectedTripsCSVRowType, {}, set()),
-        'stops.txt': (self._HandleStopsRow, _ExpectedStopsCSVRowType, {}, set()),
-        'stop_times.txt': (self._HandleStopTimesRow, _ExpectedStopTimesCSVRowType, {}, set()),
+        'feed_info.txt': (self._HandleFeedInfoRow, dm.ExpectedFeedInfoCSVRowType, {}, set()),
+        'agency.txt': (self._HandleAgencyRow, dm.ExpectedAgencyCSVRowType, {}, set()),
+        'calendar.txt': (self._HandleCalendarRow, dm.ExpectedCalendarCSVRowType, {}, set()),
+        'calendar_dates.txt': (self._HandleCalendarDatesRow, dm.ExpectedCalendarDatesCSVRowType, {}, set()),
+        'routes.txt': (self._HandleRoutesRow, dm.ExpectedRoutesCSVRowType, {}, set()),
+        'shapes.txt': (self._HandleShapesRow, dm.ExpectedShapesCSVRowType, {}, set()),
+        'trips.txt': (self._HandleTripsRow, dm.ExpectedTripsCSVRowType, {}, set()),
+        'stops.txt': (self._HandleStopsRow, dm.ExpectedStopsCSVRowType, {}, set()),
+        'stop_times.txt': (self._HandleStopTimesRow, dm.ExpectedStopTimesCSVRowType, {}, set()),
     }
     # fill in types, derived from the _Expected*CSVRowType TypedDicts
     for file_name, (_, expected, fields, required) in self._file_handlers.items():
@@ -551,7 +163,7 @@ class GTFS:
       logging.info('Saved DB to %r (%s)', self._db_path, tm_save.readable)
 
   @functools.lru_cache(maxsize=1 << 14)
-  def _FindRoute(self, route_id: str) -> Optional[Agency]:
+  def _FindRoute(self, route_id: str) -> Optional[dm.Agency]:
     """Find route by finding its Agency."""
     for agency in self._db.agencies.values():
       if route_id in agency.routes:
@@ -559,7 +171,7 @@ class GTFS:
     return None
 
   @functools.lru_cache(maxsize=1 << 16)
-  def _FindTrip(self, trip_id: str) -> tuple[Optional[Agency], Optional[Route]]:
+  def _FindTrip(self, trip_id: str) -> tuple[Optional[dm.Agency], Optional[dm.Route]]:
     """Find route by finding its Agency & Route."""
     for agency in self._db.agencies.values():
       for route in agency.routes.values():
@@ -574,8 +186,8 @@ class GTFS:
   def _LoadCSVSources(self) -> None:
     """Loads GTFS official sources from CSV."""
     # get the file and parse it
-    new_files: dict[str, dict[str, Optional[FileMetadata]]] = {}
-    with urllib.request.urlopen(_OFFICIAL_GTFS_CSV) as gtfs_csv:
+    new_files: dict[str, dict[str, Optional[dm.FileMetadata]]] = {}
+    with urllib.request.urlopen(dm.OFFICIAL_GTFS_CSV) as gtfs_csv:
       text_csv = io.TextIOWrapper(gtfs_csv, encoding='utf-8')
       for i, row in enumerate(csv.reader(text_csv)):
         if len(row) != 2:
@@ -587,7 +199,7 @@ class GTFS:
         # we have a row
         new_files.setdefault(row[0], {})[row[1]] = None
     # check the operators we care about are included!
-    for operator in _KNOWN_OPERATORS:
+    for operator in dm.KNOWN_OPERATORS:
       if operator not in new_files:
         raise Error(f'Operator {operator!r} not in loaded CSV!')
     # we have the file loaded
@@ -619,7 +231,7 @@ class GTFS:
     operator, link = operator.strip(), link.strip()
     if not operator or operator not in self._db.files.files:
       raise Error(f'invalid operator {operator!r}')
-    operator_files: dict[str, Optional[FileMetadata]] = self._db.files.files[operator]
+    operator_files: dict[str, Optional[dm.FileMetadata]] = self._db.files.files[operator]
     if not link or link not in operator_files:
       raise Error(f'invalid URL {link!r}')
     # load ZIP from URL
@@ -646,7 +258,7 @@ class GTFS:
         finally:
           done_files.add(file_name)
     # finished loading the files, check that we loaded all required files
-    if (missing_files := _REQUIRED_FILES - done_files):
+    if (missing_files := dm.REQUIRED_FILES - done_files):
       raise ParseError(f'Missing required files: {operator} {missing_files!r}')
     self._changed = True
 
@@ -743,7 +355,7 @@ class GTFS:
   #   """
 
   def _HandleFeedInfoRow(
-      self, location: _TableLocation, count: int, row: _ExpectedFeedInfoCSVRowType) -> None:
+      self, location: _TableLocation, count: int, row: dm.ExpectedFeedInfoCSVRowType) -> None:
     """Handler: "feed_info.txt" Information on the GTFS ZIP file being processed.
 
     (no primary key)
@@ -768,7 +380,7 @@ class GTFS:
       raise RowError(f'incompatible start/end dates in {location}: {row}')
     # check against current version (and log)
     tm: float = time.time()
-    current_data: Optional[FileMetadata] = self._db.files.files[location.operator][location.link]
+    current_data: Optional[dm.FileMetadata] = self._db.files.files[location.operator][location.link]
     if current_data is None:
       logging.info(
           'Loading version %r @ %s for %s/%s',
@@ -790,13 +402,13 @@ class GTFS:
           current_data.version, base.STD_TIME_STRING(current_data.tm),
           row['feed_version'], base.STD_TIME_STRING(tm), location.operator, location.link)
     # update
-    self._db.files.files[location.operator][location.link] = FileMetadata(
+    self._db.files.files[location.operator][location.link] = dm.FileMetadata(
         tm=tm, publisher=row['feed_publisher_name'], url=row['feed_publisher_url'],
         language=row['feed_lang'], start=start, end=end,
         version=row['feed_version'], email=row['feed_contact_email'])
 
   def _HandleAgencyRow(
-      self, location: _TableLocation, count: int, row: _ExpectedAgencyCSVRowType) -> None:
+      self, location: _TableLocation, count: int, row: dm.ExpectedAgencyCSVRowType) -> None:
     """Handler: "agency.txt" Transit agencies.
 
     pk: agency_id
@@ -814,12 +426,12 @@ class GTFS:
       raise RowError(
           f'agency.txt table ({location}) is only supported to have 1 row (got {count}): {row}')
     # update
-    self._db.agencies[row['agency_id']] = Agency(
+    self._db.agencies[row['agency_id']] = dm.Agency(
         id=row['agency_id'], name=row['agency_name'], url=row['agency_url'],
         zone=zoneinfo.ZoneInfo(row['agency_timezone']), routes={})
 
   def _HandleCalendarRow(
-      self, location: _TableLocation, count: int, row: _ExpectedCalendarCSVRowType) -> None:
+      self, location: _TableLocation, count: int, row: dm.ExpectedCalendarCSVRowType) -> None:
     """Handler: "calendar.txt" Service dates specified using a weekly schedule & start/end dates.
 
     pk: service_id
@@ -838,7 +450,7 @@ class GTFS:
     if start > end:
       raise RowError(f'inconsistent row @{count} / {location}: {row}')
     # update
-    self._db.calendar[row['service_id']] = CalendarService(
+    self._db.calendar[row['service_id']] = dm.CalendarService(
         id=row['service_id'],
         week=(row['sunday'], row['monday'], row['tuesday'], row['wednesday'],
               row['thursday'], row['friday'], row['saturday']),
@@ -846,7 +458,7 @@ class GTFS:
 
   def _HandleCalendarDatesRow(
       self, unused_location: _TableLocation, unused_count: int,
-      row: _ExpectedCalendarDatesCSVRowType) -> None:
+      row: dm.ExpectedCalendarDatesCSVRowType) -> None:
     """Handler: "calendar_dates.txt" Exceptions for the services defined in the calendar table.
 
     pk: (calendar/service_id, date) / ref: calendar/service_id
@@ -864,7 +476,7 @@ class GTFS:
 
   def _HandleRoutesRow(
       self, unused_location: _TableLocation, unused_count: int,
-      row: _ExpectedRoutesCSVRowType) -> None:
+      row: dm.ExpectedRoutesCSVRowType) -> None:
     """Handler: "routes.txt" Routes: group of trips that are displayed to riders as a single service.
 
     pk: route_id / ref: agency/agency_id
@@ -877,14 +489,14 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
-    self._db.agencies[row['agency_id']].routes[row['route_id']] = Route(
+    self._db.agencies[row['agency_id']].routes[row['route_id']] = dm.Route(
         id=row['route_id'], agency=row['agency_id'], short_name=row['route_short_name'],
         long_name=row['route_long_name'], route_type=_ROUTE_TYPE_MAP[row['route_type']],
         description=row['route_desc'], url=row['route_url'],
         color=row['route_color'], text_color=row['route_text_color'], trips={})
 
   def _HandleShapesRow(
-      self, location: _TableLocation, count: int, row: _ExpectedShapesCSVRowType) -> None:
+      self, location: _TableLocation, count: int, row: dm.ExpectedShapesCSVRowType) -> None:
     """Handler: "shapes.txt" Rules for mapping vehicle travel paths (aka. route alignments).
 
     pk: (shape_id, shape_pt_sequence)
@@ -904,14 +516,14 @@ class GTFS:
       raise RowError(f'empty/invalid row @{count} / {location}: {row}')
     # update
     if row['shape_id'] not in self._db.shapes:
-      self._db.shapes[row['shape_id']] = Shape(id=row['shape_id'], points={})
-    self._db.shapes[row['shape_id']].points[row['shape_pt_sequence']] = ShapePoint(
+      self._db.shapes[row['shape_id']] = dm.Shape(id=row['shape_id'], points={})
+    self._db.shapes[row['shape_id']].points[row['shape_pt_sequence']] = dm.ShapePoint(
         id=row['shape_id'], seq=row['shape_pt_sequence'],
         latitude=row['shape_pt_lat'], longitude=row['shape_pt_lon'],
         distance=row['shape_dist_traveled'])
 
   def _HandleTripsRow(
-      self, location: _TableLocation, count: int, row: _ExpectedTripsCSVRowType) -> None:
+      self, location: _TableLocation, count: int, row: dm.ExpectedTripsCSVRowType) -> None:
     """Handler: "trips.txt" Trips for each route.
 
     A trip is a sequence of two or more stops that occur during a specific time period.
@@ -926,18 +538,18 @@ class GTFS:
       RowError: error parsing this record
     """
     # check
-    agency: Optional[Agency] = self._FindRoute(row['route_id'])
+    agency: Optional[dm.Agency] = self._FindRoute(row['route_id'])
     if agency is None:
       raise RowError(f'agency in row was not found @{count} / {location}: {row}')
     # update
-    self._db.agencies[agency.id].routes[row['route_id']].trips[row['trip_id']] = Trip(
+    self._db.agencies[agency.id].routes[row['route_id']].trips[row['trip_id']] = dm.Trip(
         id=row['trip_id'], route=row['route_id'], agency=agency.id,
         service=row['service_id'], shape=row['shape_id'], headsign=row['trip_headsign'],
         name=row['trip_short_name'], block=row['block_id'],
         direction=row['direction_id'], stops={})
 
   def _HandleStopsRow(
-      self, location: _TableLocation, count: int, row: _ExpectedStopsCSVRowType) -> None:
+      self, location: _TableLocation, count: int, row: dm.ExpectedStopsCSVRowType) -> None:
     """Handler: "stops.txt" Stops where vehicles pick up or drop-off riders.
 
     Also defines stations and station entrances.
@@ -952,21 +564,21 @@ class GTFS:
       RowError: error parsing this record
     """
     # get data, check
-    location_type: LocationType = (
-        _LOCATION_TYPE_MAP[row['location_type']] if row['location_type'] else LocationType.STOP)
+    location_type: dm.LocationType = (
+        _LOCATION_TYPE_MAP[row['location_type']] if row['location_type'] else dm.LocationType.STOP)
     if not -90.0 <= row['stop_lat'] <= 90.0 or not -180.0 <= row['stop_lon'] <= 180.0:
       raise RowError(f'invalid latitude/longitude @{count} / {location}: {row}')
     if row['parent_station'] and row['parent_station'] not in self._db.stops:
       raise RowError(f'parent_station in row was not found @{count} / {location}: {row}')
     # update
-    self._db.stops[row['stop_id']] = BaseStop(
+    self._db.stops[row['stop_id']] = dm.BaseStop(
         id=row['stop_id'], parent=row['parent_station'], code=row['stop_code'],
         name=row['stop_name'], latitude=row['stop_lat'], longitude=row['stop_lon'],
         zone=row['zone_id'], description=row['stop_desc'],
         url=row['stop_url'], location=location_type)
 
   def _HandleStopTimesRow(
-      self, location: _TableLocation, count: int, row: _ExpectedStopTimesCSVRowType) -> None:
+      self, location: _TableLocation, count: int, row: dm.ExpectedStopTimesCSVRowType) -> None:
     """Handler: "stop_times.txt" Times that a vehicle arrives/departs from stops for each trip.
 
     pk: (trips/trip_id, stop_sequence) / ref: stops/stop_id
@@ -982,14 +594,14 @@ class GTFS:
     # get data, check if empty
     arrival: int = HMSToSeconds(row['arrival_time'])
     departure: int = HMSToSeconds(row['departure_time'])
-    pickup: StopPointType = (
-        _STOP_POINT_TYPE_MAP[row['pickup_type']] if row['pickup_type'] else StopPointType.REGULAR)
+    pickup: dm.StopPointType = (
+        _STOP_POINT_TYPE_MAP[row['pickup_type']] if row['pickup_type'] else dm.StopPointType.REGULAR)
     if row['drop_off_type'] is None and row['dropoff_type'] is not None:
-      dropoff: StopPointType = StopPointType(row['dropoff_type'])  # old spelling
+      dropoff: dm.StopPointType = dm.StopPointType(row['dropoff_type'])  # old spelling
     else:
-      dropoff: StopPointType = (
+      dropoff: dm.StopPointType = (
           _STOP_POINT_TYPE_MAP[row['drop_off_type']] if row['drop_off_type'] else
-          StopPointType.REGULAR)
+          dm.StopPointType.REGULAR)
     if arrival < 0 or departure < 0 or arrival > departure:
       raise RowError(f'invalid row @{count} / {location}: {row}')
     if row['stop_id'] not in self._db.stops:
@@ -998,7 +610,7 @@ class GTFS:
     if not agency or not route:
       raise RowError(f'trip_id in row was not found @{count} / {location}: {row}')
     # update
-    self._db.agencies[agency.id].routes[route.id].trips[row['trip_id']].stops[row['stop_sequence']] = Stop(
+    self._db.agencies[agency.id].routes[route.id].trips[row['trip_id']].stops[row['stop_sequence']] = dm.Stop(
         id=row['trip_id'], seq=row['stop_sequence'], stop=row['stop_id'],
         agency=agency.id, route=route.id, arrival=arrival, departure=departure,
         timepoint=row['timepoint'], headsign=row['stop_headsign'],
@@ -1040,7 +652,7 @@ def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
   """
   with zipfile.ZipFile(in_file, 'r') as zip_ref:
     file_names: list[str] = sorted(zip_ref.namelist())
-    for n in _LOAD_ORDER[::-1]:
+    for n in dm.LOAD_ORDER[::-1]:
       if n in file_names:
         file_names.remove(n)
         file_names.insert(0, n)
