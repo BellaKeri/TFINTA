@@ -452,8 +452,8 @@ class GTFS:
     # update
     self._db.calendar[row['service_id']] = dm.CalendarService(
         id=row['service_id'],
-        week=(row['sunday'], row['monday'], row['tuesday'], row['wednesday'],
-              row['thursday'], row['friday'], row['saturday']),
+        week=(row['monday'], row['tuesday'], row['wednesday'],
+              row['thursday'], row['friday'], row['saturday'], row['sunday']),
         start=start, end=end, exceptions={})
 
   def _HandleCalendarDatesRow(
@@ -569,6 +569,7 @@ class GTFS:
     if not -90.0 <= row['stop_lat'] <= 90.0 or not -180.0 <= row['stop_lon'] <= 180.0:
       raise RowError(f'invalid latitude/longitude @{count} / {location}: {row}')
     if row['parent_station'] and row['parent_station'] not in self._db.stops:
+      #  the GTFS spec does not guarantee parents precede children, but for now we will enforce it
       raise RowError(f'parent_station in row was not found @{count} / {location}: {row}')
     # update
     self._db.stops[row['stop_id']] = dm.BaseStop(
@@ -595,13 +596,15 @@ class GTFS:
     arrival: int = HMSToSeconds(row['arrival_time'])
     departure: int = HMSToSeconds(row['departure_time'])
     pickup: dm.StopPointType = (
-        _STOP_POINT_TYPE_MAP[row['pickup_type']] if row['pickup_type'] else dm.StopPointType.REGULAR)
-    if row['drop_off_type'] is None and row['dropoff_type'] is not None:
-      dropoff: dm.StopPointType = dm.StopPointType(row['dropoff_type'])  # old spelling
+        _STOP_POINT_TYPE_MAP[row['pickup_type']] if row['pickup_type'] else
+        dm.StopPointType.REGULAR)
+    dropoff: dm.StopPointType
+    if row['drop_off_type'] is not None:
+      dropoff = dm.StopPointType(row['drop_off_type'])  # new spelling
+    elif row['dropoff_type'] is not None:
+      dropoff = dm.StopPointType(row['dropoff_type'])   # old spelling
     else:
-      dropoff: dm.StopPointType = (
-          _STOP_POINT_TYPE_MAP[row['drop_off_type']] if row['drop_off_type'] else
-          dm.StopPointType.REGULAR)
+      dropoff = dm.StopPointType.REGULAR
     if arrival < 0 or departure < 0 or arrival > departure:
       raise RowError(f'invalid row @{count} / {location}: {row}')
     if row['stop_id'] not in self._db.stops:

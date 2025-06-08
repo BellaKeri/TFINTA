@@ -333,9 +333,7 @@ class ExpectedAgencyCSVRowType(TypedDict):
 class CalendarService:
   """Service dates specified using a weekly schedule & start/end dates. Includes the exceptions."""
   id: int  # (PK) calendar.txt/service_id         (required)
-  week: tuple[bool, bool, bool, bool, bool, bool, bool]  # calendar.txt/sunday...saturday (required)
-  # NOTE: `week` starts on SUNDAY so that the index matches datetime.date.weekday();
-  #       the CSV originally has another order
+  week: tuple[bool, bool, bool, bool, bool, bool, bool]  # calendar.txt/monday...sunday (required)
   start: datetime.date  # calendar.txt/start_date (required)
   end: datetime.date    # calendar.txt/end_date   (required)
   exceptions: dict[datetime.date, bool]  # {calendar_dates.txt/date: has_service?}
@@ -345,7 +343,7 @@ class CalendarService:
 class ExpectedCalendarCSVRowType(TypedDict):
   """calendar.txt"""
   service_id: int
-  monday: bool  # CSV originally starts on Monday, but we store starting on Sunday
+  monday: bool
   tuesday: bool
   wednesday: bool
   thursday: bool
