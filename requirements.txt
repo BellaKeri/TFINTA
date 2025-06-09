@@ -1,2 +1,5 @@
 
+coverage>=7.8.2
+tomli>=2.2.1
+
 baselib @ git+https://github.com/balparda/baselib.git@1.2

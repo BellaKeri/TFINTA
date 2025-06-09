@@ -1,0 +1,24 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+
+  "cSpell.words": [
+    "Daly",
+    "dolmuş",
+    "dropoff",
+    "Eurolines",
+    "Eurostar",
+    "Greystones",
+    "headsign",
+    "Howth",
+    "Marshrutka",
+    "Métro",
+    "Montjuïc",
+    "Regio",
+    "Regionalzug",
+    "Rigiblick",
+    "TELECABIN",
+    "Telefèric",
+    "timepoint"
+  ]
+}

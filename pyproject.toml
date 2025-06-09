@@ -14,10 +14,12 @@ authors = [
   { name = "KeriBella", email = "keribella@git.com" },
   { name = "Daniel Balparda", email = "balparda@gmail.com" }
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.11"  # if version changes, see .vscode/tasks.json & README.md
 dependencies = [
   # Baselib pulled straight from a tagged commit on GitHub
   "baselib @ git+https://github.com/balparda/baselib.git@1.2",
+  "coverage>=7.8.2",
+  "tomli>=2.2.1"
 ]
 
 # test with:
