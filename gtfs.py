@@ -37,11 +37,13 @@ __version__ = (1, 0)
 
 
 # defaults
-_DEFAULT_DAYS_FRESHNESS = 1
+_DEFAULT_DAYS_FRESHNESS = 10
 _SECONDS_IN_DAY = 60 * 60 * 24
 _DAYS_OLD: Callable[[float], float] = lambda t: (time.time() - t) / _SECONDS_IN_DAY
-_DATA_DIR: str = base.MODULE_PRIVATE_DIR(__file__, '.tfinta-data')
-_DEFAULT_DB_FILE: str = os.path.join(_DATA_DIR, 'transit.db')
+DEFAULT_DATA_DIR: str = base.MODULE_PRIVATE_DIR(__file__, '.tfinta-data')
+_DB_FILE_NAME = 'transit.db'
+IRISH_RAIL_OPERATOR = 'Iarnród Éireann / Irish Rail'
+IRISH_RAIL_LINK = 'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip'
 
 # data parsing utils
 _DATETIME_OBJ: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(
@@ -92,16 +94,20 @@ _GTFSRowHandler = Callable[
 class GTFS:
   """GTFS database."""
 
-  def __init__(self, db_path: str) -> None:
+  def __init__(self, db_dir_path: str) -> None:
     """Constructor.
 
     Args:
-      db_path: Complete path to save DB to
+      db_dir_path: Path to directory in which to save DB 'transit.db'
     """
-    # save the path
-    if not db_path:
-      raise Error('DB path cannot be empty')
-    self._db_path: str = db_path.strip()
+    # save the dir/path, create directory if needed
+    self._dir_path: str = db_dir_path.strip()
+    if not self._dir_path:
+      raise Error('DB dir path cannot be empty')
+    if not os.path.isdir(self._dir_path):
+      os.mkdir(self._dir_path)
+      logging.info('Created data directory: %s', self._dir_path)
+    self._db_path: str = os.path.join(self._dir_path, _DB_FILE_NAME)
     self._db: dm.GTFSData
     self._changed = False
     # load DB, or create if new
@@ -179,7 +185,41 @@ class GTFS:
           return (agency, route)
     return (None, None)
 
+  def FindAgencyRoute(
+      self, agency_name: str, route_type: dm.RouteType, short_name: str,
+      long_name: Optional[str] = None) -> tuple[Optional[dm.Agency], Optional[dm.Route]]:
+    """Find a route in an agency, by name.
+
+    Args:
+      agency_name: Agency name
+      route_type: dm.RouteType
+      short_name: Route short name
+      long_name: (default None) If given, will also match long name
+
+    Returns:
+      (Agency, Route) or (None, None) if not found
+    """
+    agency_name = agency_name.strip()
+    short_name = short_name.strip()
+    long_name = long_name.strip() if long_name else None
+    # find Agency
+    for agency in self._db.agencies.values():
+      if agency.name.lower() == agency_name.lower():
+        break
+    else:
+      return (None, None)
+    # find Route
+    for route in agency.routes.values():
+      if route.route_type == route_type and route.short_name == short_name:
+        if long_name:
+          if route.long_name == long_name:
+            return (agency, route)
+        else:
+          return (agency, route)
+    return (agency, None)
+
   def _InvalidateCaches(self) -> None:
+    """Clear all caches."""
     self._FindRoute.cache_clear()
     self._FindTrip.cache_clear()
 
@@ -635,10 +675,13 @@ class GTFS:
         pickup=pickup, dropoff=dropoff)
 
   def LoadData(
-      self, freshness: int = _DEFAULT_DAYS_FRESHNESS, force_replace: bool = False) -> None:
+      self, operator: str, link: str,
+      freshness: int = _DEFAULT_DAYS_FRESHNESS, force_replace: bool = False) -> None:
     """Downloads and parses GTFS data.
 
     Args:
+      operator: Operator for GTFS file
+      link: URL for GTFS file
       freshness: (default 1) Number of days before data is not fresh anymore and
           has to be reloaded from source
       force_replace: (default False) If True will parse a repeated version of the ZIP file
@@ -650,10 +693,7 @@ class GTFS:
     else:
       logging.info('Sources are fresh (%0.1f days old) - SKIP', age)
     # load GTFS data we are interested in
-    self._LoadGTFSSource(
-        'Iarnród Éireann / Irish Rail',
-        'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip',
-        force_replace=force_replace)
+    self._LoadGTFSSource(operator, link, force_replace=force_replace)
 
 
 def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
@@ -739,17 +779,16 @@ def Main() -> None:
   print(f'***********************************************{base.TERM_END}')
   success_message: str = f'{base.TERM_WARNING}premature end? user paused?'
   try:
-    # open DB, create directory if needed
-    if not os.path.isdir(_DATA_DIR):
-      os.mkdir(_DATA_DIR)
-      logging.info('Created data directory: %s', _DATA_DIR)
-    database = GTFS(_DEFAULT_DB_FILE)
+    # open DB
+    database = GTFS(DEFAULT_DATA_DIR)
     # execute the command
     print()
     with base.Timer() as op_timer:
       # "read" command
       if command == 'read':
-        database.LoadData(freshness=args.freshness, force_replace=bool(args.replace))
+        database.LoadData(
+            IRISH_RAIL_OPERATOR, IRISH_RAIL_LINK,
+            freshness=args.freshness, force_replace=bool(args.replace))
       # "print" command
       elif command == 'print':
         raise NotImplementedError()
