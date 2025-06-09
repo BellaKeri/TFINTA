@@ -38,6 +38,7 @@ __version__ = (1, 0)
 
 # defaults
 _DEFAULT_DAYS_FRESHNESS = 10
+_DAYS_CACHE_FRESHNESS = 1
 _SECONDS_IN_DAY = 60 * 60 * 24
 _DAYS_OLD: Callable[[float], float] = lambda t: (time.time() - t) / _SECONDS_IN_DAY
 DEFAULT_DATA_DIR: str = base.MODULE_PRIVATE_DIR(__file__, '.tfinta-data')
@@ -292,13 +293,33 @@ class GTFS:
     # load ZIP from URL
     done_files: set[str] = set()
     file_name: str
+    cache_file_name: str = link.replace('://', '__').replace('/', '_')
+    cache_file_path: str = os.path.join(self._dir_path, cache_file_name)
+    save_cache_file: bool
     with self._ParsingSession():
-      with urllib.request.urlopen(link) as gtfs_zip:
-        # extract files from ZIP
+      if (not force_replace and os.path.exists(cache_file_path) and
+          (age := _DAYS_OLD(os.path.getmtime(cache_file_path))) <= _DAYS_CACHE_FRESHNESS):
+        # we will used the cached ZIP
+        logging.warning('Loading from %0.2f days old cache on disk! (use -r to override)', age)
+        url_opener = open(cache_file_path, 'rb')
+        save_cache_file = False
+      else:
+        # we will re-download from the URL
+        url_opener = urllib.request.urlopen(link)
+        save_cache_file = True
+      # open from whatever source
+      with url_opener as gtfs_zip:
+        # get ZIP binary content, and if we got from URL save to cache
         gtfs_zip_bytes: bytes = gtfs_zip.read()
         logging.info(
-            'Loading %r data, %s,from %r',
-            operator, base.HumanizedBytes(len(gtfs_zip_bytes)), link)
+            'Loading %r data, %s, from %r%s',
+            operator, base.HumanizedBytes(len(gtfs_zip_bytes)),
+            link if save_cache_file else cache_file_name,
+            ' => SAVING to cache' if save_cache_file else '')
+        if save_cache_file:
+          with open(cache_file_path, 'wb') as cache_file_obj:
+            cache_file_obj.write(gtfs_zip_bytes)
+        # extract files from ZIP
         for file_name, file_data in _UnzipFiles(io.BytesIO(gtfs_zip_bytes)):
           file_name = file_name.strip()
           location = _TableLocation(operator=operator, link=link, file_name=file_name)
@@ -682,18 +703,24 @@ class GTFS:
     Args:
       operator: Operator for GTFS file
       link: URL for GTFS file
-      freshness: (default 1) Number of days before data is not fresh anymore and
+      freshness: (default 10) Number of days before data is not fresh anymore and
           has to be reloaded from source
       force_replace: (default False) If True will parse a repeated version of the ZIP file
     """
     # first load the list of GTFS, if needed
     if (age := _DAYS_OLD(self._db.files.tm)) > freshness:
-      logging.info('Loading CSV sources (%0.1f days old)', age)
+      logging.info('Loading CSV sources (%0.2f days old)', age)
       self._LoadCSVSources()
     else:
-      logging.info('Sources are fresh (%0.1f days old) - SKIP', age)
+      logging.info('CSV sources are fresh (%0.2f days old) - SKIP', age)
     # load GTFS data we are interested in
-    self._LoadGTFSSource(operator, link, force_replace=force_replace)
+    if (not force_replace and operator in self._db.files.files and
+        link in self._db.files.files[operator] and
+        (age := _DAYS_OLD(self._db.files.files[operator][link].tm)) <= freshness):  # type:ignore
+      logging.info('GTFS sources are fresh (%0.2f days old) - SKIP', age)
+    else:
+      logging.info('Parsing GTFS ZIP source (%0.2f days old)', age)
+      self._LoadGTFSSource(operator, link, force_replace=force_replace)
 
 
 def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
