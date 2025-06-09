@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2025 Daniel Balparda (balparda@gmail.com)
 # GNU General Public License v3

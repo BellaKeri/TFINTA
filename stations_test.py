@@ -1,4 +1,4 @@
-#!/usr/bin/python3 -bb
+#!/usr/bin/env python3
 #
 # Copyright 2025 Daniel Balparda (balparda@gmail.com)
 # GNU General Public License v3 (http://www.gnu.org/licenses/gpl-3.0.txt)
