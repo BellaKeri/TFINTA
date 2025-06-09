@@ -22,7 +22,6 @@ XMLType = xml.dom.minidom.Document
 XMLElement = xml.dom.minidom.Element
 
 
-
 @dataclasses.dataclass
 class Station:
   """Stations data."""
@@ -32,6 +31,12 @@ class Station:
   station_long: float
   station_code: str
   station_id: int
+
+
+def Sum(a: int, b: int) -> int:
+  # TODO: remove (just for learning)
+  g: int = a + b
+  return g
 
 
 def LoadStations() -> str:
@@ -74,7 +79,7 @@ def StationDict(stations: list[XMLElement]) -> dict[int, Station]:
     code = station.getElementsByTagName('StationCode')[0].firstChild.nodeValue
     id = station.getElementsByTagName('StationId')[0].firstChild.nodeValue
     dict_names[int(id)] = Station(
-        station_alias=None if alias_child is None else alias_child.nodeValue, station_code=str(code), 
+        station_alias=None if alias_child is None else alias_child.nodeValue, station_code=str(code),
         station_des=str(desc), station_lat=float(lat), station_long=float(long), station_id=int(id))
   return dict_names
 
