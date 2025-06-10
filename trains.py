@@ -6,13 +6,19 @@
 """Running Trains Loader."""
 
 # import logging
-# import pdb
+# import pdb(ativar quando for programmar, ajuda a ver os erros.)
+
+import urllib.request
+import xml.dom.minidom
 
 __author__ = 'BellaKeri@github.com'
 __version__ = (1, 0)
 
 
-ALL_RUNNING_TRAINS_URL = ''
+ALL_RUNNING_TRAINS_URL = 'http://api.irishrail.ie/realtime/realtime.asmx/getCurrentTrainsXML'
+
+XMLType = xml.dom.minidom.Document
+XMLElement = xml.dom.minidom.Element
 
 # Get the Trains code.
 
