@@ -40,7 +40,7 @@ __version__ = (1, 0)
 _DEFAULT_DAYS_FRESHNESS = 10
 _DAYS_CACHE_FRESHNESS = 1
 _SECONDS_IN_DAY = 60 * 60 * 24
-_DAYS_OLD: Callable[[float], float] = lambda t: (time.time() - t) / _SECONDS_IN_DAY
+DAYS_OLD: Callable[[float], float] = lambda t: (time.time() - t) / _SECONDS_IN_DAY
 DEFAULT_DATA_DIR: str = base.MODULE_PRIVATE_DIR(__file__, '.tfinta-data')
 _DB_FILE_NAME = 'transit.db'
 IRISH_RAIL_OPERATOR = 'Iarnród Éireann / Irish Rail'
@@ -51,7 +51,7 @@ _DATETIME_OBJ: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.
     s, '%Y%m%d')
 # _UTC_DATE: Callable[[str], float] = lambda s: _DATETIME_OBJ(s).replace(
 #     tzinfo=datetime.timezone.utc).timestamp()
-_DATE_OBJ: Callable[[str], datetime.date] = lambda s: _DATETIME_OBJ(s).date()
+DATE_OBJ: Callable[[str], datetime.date] = lambda s: _DATETIME_OBJ(s).date()
 
 # type maps for efficiency and memory (so we don't build countless enum objects)
 _LOCATION_TYPE_MAP: dict[int, dm.LocationType] = {e.value: e for e in dm.LocationType}
@@ -90,6 +90,36 @@ class _TableLocation:
 # useful aliases
 _GTFSRowHandler = Callable[
     [_TableLocation, int, dict[str, Union[None, str, int, float, bool]]], None]
+
+
+def HMSToSeconds(time_str: str) -> int:
+  """Accepts 'H:MM:SS' or 'HH:MM:SS' and returns total seconds since 00:00:00.
+
+  Supports hours ≥ 0 with no upper bound. Very flexible, will even accept 'H:M:S' for example.
+
+  Args:
+    time_str: String to convert ('H:MM:SS' or 'HH:MM:SS')
+
+  Raises:
+    ValueError: malformed input
+  """
+  try:
+    h_str, m_str, s_str = time_str.split(':')
+  except ValueError as err:
+    raise ValueError(f'bad time literal {time_str!r}') from err
+  h, m, s = int(h_str), int(m_str), int(s_str)
+  if not (0 <= m < 60 and 0 <= s < 60):
+    raise ValueError(f'bad time literal {time_str!r}: minute and second must be 0-59')
+  return h * 3600 + m * 60 + s
+
+
+def SecondsToHMS(sec: int) -> str:
+  """Seconds from midnight to 'HH:MM:SS' representation. Supports any positive integer."""
+  if sec < 0:
+    raise ValueError(f'no negative time allowed, got {sec}')
+  h, sec = divmod(sec, 3600)
+  m, s = divmod(sec, 60)
+  return f'{h:02d}:{m:02d}:{s:02d}'
 
 
 class GTFS:
@@ -186,6 +216,29 @@ class GTFS:
           return (agency, route)
     return (None, None)
 
+  @functools.lru_cache(maxsize=1 << 10)
+  def StopName(self, stop_id: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    """Gets (code, name, description) for a Stop object of `id`."""
+    if stop_id not in self._db.stops:
+      return (None, None, None)
+    stop: dm.BaseStop = self._db.stops[stop_id]
+    return (stop.code, stop.name, stop.description)
+
+  def ServicesForDay(self, day: datetime.date) -> set[int]:
+    """Return set[int] of services active (available/running/operating) on this day."""
+    weekday: int = day.weekday()
+    services: set[int] = set()
+    # go over available services
+    for service, calendar in self._db.calendar.items():
+      if calendar.start <= day <= calendar.end:
+        # day is in range for this service; check day of week and the exceptions
+        weekday_service: bool = calendar.week[weekday]
+        service_exception: Optional[bool] = calendar.exceptions.get(day)
+        has_service: bool = service_exception if service_exception is not None else weekday_service
+        if has_service:
+          services.add(service)
+    return services
+
   def FindAgencyRoute(
       self, agency_name: str, route_type: dm.RouteType, short_name: str,
       long_name: Optional[str] = None) -> tuple[Optional[dm.Agency], Optional[dm.Route]]:
@@ -219,10 +272,38 @@ class GTFS:
           return (agency, route)
     return (agency, None)
 
+  def LoadData(
+      self, operator: str, link: str,
+      freshness: int = _DEFAULT_DAYS_FRESHNESS, force_replace: bool = False) -> None:
+    """Downloads and parses GTFS data.
+
+    Args:
+      operator: Operator for GTFS file
+      link: URL for GTFS file
+      freshness: (default 10) Number of days before data is not fresh anymore and
+          has to be reloaded from source
+      force_replace: (default False) If True will parse a repeated version of the ZIP file
+    """
+    # first load the list of GTFS, if needed
+    if (age := DAYS_OLD(self._db.files.tm)) > freshness:
+      logging.info('Loading CSV sources (%0.2f days old)', age)
+      self._LoadCSVSources()
+    else:
+      logging.info('CSV sources are fresh (%0.2f days old) - SKIP', age)
+    # load GTFS data we are interested in
+    if (not force_replace and operator in self._db.files.files and
+        link in self._db.files.files[operator] and
+        (age := DAYS_OLD(self._db.files.files[operator][link].tm)) <= freshness):  # type:ignore
+      logging.info('GTFS sources are fresh (%0.2f days old) - SKIP', age)
+    else:
+      logging.info('Parsing GTFS ZIP source (%0.2f days old)', age)
+      self._LoadGTFSSource(operator, link, force_replace=force_replace)
+
   def _InvalidateCaches(self) -> None:
     """Clear all caches."""
     self._FindRoute.cache_clear()
     self._FindTrip.cache_clear()
+    self.StopName.cache_clear()
 
   def _LoadCSVSources(self) -> None:
     """Loads GTFS official sources from CSV."""
@@ -298,7 +379,7 @@ class GTFS:
     save_cache_file: bool
     with self._ParsingSession():
       if (not force_replace and os.path.exists(cache_file_path) and
-          (age := _DAYS_OLD(os.path.getmtime(cache_file_path))) <= _DAYS_CACHE_FRESHNESS):
+          (age := DAYS_OLD(os.path.getmtime(cache_file_path))) <= _DAYS_CACHE_FRESHNESS):
         # we will used the cached ZIP
         logging.warning('Loading from %0.2f days old cache on disk! (use -r to override)', age)
         url_opener = open(cache_file_path, 'rb')
@@ -416,9 +497,13 @@ class GTFS:
     self._changed = True
     logging.info('Read %d records from %s', i + 1, file_name)
 
+  ##################################################################################################
+  # GTFS ROW HANDLERS
+  ##################################################################################################
+
   # HANDLER TEMPLATE (copy and uncomment)
   # def _HandleTABLENAMERow(
-  #     self, location: _TableLocation, count: int, row: dict[str, Optional[str]]) -> None:
+  #     self, location: _TableLocation, count: int, row: dm.ExpectedFILENAMECSVRowType) -> None:
   #   """Handler: "FILENAME.txt" DESCRIPTION.
   #
   #   Args:
@@ -450,8 +535,8 @@ class GTFS:
       raise RowError(
           f'feed_info.txt table ({location}) is only supported to have 1 row (got {count}): {row}')
     # get data, check
-    start: datetime.date = _DATE_OBJ(row['feed_start_date'])
-    end: datetime.date = _DATE_OBJ(row['feed_end_date'])
+    start: datetime.date = DATE_OBJ(row['feed_start_date'])
+    end: datetime.date = DATE_OBJ(row['feed_end_date'])
     if start > end:
       raise RowError(f'incompatible start/end dates in {location}: {row}')
     # check against current version (and log)
@@ -521,8 +606,8 @@ class GTFS:
       RowError: error parsing this record
     """
     # get data, check
-    start: datetime.date = _DATE_OBJ(row['start_date'])
-    end: datetime.date = _DATE_OBJ(row['end_date'])
+    start: datetime.date = DATE_OBJ(row['start_date'])
+    end: datetime.date = DATE_OBJ(row['end_date'])
     if start > end:
       raise RowError(f'inconsistent row @{count} / {location}: {row}')
     # update
@@ -547,7 +632,7 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
-    self._db.calendar[row['service_id']].exceptions[_DATE_OBJ(row['date'])] = (
+    self._db.calendar[row['service_id']].exceptions[DATE_OBJ(row['date'])] = (
         row['exception_type'] == '1')
 
   def _HandleRoutesRow(
@@ -695,32 +780,9 @@ class GTFS:
         timepoint=row['timepoint'], headsign=row['stop_headsign'],
         pickup=pickup, dropoff=dropoff)
 
-  def LoadData(
-      self, operator: str, link: str,
-      freshness: int = _DEFAULT_DAYS_FRESHNESS, force_replace: bool = False) -> None:
-    """Downloads and parses GTFS data.
-
-    Args:
-      operator: Operator for GTFS file
-      link: URL for GTFS file
-      freshness: (default 10) Number of days before data is not fresh anymore and
-          has to be reloaded from source
-      force_replace: (default False) If True will parse a repeated version of the ZIP file
-    """
-    # first load the list of GTFS, if needed
-    if (age := _DAYS_OLD(self._db.files.tm)) > freshness:
-      logging.info('Loading CSV sources (%0.2f days old)', age)
-      self._LoadCSVSources()
-    else:
-      logging.info('CSV sources are fresh (%0.2f days old) - SKIP', age)
-    # load GTFS data we are interested in
-    if (not force_replace and operator in self._db.files.files and
-        link in self._db.files.files[operator] and
-        (age := _DAYS_OLD(self._db.files.files[operator][link].tm)) <= freshness):  # type:ignore
-      logging.info('GTFS sources are fresh (%0.2f days old) - SKIP', age)
-    else:
-      logging.info('Parsing GTFS ZIP source (%0.2f days old)', age)
-      self._LoadGTFSSource(operator, link, force_replace=force_replace)
+  ##################################################################################################
+  # END OF GTFS ROW HANDLERS
+  ##################################################################################################
 
 
 def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
@@ -744,36 +806,6 @@ def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
     for file_name in file_names:
       with zip_ref.open(file_name) as file_data:
         yield (file_name, file_data.read())
-
-
-def HMSToSeconds(time_str: str) -> int:
-  """Accepts 'H:MM:SS' or 'HH:MM:SS' and returns total seconds since 00:00:00.
-
-  Supports hours ≥ 0 with no upper bound. Very flexible, will even accept 'H:M:S' for example.
-
-  Args:
-    time_str: String to convert ('H:MM:SS' or 'HH:MM:SS')
-
-  Raises:
-    ValueError: malformed input
-  """
-  try:
-    h_str, m_str, s_str = time_str.split(':')
-  except ValueError as err:
-    raise ValueError(f'bad time literal {time_str!r}') from err
-  h, m, s = int(h_str), int(m_str), int(s_str)
-  if not (0 <= m < 60 and 0 <= s < 60):
-    raise ValueError(f'bad time literal {time_str!r}: minute and second must be 0-59')
-  return h * 3600 + m * 60 + s
-
-
-def SecondsToHMS(sec: int) -> str:
-  """Seconds from midnight to 'HH:MM:SS' representation. Supports any positive integer."""
-  if sec < 0:
-    raise ValueError(f'no negative time allowed, got {sec}')
-  h, sec = divmod(sec, 3600)
-  m, s = divmod(sec, 60)
-  return f'{h:02d}:{m:02d}:{s:02d}'
 
 
 def Main() -> None:

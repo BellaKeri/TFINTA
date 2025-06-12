@@ -79,7 +79,7 @@ source .venv/bin/activate
 uv pip install --upgrade pip
 uv pip install -r requirements.txt
 
-python3 gtfs.py read
+./gtfs.py read  # (or python3 gtfs.py read)
 
 deactivate
 ```
@@ -87,5 +87,5 @@ deactivate
 ### Running GTFS to load the database
 
 ```sh
-python3 gtfs.py read
+./gtfs.py read
 ```

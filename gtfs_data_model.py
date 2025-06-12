@@ -51,10 +51,10 @@ class FileMetadata:
   publisher: str  # feed_info.txt/feed_publisher_name   (required)
   url: str        # feed_info.txt/feed_publisher_url    (required)
   language: str   # feed_info.txt/feed_lang             (required)
-  start: datetime.date  # feed_info.txt/feed_start_date (required)
-  end: datetime.date    # feed_info.txt/feed_end_date   (required)
-  version: str          # feed_info.txt/feed_version    (required)
-  email: Optional[str]  # feed_info.txt/feed_contact_email
+  start: datetime.date         # feed_info.txt/feed_start_date (required)
+  end: datetime.date           # feed_info.txt/feed_end_date   (required)
+  version: str                 # feed_info.txt/feed_version    (required)
+  email: Optional[str] = None  # feed_info.txt/feed_contact_email
 
 
 class ExpectedFeedInfoCSVRowType(TypedDict):
@@ -82,14 +82,14 @@ class LocationType(enum.Enum):
 class BaseStop:  # stops.txt
   """Stop where vehicles pick up or drop-off riders."""
   id: str                # (PK) stops.txt/stop_id (required)
-  parent: Optional[str]  # stops.txt/parent_station -> stops.txt/stop_id (required)
+  parent: Optional[str] = None  # stops.txt/parent_station -> stops.txt/stop_id (required)
   code: str              # stops.txt/stop_code    (required)
   name: str              # stops.txt/stop_name    (required)
   latitude: float        # stops.txt/stop_lat - WGS84 latitude in decimal degrees (-90.0 <= lat <= 90.0)    (required)
   longitude: float       # stops.txt/stop_lon - WGS84 longitude in decimal degrees (-180.0 <= lat <= 180.0) (required)
-  zone: Optional[str]    # stops.txt/zone_id
-  description: Optional[str]  # stops.txt/stop_desc
-  url: Optional[str]     # stops.txt/stop_url
+  zone: Optional[str] = None         # stops.txt/zone_id
+  description: Optional[str] = None  # stops.txt/stop_desc
+  url: Optional[str] = None          # stops.txt/stop_url
   location: LocationType = LocationType.STOP  # stops.txt/location_type
 
 
@@ -126,8 +126,8 @@ class Stop:  # stop_times.txt
   route: str      # <<INFERRED>> -> routes.txt/route_id
   arrival: int    # stop_times.txt/arrival_time - seconds from midnight, to represent 'HH:MM:SS'   (required)
   departure: int  # stop_times.txt/departure_time - seconds from midnight, to represent 'HH:MM:SS' (required)
-  timepoint: bool          # stop_times.txt/timepoint (required) - False==Times are considered approximate; True==Times are considered exact
-  headsign: Optional[str]  # stop_times.txt/stop_headsign
+  timepoint: bool                 # stop_times.txt/timepoint (required) - False==Times are considered approximate; True==Times are considered exact
+  headsign: Optional[str] = None  # stop_times.txt/stop_headsign
   pickup: StopPointType = StopPointType.REGULAR   # stop_times.txt/pickup_type
   dropoff: StopPointType = StopPointType.REGULAR  # stop_times.txt/drop_off_type
 
@@ -291,11 +291,11 @@ class Route:
   short_name: str        # routes.txt/route_short_name (required)
   long_name: str         # routes.txt/route_long_name  (required)
   route_type: RouteType  # routes.txt/route_type       (required)
-  description: Optional[str]  # routes.txt/route_desc
-  url: Optional[str]          # routes.txt/route_url
-  color: Optional[str]        # routes.txt/route_color: encoded as a six-digit hexadecimal number (https://htmlcolorcodes.com)
-  text_color: Optional[str]   # routes.txt/route_text_color: encoded as a six-digit hexadecimal number
-  trips: dict[str, Trip]      # {trips.txt/trip_id: Trip}
+  description: Optional[str] = None  # routes.txt/route_desc
+  url: Optional[str] = None          # routes.txt/route_url
+  color: Optional[str] = None        # routes.txt/route_color: encoded as a six-digit hexadecimal number (https://htmlcolorcodes.com)
+  text_color: Optional[str] = None   # routes.txt/route_text_color: encoded as a six-digit hexadecimal number
+  trips: dict[str, Trip]             # {trips.txt/trip_id: Trip}
 
 
 class ExpectedRoutesCSVRowType(TypedDict):
