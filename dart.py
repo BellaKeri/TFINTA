@@ -57,7 +57,6 @@ class DARTTrackStop:
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class Track:
   """Collection of stops. A directional shape on the train tracks, basically."""
-  shape: str                   # trips.txt/shape_id     (required) -> shapes.txt/shape_id
   direction: bool              # trips.txt/direction_id (required)
   stops: tuple[DARTTrackStop]  # (tuple so it is hashable!)
 
@@ -113,12 +112,10 @@ def ScheduleFromTrip(trip: dm.Trip) -> tuple[Track, DARTSchedule]:
   ) for i in range(1, len(trip.stops)))  # this way guarantees we hit every int (seq)
   return (
       Track(
-          shape=trip.shape,
           direction=trip.direction,
           stops=stops,
       ),
       DARTSchedule(
-          shape=trip.shape,
           direction=trip.direction,
           stops=stops,
           times=tuple(DARTScheduleStop(  # type:ignore
@@ -254,10 +251,10 @@ def Main() -> None:
         dart_services: set[int] = dart.DARTServicesForDay(day)
         print(f'DART services: {sorted(dart_services)}')
         print()
-        for _, endpoint, track, schedule, service, trips in dart.WalkTrips():
+        for _, endpoint, _, schedule, service, trips in dart.WalkTrips():
           if service in dart_services:
             start_name, end_name = dart.TrackRouteName(endpoint)
-            print(f'{DART_DIRECTION(endpoint)} {start_name} => {end_name} ({track.shape}) '
+            print(f'{DART_DIRECTION(endpoint)} {start_name} => {end_name} '
                   f'@ {gtfs.SecondsToHMS(schedule.times[0].departure)} ({service}) : '
                   f'{",".join(t.id for t in trips)}')
         print()

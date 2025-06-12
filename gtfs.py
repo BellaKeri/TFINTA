@@ -200,7 +200,7 @@ class GTFS:
       logging.info('Saved DB to %r (%s)', self._db_path, tm_save.readable)
 
   @functools.lru_cache(maxsize=1 << 14)
-  def _FindRoute(self, route_id: str) -> Optional[dm.Agency]:
+  def FindRoute(self, route_id: str) -> Optional[dm.Agency]:
     """Find route by finding its Agency."""
     for agency in self._db.agencies.values():
       if route_id in agency.routes:
@@ -208,13 +208,14 @@ class GTFS:
     return None
 
   @functools.lru_cache(maxsize=1 << 16)
-  def _FindTrip(self, trip_id: str) -> tuple[Optional[dm.Agency], Optional[dm.Route]]:
-    """Find route by finding its Agency & Route."""
+  def FindTrip(self, trip_id: str) -> tuple[
+      Optional[dm.Agency], Optional[dm.Route], Optional[dm.Trip]]:
+    """Find route by finding its Agency & Route. Return (agency, route, trip)."""
     for agency in self._db.agencies.values():
       for route in agency.routes.values():
         if trip_id in route.trips:
-          return (agency, route)
-    return (None, None)
+          return (agency, route, route.trips[trip_id])
+    return (None, None, None)
 
   @functools.lru_cache(maxsize=1 << 10)
   def StopName(self, stop_id: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
@@ -301,8 +302,8 @@ class GTFS:
 
   def _InvalidateCaches(self) -> None:
     """Clear all caches."""
-    self._FindRoute.cache_clear()
-    self._FindTrip.cache_clear()
+    self.FindRoute.cache_clear()
+    self.FindTrip.cache_clear()
     self.StopName.cache_clear()
 
   def _LoadCSVSources(self) -> None:
@@ -699,7 +700,7 @@ class GTFS:
       RowError: error parsing this record
     """
     # check
-    agency: Optional[dm.Agency] = self._FindRoute(row['route_id'])
+    agency: Optional[dm.Agency] = self.FindRoute(row['route_id'])
     if agency is None:
       raise RowError(f'agency in row was not found @{count} / {location}: {row}')
     # update
@@ -770,8 +771,8 @@ class GTFS:
       raise RowError(f'invalid row @{count} / {location}: {row}')
     if row['stop_id'] not in self._db.stops:
       raise RowError(f'stop_id in row was not found @{count} / {location}: {row}')
-    agency, route = self._FindTrip(row['trip_id'])
-    if not agency or not route:
+    agency, route, trip = self.FindTrip(row['trip_id'])
+    if not agency or not route or not trip:
       raise RowError(f'trip_id in row was not found @{count} / {location}: {row}')
     # update
     self._db.agencies[agency.id].routes[route.id].trips[row['trip_id']].stops[row['stop_sequence']] = dm.Stop(
@@ -781,8 +782,34 @@ class GTFS:
         pickup=pickup, dropoff=dropoff)
 
   ##################################################################################################
-  # END OF GTFS ROW HANDLERS
+  # GTFS PRETTY PRINTS
   ##################################################################################################
+
+  def PrettyPrintTrip(self, trip_id: str) -> Generator[str, None, None]:
+    """Generate a pretty version of a Trip."""
+    agency, route, trip = self.FindTrip(trip_id)
+    if not agency or not route or not trip:
+      raise ValueError(f'trip id {trip_id!r} was not found')
+    yield f'ID:     {trip.id}'
+    yield f'Agency: {agency.name}'
+    yield f'Route:  {route.id}'
+    yield f'        Short name:  {route.short_name}'
+    yield f'        Long name:   {route.long_name}'
+    yield f'        Description: {route.description if route.description else "-"}'
+    yield f'Headsign:  {trip.headsign}'
+    yield f'Name:      {trip.name}'
+    yield f'Direction: {"inbound" if trip.direction else "outbound"}'
+    yield f'Service:   {trip.service}'
+    yield f'Shape:     {trip.shape}'
+    yield f'Block:     {trip.block}'
+    yield ''
+    yield '#    ARRIVAL  DEPART.  CODE        NAME'
+    for seq in sorted(trip.stops.keys()):
+      stop: dm.Stop = trip.stops[seq]
+      stop_code, stop_name, stop_description = self.StopName(stop.stop)
+      yield (f'{seq:03}: {SecondsToHMS(stop.arrival)} {SecondsToHMS(stop.departure)} '
+             f'@{stop.stop} {stop_code}/{stop_name}/'
+             f'{stop_description if stop_description else "-"}')
 
 
 def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
@@ -823,14 +850,19 @@ def Main() -> None:
       '-r', '--replace', type=int, default=0,
       help='0 == does not load the same version again ; 1 == forces replace version (default: 0)')
   # "print" command
-  _: argparse.ArgumentParser = command_arg_subparsers.add_parser(
+  print_parser: argparse.ArgumentParser = command_arg_subparsers.add_parser(
       'print', help='Print DB')
+  print_arg_subparsers = print_parser.add_subparsers(dest='print_command')
+  trip_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser(
+      'trip', help='Print Trip')
+  trip_parser.add_argument('-i', '--id', type=str, default='', help='Trip ID (default: "")')
   # ALL commands
   # parser.add_argument(
   #     '-r', '--readonly', type=bool, default=False,
   #     help='If "True" will not save database (default: False)')
   args: argparse.Namespace = parser.parse_args()
   command = args.command.lower().strip() if args.command else ''
+  print_command = args.print_command.lower().strip() if args.print_command else ''
   # start
   print(f'{base.TERM_BLUE}{base.TERM_BOLD}***********************************************')
   print(f'**                 {base.TERM_LIGHT_RED}GTFS DB{base.TERM_BLUE}                   **')
@@ -850,7 +882,13 @@ def Main() -> None:
             freshness=args.freshness, force_replace=bool(args.replace))
       # "print" command
       elif command == 'print':
-        raise NotImplementedError()
+        # look at sub-command
+        if print_command == 'trip':
+          # PRINT TRIP
+          for line in database.PrettyPrintTrip(args.id):
+            print(line)
+        else:
+          raise NotImplementedError()
       # no valid command
       else:
         parser.print_help()
