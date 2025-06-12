@@ -8,6 +8,7 @@
 import argparse
 import dataclasses
 import datetime
+import functools
 import logging
 # import pdb
 from typing import Any, Callable, Generator, Iterable, Optional, Union
@@ -80,6 +81,7 @@ class DARTScheduleStop:
   timepoint: bool  # stop_times.txt/timepoint (required) - False==Times are considered approximate; True==Times are considered exact
 
 
+@functools.total_ordering
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class DARTSchedule(Track):
   """A DART track scheduled (timed) route. A track + timetable, basically."""
