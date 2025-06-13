@@ -69,12 +69,12 @@ that will be pickled to disk.
 ### Dependencies
 
 ```sh
-brew install git uv python@3.11
+brew install git uv python@3.13
 
 git clone https://github.com/BellaKeri/TFINTA.git TFINTA
 cd TFINTA
 
-uv venv --python 3.11
+uv venv --python 3.13
 source .venv/bin/activate
 uv pip install --upgrade pip
 uv pip install -r requirements.txt

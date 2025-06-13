@@ -35,6 +35,6 @@ def Main() -> None:
   logging.info('*' * 80)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
   logging.basicConfig(level=logging.INFO, format=base.LOG_FORMAT)
   Main()  # type:ignore
