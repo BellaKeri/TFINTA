@@ -238,31 +238,29 @@ def Main() -> None:
     # execute the command
     print()
     with base.Timer() as op_timer:
-      # "read" command
-      if command == 'read':
-        database.LoadData(
-            gtfs.IRISH_RAIL_OPERATOR, gtfs.IRISH_RAIL_LINK,
-            freshness=args.freshness, force_replace=bool(args.replace))
-      # "print" command
-      elif command == 'print':
-        print()
-        dart = DART(database)
-        day: datetime.date = gtfs.DATE_OBJ(args.day) if args.day else datetime.date.today()
-        print(f'DART @ {day}/{day.weekday()}')
-        print()
-        dart_services: set[int] = dart.DARTServicesForDay(day)
-        print(f'DART services: {sorted(dart_services)}')
-        print()
-        for _, endpoint, _, schedule, service, trips in dart.WalkTrips():
-          if service in dart_services:
-            start_name, end_name = dart.TrackRouteName(endpoint)
-            print(f'{DART_DIRECTION(endpoint)} {start_name} => {end_name} '
-                  f'@ {gtfs.SecondsToHMS(schedule.times[0].departure)} ({service}) : '
-                  f'{",".join(t.id for t in trips)}')
-        print()
-      # no valid command
-      else:
-        parser.print_help()
+      match command:
+        case 'read':
+          database.LoadData(
+              gtfs.IRISH_RAIL_OPERATOR, gtfs.IRISH_RAIL_LINK,
+              freshness=args.freshness, force_replace=bool(args.replace))
+        case 'print':
+          print()
+          dart = DART(database)
+          day: datetime.date = gtfs.DATE_OBJ(args.day) if args.day else datetime.date.today()
+          print(f'DART @ {day}/{day.weekday()}')
+          print()
+          dart_services: set[int] = dart.DARTServicesForDay(day)
+          print(f'DART services: {sorted(dart_services)}')
+          print()
+          for _, endpoint, _, schedule, service, trips in dart.WalkTrips():
+            if service in dart_services:
+              start_name, end_name = dart.TrackRouteName(endpoint)
+              print(f'{DART_DIRECTION(endpoint)} {start_name} => {end_name} '
+                    f'@ {gtfs.SecondsToHMS(schedule.times[0].departure)} ({service}) : '
+                    f'{",".join(t.id for t in trips)}')
+          print()
+        case _:
+          raise NotImplementedError()
       print()
       print()
     print(f'Executed in {base.TERM_GREEN}{op_timer.readable}{base.TERM_END}')

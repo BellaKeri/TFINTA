@@ -875,23 +875,22 @@ def Main() -> None:
     # execute the command
     print()
     with base.Timer() as op_timer:
-      # "read" command
-      if command == 'read':
-        database.LoadData(
-            IRISH_RAIL_OPERATOR, IRISH_RAIL_LINK,
-            freshness=args.freshness, force_replace=bool(args.replace))
-      # "print" command
-      elif command == 'print':
-        # look at sub-command
-        if print_command == 'trip':
-          # PRINT TRIP
-          for line in database.PrettyPrintTrip(args.id):
-            print(line)
-        else:
+      # look at main command
+      match command:
+        case 'read':
+          database.LoadData(
+              IRISH_RAIL_OPERATOR, IRISH_RAIL_LINK,
+              freshness=args.freshness, force_replace=bool(args.replace))
+        case 'print':
+          # look at sub-command for print
+          match print_command:
+            case 'trip':
+              for line in database.PrettyPrintTrip(args.id):
+                print(line)
+            case _:
+              raise NotImplementedError()
+        case _:
           raise NotImplementedError()
-      # no valid command
-      else:
-        parser.print_help()
       print()
       print()
     print(f'Executed in {base.TERM_GREEN}{op_timer.readable}{base.TERM_END}')
