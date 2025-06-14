@@ -39,17 +39,28 @@ class TestStations(unittest.TestCase):
     print('sum test end')
 
   def test_ConvertToXML(self) -> None:
-    """Test."""
+    """Test XML"""
     xml_obj: stations.XMLType = stations.ConvertToXML(TEST_XML_1)
-    self.assertEqual(xml_obj.getElementsByTagName('aaa')[0].firstChild.nodeValue, 'fg')
+    self.assertEqual(xml_obj.getElementsByTagName('xml_data')[0].firstChild.nodeValue, 'convert')
+
+  
+  def test_GetStations(self) -> None:
+    """Test Stations"""
+    test_station: stations.XMLType = stations.GetStations(TEST_STATIONS_1)
+    self.assertEqual(test_station.getElementsByTagName('station')[0].firstChild.nodeValue, 'getstations')
 
 
 TEST_XML_1 = """
 <xml>
-  <aaa>fg</aaa>
+  <xml_data>convert</xml_data>
 </xml>
 """
 
+TEST_STATIONS_1 = """"
+<stations>
+  <station>getstations</station>
+</stations>
+"""
 
 SUITE: unittest.TestSuite = unittest.TestLoader().loadTestsFromTestCase(TestStations)
 
