@@ -288,7 +288,7 @@ def Main() -> None:
                 schedule.stops[0].name,
                 schedule.stops[-1].name,
                 gtfs.SecondsToHMS(schedule.times[0].departure),
-                ', '.join(f'{s}/{t.id}' for s, t in day_dart_schedule[schedule]),
+                ', '.join(f'{s}/{t.id}' for s, t in sorted(day_dart_schedule[schedule])),
             ])
           print(table)
           print()
