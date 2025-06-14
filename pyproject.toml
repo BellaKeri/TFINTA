@@ -17,6 +17,7 @@ authors = [
 ]
 requires-python = ">=3.13.5"  # if version changes, see .vscode/tasks.json & README.md
 dependencies = [
+  "prettytable>=3.16",
   # Baselib pulled straight from a tagged commit on GitHub
   "baselib @ git+https://github.com/balparda/baselib.git@1.5"
 ]

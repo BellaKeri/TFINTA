@@ -153,12 +153,12 @@ class Trip:
   route: str       # trips.txt/route_id         (required) -> routes.txt/route_id
   agency: int      # <<INFERRED>> -> agency.txt/agency_id
   service: int     # trips.txt/service_id       (required) -> calendar.txt/service_id
-  shape: str       # trips.txt/shape_id         (required) -> shapes.txt/shape_id
-  headsign: str    # trips.txt/trip_headsign    (required)
-  name: str        # trips.txt/trip_short_name  (required)
   direction: bool  # trips.txt/direction_id     (required)
-  block: str       # trips.txt/block_id         (required)
-  stops: dict[int, Stop]  # {stop_times.txt/stop_sequence: Stop}
+  shape: Optional[str] = None     # trips.txt/shape_id -> shapes.txt/shape_id
+  block: Optional[str] = None     # trips.txt/block_id
+  headsign: Optional[str] = None  # trips.txt/trip_headsign
+  name: Optional[str] = None      # trips.txt/trip_short_name
+  stops: dict[int, Stop]          # {stop_times.txt/stop_sequence: Stop}
 
 
 class ExpectedTripsCSVRowType(TypedDict):
@@ -166,11 +166,11 @@ class ExpectedTripsCSVRowType(TypedDict):
   trip_id: str
   route_id: str
   service_id: int
-  shape_id: str
-  trip_headsign: str
-  trip_short_name: str
   direction_id: bool
-  block_id: str
+  shape_id: Optional[str]
+  trip_headsign: Optional[str]
+  block_id: Optional[str]
+  trip_short_name: Optional[str]
 
 
 class RouteType(enum.Enum):

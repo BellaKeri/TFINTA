@@ -11,9 +11,10 @@ import datetime
 import functools
 import logging
 # import pdb
-from typing import Any, Callable, Generator, Iterable, Optional, Union
+from typing import Any, Callable, Generator, Iterable, Optional
 
-from baselib import base
+from baselib import base  # pylint: disable=no-name-in-module
+import prettytable
 
 import gtfs_data_model as dm
 import gtfs
@@ -50,6 +51,7 @@ class AgnosticEndpoints:
 class DARTTrackStop:
   """A DART stop."""
   stop: str                       # stop_times.txt/stop_id (required) -> stops.txt/stop_id
+  name: str                       # stops.txt/stop_name    (required)
   headsign: Optional[str] = None  # stop_times.txt/stop_headsign
   pickup: dm.StopPointType = dm.StopPointType.REGULAR   # stop_times.txt/pickup_type
   dropoff: dm.StopPointType = dm.StopPointType.REGULAR  # stop_times.txt/drop_off_type
@@ -69,7 +71,7 @@ def SortTracks(tracks: Iterable[Track], stop_namer: Callable[[str], str]) -> lis
   return sorted(tracks, key=comp)
 
 
-DART_DIRECTION: Callable[[Union[dm.Trip, TrackEndpoints, Track]], str] = (
+DART_DIRECTION: Callable[[dm.Trip | TrackEndpoints | Track], str] = (
     lambda t: 'S' if t.direction else 'N')
 
 
@@ -91,7 +93,19 @@ class DARTSchedule(Track):
     """Less than. Makes sortable (b/c base class already defines __eq__)."""
     if not isinstance(other, DARTSchedule):
       return NotImplemented
-    return self.times[0].departure < other.times[0].departure
+    if self.direction != other.direction:
+      return self.direction < other.direction
+    if self.stops[0].name != other.stops[0].name:
+      return self.stops[0].name < other.stops[0].name
+    if self.stops[0].stop != other.stops[0].stop:
+      return self.stops[0].stop < other.stops[0].stop
+    if self.stops[-1].name != other.stops[-1].name:
+      return self.stops[-1].name < other.stops[-1].name
+    if self.stops[-1].stop != other.stops[-1].stop:
+      return self.stops[-1].stop < other.stops[-1].stop
+    if self.times[0].departure != other.times[0].departure:
+      return self.times[0].departure < other.times[0].departure
+    return self.times[-1].arrival < other.times[-1].arrival
 
 
 def EndpointsFromTrack(track: Track) -> tuple[AgnosticEndpoints, TrackEndpoints]:
@@ -102,31 +116,6 @@ def EndpointsFromTrack(track: Track) -> tuple[AgnosticEndpoints, TrackEndpoints]
       (endpoints.start, endpoints.end) if endpoints.end >= endpoints.start else
       (endpoints.end, endpoints.start))
   return (AgnosticEndpoints(ends=ordered), endpoints)
-
-
-def ScheduleFromTrip(trip: dm.Trip) -> tuple[Track, DARTSchedule]:
-  """Builds a schedule object from this particular trip."""
-  stops: tuple[DARTTrackStop] = tuple(DARTTrackStop(  # type:ignore
-      stop=trip.stops[i].stop,
-      headsign=trip.stops[i].headsign,
-      pickup=trip.stops[i].pickup,
-      dropoff=trip.stops[i].dropoff
-  ) for i in range(1, len(trip.stops)))  # this way guarantees we hit every int (seq)
-  return (
-      Track(
-          direction=trip.direction,
-          stops=stops,
-      ),
-      DARTSchedule(
-          direction=trip.direction,
-          stops=stops,
-          times=tuple(DARTScheduleStop(  # type:ignore
-              arrival=trip.stops[i].arrival,
-              departure=trip.stops[i].departure,
-              timepoint=trip.stops[i].timepoint,
-          ) for i in range(1, len(trip.stops))),  # this way guarantees we hit every int (seq)
-      ),
-  )
 
 
 # @dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
@@ -166,10 +155,42 @@ class DART:
     # group dart trips by track then by schedule then by service
     self._dart_trips: dict[AgnosticEndpoints, dict[TrackEndpoints, dict[Track, dict[DARTSchedule, dict[int, list[dm.Trip]]]]]] = {}
     for trip in dart_route.trips.values():
-      track, schedule = ScheduleFromTrip(trip)
+      track, schedule = self.ScheduleFromTrip(trip)
       agnostic, endpoints = EndpointsFromTrack(track)
       self._dart_trips.setdefault(agnostic, {}).setdefault(endpoints, {}).setdefault(
           track, {}).setdefault(schedule, {}).setdefault(trip.service, []).append(trip)
+
+  def StopNameTranslator(self, stop_id: str) -> str:
+    """Translates a stop ID into a name. If not found raises."""
+    name: Optional[str] = self._gtfs.StopName(stop_id)[1]
+    if not name:
+      raise Error(f'Invalid stop code found: {stop_id}')
+    return name
+
+  def ScheduleFromTrip(self, trip: dm.Trip) -> tuple[Track, DARTSchedule]:
+    """Builds a schedule object from this particular trip."""
+    stops: tuple[DARTTrackStop] = tuple(DARTTrackStop(  # type:ignore
+        stop=trip.stops[i].stop,
+        name=self.StopNameTranslator(trip.stops[i].stop),  # needs this for sorting later!!
+        headsign=trip.stops[i].headsign,
+        pickup=trip.stops[i].pickup,
+        dropoff=trip.stops[i].dropoff,
+    ) for i in range(1, len(trip.stops)))  # this way guarantees we hit every int (seq)
+    return (
+        Track(
+            direction=trip.direction,
+            stops=stops,
+        ),
+        DARTSchedule(
+            direction=trip.direction,
+            stops=stops,
+            times=tuple(DARTScheduleStop(  # type:ignore
+                arrival=trip.stops[i].arrival,
+                departure=trip.stops[i].departure,
+                timepoint=trip.stops[i].timepoint,
+            ) for i in range(1, len(trip.stops))),  # this way guarantees we hit every int (seq)
+        ),
+    )
 
   def DARTServices(self) -> set[int]:
     """Set of all DART services."""
@@ -179,18 +200,9 @@ class DART:
     """Set of DART services for a single day."""
     return self._gtfs.ServicesForDay(day).intersection(self.DARTServices())
 
-  def TrackRouteName(self, endpoints: TrackEndpoints) -> tuple[str, str]:
-    """Gets (name_start, name_end) for a TrackEndpoints object."""
-    _, start_name, _ = self._gtfs.StopName(endpoints.start)
-    _, end_name, _ = self._gtfs.StopName(endpoints.end)
-    if not start_name or not end_name:
-      raise Error(f'Invalid codes found in endpoints: {endpoints}')
-    return (start_name, end_name)
-
   def WalkTrips(self) -> Generator[
       tuple[AgnosticEndpoints, TrackEndpoints, Track, DARTSchedule, int, list[dm.Trip]], None, None]:
     """Iterates over all DART trips in a sensible order."""
-    # TODO: order is not yet sensible...
     for agnostic, endpoints in self._dart_trips.items():
       for endpoint, tracks in endpoints.items():
         for track, schedules in tracks.items():
@@ -198,6 +210,23 @@ class DART:
             for service, trips in schedules[schedule].items():
               # for trip in trips:
               yield (agnostic, endpoint, track, schedule, service, trips)
+
+  def DaySchedule(self, day: datetime.date) -> tuple[
+      set[int], dict[DARTSchedule, list[tuple[int, dm.Trip]]]]:
+    """Schedule for `day`.
+
+    Args:
+      day: datetime.date to fetch schedule for
+
+    Returns:
+      ({service1, service2, ...}, {schedule: [(service1, trip1), (service2, trip2), ...]})
+    """
+    dart_services: set[int] = self.DARTServicesForDay(day)
+    day_dart_schedule: dict[DARTSchedule, list[tuple[int, dm.Trip]]] = {}
+    for _, _, _, schedule, service, trips in self.WalkTrips():
+      if service in dart_services:
+        day_dart_schedule.setdefault(schedule, []).extend((service, t) for t in trips)
+    return (dart_services, day_dart_schedule)
 
 
 def Main() -> None:
@@ -249,15 +278,19 @@ def Main() -> None:
           day: datetime.date = gtfs.DATE_OBJ(args.day) if args.day else datetime.date.today()
           print(f'DART @ {day}/{day.weekday()}')
           print()
-          dart_services: set[int] = dart.DARTServicesForDay(day)
+          dart_services, day_dart_schedule = dart.DaySchedule(day)
           print(f'DART services: {sorted(dart_services)}')
           print()
-          for _, endpoint, _, schedule, service, trips in dart.WalkTrips():
-            if service in dart_services:
-              start_name, end_name = dart.TrackRouteName(endpoint)
-              print(f'{DART_DIRECTION(endpoint)} {start_name} => {end_name} '
-                    f'@ {gtfs.SecondsToHMS(schedule.times[0].departure)} ({service}) : '
-                    f'{",".join(t.id for t in trips)}')
+          table = prettytable.PrettyTable(['N/S', 'Start', 'End', 'Time', 'Trips'])
+          for schedule in sorted(day_dart_schedule.keys()):
+            table.add_row([  # type: ignore
+                DART_DIRECTION(schedule),
+                schedule.stops[0].name,
+                schedule.stops[-1].name,
+                gtfs.SecondsToHMS(schedule.times[0].departure),
+                ', '.join(f'{s}/{t.id}' for s, t in day_dart_schedule[schedule]),
+            ])
+          print(table)
           print()
         case _:
           raise NotImplementedError()

@@ -21,14 +21,14 @@ import os.path
 # import pdb
 import time
 import types
-from typing import Any, Callable, Generator, IO, Optional, Union
+from typing import Any, Callable, Generator, IO, Optional
 from typing import get_args as GetTypeArgs
 from typing import get_type_hints as GetTypeHints
 import urllib.request
 import zipfile
 import zoneinfo
 
-from baselib import base
+from baselib import base  # pylint: disable=no-name-in-module
 
 import gtfs_data_model as dm
 
@@ -89,7 +89,7 @@ class _TableLocation:
 
 # useful aliases
 _GTFSRowHandler = Callable[
-    [_TableLocation, int, dict[str, Union[None, str, int, float, bool]]], None]
+    [_TableLocation, int, dict[str, None | str | int | float | bool]], None]
 
 
 def HMSToSeconds(time_str: str) -> int:
@@ -275,7 +275,8 @@ class GTFS:
 
   def LoadData(
       self, operator: str, link: str,
-      freshness: int = _DEFAULT_DAYS_FRESHNESS, force_replace: bool = False) -> None:
+      freshness: int = _DEFAULT_DAYS_FRESHNESS, force_replace: bool = False,
+      override: Optional[str] = None) -> None:
     """Downloads and parses GTFS data.
 
     Args:
@@ -284,6 +285,7 @@ class GTFS:
       freshness: (default 10) Number of days before data is not fresh anymore and
           has to be reloaded from source
       force_replace: (default False) If True will parse a repeated version of the ZIP file
+      override: (default None) If given, this ZIP file path will override the download
     """
     # first load the list of GTFS, if needed
     if (age := DAYS_OLD(self._db.files.tm)) > freshness:
@@ -292,8 +294,12 @@ class GTFS:
     else:
       logging.info('CSV sources are fresh (%0.2f days old) - SKIP', age)
     # load GTFS data we are interested in
+    if override:
+      logging.info('OVERRIDE GTFS source: %s', override)
+      self._LoadGTFSSource(operator, link, force_replace=force_replace, override=override)
     if (not force_replace and operator in self._db.files.files and
         link in self._db.files.files[operator] and
+        self._db.files.files[operator][link] and
         (age := DAYS_OLD(self._db.files.files[operator][link].tm)) <= freshness):  # type:ignore
       logging.info('GTFS sources are fresh (%0.2f days old) - SKIP', age)
     else:
@@ -351,7 +357,7 @@ class GTFS:
   def _LoadGTFSSource(
       self, operator: str, link: str,
       allow_unknown_file: bool = True, allow_unknown_field: bool = False,
-      force_replace: bool = False) -> None:
+      force_replace: bool = False, override: Optional[str] = None) -> None:
     """Loads a single GTFS ZIP file and parses all inner data files.
 
     Args:
@@ -360,6 +366,7 @@ class GTFS:
       allow_unknown_file: (default True) If False will raise on unknown GTFS file
       allow_unknown_field: (default False) If False will raise on unknown field in file
       force_replace: (default False) If True will parse a repeated version of the ZIP file
+      override: (default None) If given, this ZIP file path will override the download
 
     Raises:
       ParseError: missing files or fields
@@ -379,16 +386,22 @@ class GTFS:
     cache_file_path: str = os.path.join(self._dir_path, cache_file_name)
     save_cache_file: bool
     with self._ParsingSession():
-      if (not force_replace and os.path.exists(cache_file_path) and
-          (age := DAYS_OLD(os.path.getmtime(cache_file_path))) <= _DAYS_CACHE_FRESHNESS):
-        # we will used the cached ZIP
-        logging.warning('Loading from %0.2f days old cache on disk! (use -r to override)', age)
-        url_opener = open(cache_file_path, 'rb')
+      if override:
+        if not os.path.exists(override):
+          raise Error(f'Override file does not exist: {override!r}')
+        url_opener = open(override, 'rb')
         save_cache_file = False
       else:
-        # we will re-download from the URL
-        url_opener = urllib.request.urlopen(link)
-        save_cache_file = True
+        if (not force_replace and os.path.exists(cache_file_path) and
+            (age := DAYS_OLD(os.path.getmtime(cache_file_path))) <= _DAYS_CACHE_FRESHNESS):
+          # we will used the cached ZIP
+          logging.warning('Loading from %0.2f days old cache on disk! (use -r to override)', age)
+          url_opener = open(cache_file_path, 'rb')
+          save_cache_file = False
+        else:
+          # we will re-download from the URL
+          url_opener = urllib.request.urlopen(link)
+          save_cache_file = True
       # open from whatever source
       with url_opener as gtfs_zip:
         # get ZIP binary content, and if we got from URL save to cache
@@ -452,7 +465,7 @@ class GTFS:
     i: int = 0
     for i, row in enumerate(csv.DictReader(
         io.TextIOWrapper(io.BytesIO(file_data), encoding='utf-8'))):
-      parsed_row: dict[str, Union[None, str, int, float, bool]] = {}
+      parsed_row: dict[str, None | str | int | float | bool] = {}
       field_value: Optional[str]
       # process field-by-field
       for field_name, field_value in row.items():
@@ -570,7 +583,8 @@ class GTFS:
         version=row['feed_version'], email=row['feed_contact_email'])
 
   def _HandleAgencyRow(
-      self, location: _TableLocation, count: int, row: dm.ExpectedAgencyCSVRowType) -> None:
+      self, unused_location: _TableLocation,
+      unused_count: int, row: dm.ExpectedAgencyCSVRowType) -> None:
     """Handler: "agency.txt" Transit agencies.
 
     pk: agency_id
@@ -583,10 +597,6 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
-    # there can be only one!
-    if count != 0:
-      raise RowError(
-          f'agency.txt table ({location}) is only supported to have 1 row (got {count}): {row}')
     # update
     self._db.agencies[row['agency_id']] = dm.Agency(
         id=row['agency_id'], name=row['agency_name'], url=row['agency_url'],
@@ -796,12 +806,12 @@ class GTFS:
     yield f'        Short name:  {route.short_name}'
     yield f'        Long name:   {route.long_name}'
     yield f'        Description: {route.description if route.description else "-"}'
-    yield f'Headsign:  {trip.headsign}'
-    yield f'Name:      {trip.name}'
     yield f'Direction: {"inbound" if trip.direction else "outbound"}'
     yield f'Service:   {trip.service}'
-    yield f'Shape:     {trip.shape}'
-    yield f'Block:     {trip.block}'
+    yield f'Shape:     {trip.shape if trip.shape else "-"}'
+    yield f'Headsign:  {trip.headsign if trip.headsign else "-"}'
+    yield f'Name:      {trip.name if trip.name else "-"}'
+    yield f'Block:     {trip.block if trip.block else "-"}'
     yield ''
     yield '#    ARRIVAL  DEPART.  CODE        NAME'
     for seq in sorted(trip.stops.keys()):
@@ -849,6 +859,9 @@ def Main() -> None:
   read_parser.add_argument(
       '-r', '--replace', type=int, default=0,
       help='0 == does not load the same version again ; 1 == forces replace version (default: 0)')
+  read_parser.add_argument(
+      '-o', '--override', type=str, default='',
+      help='If given, this ZIP file path will override the download (default: empty)')
   # "print" command
   print_parser: argparse.ArgumentParser = command_arg_subparsers.add_parser(
       'print', help='Print DB')
@@ -862,7 +875,6 @@ def Main() -> None:
   #     help='If "True" will not save database (default: False)')
   args: argparse.Namespace = parser.parse_args()
   command = args.command.lower().strip() if args.command else ''
-  print_command = args.print_command.lower().strip() if args.print_command else ''
   # start
   print(f'{base.TERM_BLUE}{base.TERM_BOLD}***********************************************')
   print(f'**                 {base.TERM_LIGHT_RED}GTFS DB{base.TERM_BLUE}                   **')
@@ -880,9 +892,11 @@ def Main() -> None:
         case 'read':
           database.LoadData(
               IRISH_RAIL_OPERATOR, IRISH_RAIL_LINK,
-              freshness=args.freshness, force_replace=bool(args.replace))
+              freshness=args.freshness, force_replace=bool(args.replace),
+              override=args.override.strip() if args.override else None)
         case 'print':
           # look at sub-command for print
+          print_command = args.print_command.lower().strip() if args.print_command else ''
           match print_command:
             case 'trip':
               for line in database.PrettyPrintTrip(args.id):
