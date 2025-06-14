@@ -43,24 +43,24 @@ class TestStations(unittest.TestCase):
     xml_obj: stations.XMLType = stations.ConvertToXML(TEST_XML_1)
     self.assertEqual(xml_obj.getElementsByTagName('xml_data')[0].firstChild.nodeValue, 'convert')
 
-  
-  def setUp(self):
-    self.converted = stations.ConvertToXML
-
   def test_GetStations(self) -> None:
     """Test Stations"""
-    test_station:  stations.GetStations= stations.GetStations(TEST_STATIONS_1)
-    self.assertEqual(test_station.getElementsByTagName('station')[0].firstChild.nodeValue, 'getstations')
+    xml_obj: stations.XMLType = stations.ConvertToXML(TEST_STATIONS_1)
+    test_station: list[stations.XMLElement] = stations.GetStations(xml_obj)
+    self.assertEqual(len(test_station), 1)
+    station = test_station[0]
+    self.assertEqual(station.firstChild.nodeValue, 'getstations')
+
 
 TEST_XML_1 = """
-<xml>x
+<xml>
   <xml_data>convert</xml_data>
 </xml>
 """
 
-TEST_STATIONS_1 = """"
+TEST_STATIONS_1 = """
 <stations>
-  <station>getstations</station>
+  <objStation>getstations</objStation>
 </stations>
 """
 
