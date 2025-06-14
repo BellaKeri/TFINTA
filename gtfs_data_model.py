@@ -11,8 +11,9 @@ See: https://gtfs.org/documentation/schedule/reference/
 import dataclasses
 import datetime
 import enum
+import functools
 # import pdb
-from typing import Optional, TypedDict
+from typing import Any, Optional, TypedDict
 import zoneinfo
 
 __author__ = 'balparda@github.com'
@@ -403,3 +404,67 @@ class GTFSData:
   calendar: dict[int, CalendarService]  # {calendar.txt/service_id, CalendarService}
   shapes: dict[str, Shape]              # {shapes.txt/shape_id, Shape}
   stops: dict[str, BaseStop]            # {stops.txt/stop_id, BaseStop}
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class TrackEndpoints:
+  """A track start and end stops."""
+  start: str       # stop_times.txt/stop_id (required) -> stops.txt/stop_id
+  end: str         # stop_times.txt/stop_id (required) -> stops.txt/stop_id
+  direction: bool  # trips.txt/direction_id (required)
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class AgnosticEndpoints:
+  """A track extremities (start & stop) but in a fixed (sorted) order."""
+  ends: tuple[str, str]  # SORTED!! stop_times.txt/stop_id (required) -> stops.txt/stop_id
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class TrackStop:
+  """A track stop."""
+  stop: str                       # stop_times.txt/stop_id (required) -> stops.txt/stop_id
+  name: str                       # stops.txt/stop_name    (required)
+  headsign: Optional[str] = None  # stop_times.txt/stop_headsign
+  pickup: StopPointType = StopPointType.REGULAR   # stop_times.txt/pickup_type
+  dropoff: StopPointType = StopPointType.REGULAR  # stop_times.txt/drop_off_type
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class Track:
+  """Collection of stops. A directional shape on the train tracks, basically."""
+  direction: bool              # trips.txt/direction_id (required)
+  stops: tuple[TrackStop]  # (tuple so it is hashable!)
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class ScheduleStop:
+  """A service timetable entry."""
+  arrival: int     # stop_times.txt/arrival_time - seconds from midnight, to represent 'HH:MM:SS'   (required)
+  departure: int   # stop_times.txt/departure_time - seconds from midnight, to represent 'HH:MM:SS' (required)
+  timepoint: bool  # stop_times.txt/timepoint (required) - False==Times are considered approximate; True==Times are considered exact
+
+
+@functools.total_ordering
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class Schedule(Track):
+  """A track scheduled (timed) route. A track + timetable, basically."""
+  times: tuple[ScheduleStop]  # (tuple so it is hashable!)
+
+  def __lt__(self, other: Any) -> Any:
+    """Less than. Makes sortable (b/c base class already defines __eq__)."""
+    if not isinstance(other, Schedule):
+      return NotImplemented
+    if self.direction != other.direction:
+      return self.direction < other.direction
+    if self.stops[0].name != other.stops[0].name:
+      return self.stops[0].name < other.stops[0].name
+    if self.stops[0].stop != other.stops[0].stop:
+      return self.stops[0].stop < other.stops[0].stop
+    if self.stops[-1].name != other.stops[-1].name:
+      return self.stops[-1].name < other.stops[-1].name
+    if self.stops[-1].stop != other.stops[-1].stop:
+      return self.stops[-1].stop < other.stops[-1].stop
+    if self.times[0].departure != other.times[0].departure:
+      return self.times[0].departure < other.times[0].departure
+    return self.times[-1].arrival < other.times[-1].arrival
