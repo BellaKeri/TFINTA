@@ -1,7 +1,7 @@
 # pyproject.toml  (preferred for new projects, PEP 621)
 
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,7 +9,8 @@ name = "TFINTA"
 version = "1.0.0"
 description = "TFI/NTA database and utilities"
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 authors = [
   { name = "KeriBella", email = "keribella@git.com" },
   { name = "Daniel Balparda", email = "balparda@gmail.com" }
@@ -17,7 +18,7 @@ authors = [
 requires-python = ">=3.13.5"  # if version changes, see .vscode/tasks.json & README.md
 dependencies = [
   # Baselib pulled straight from a tagged commit on GitHub
-  "baselib @ git+https://github.com/balparda/baselib.git@1.3"
+  "baselib @ git+https://github.com/balparda/baselib.git@1.4"
 ]
 
 # test with:
