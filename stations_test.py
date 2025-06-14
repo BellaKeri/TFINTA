@@ -43,7 +43,7 @@ class TestStations(unittest.TestCase):
     xml_obj: stations.XMLType = stations.ConvertToXML(TEST_XML_1)
     self.assertEqual(xml_obj.getElementsByTagName('xml_data')[0].firstChild.nodeValue, 'convert')
 
-  
+
   def test_GetStations(self) -> None:
     """Test Stations"""
     test_station: stations.XMLType = stations.GetStations(TEST_STATIONS_1)
@@ -61,8 +61,6 @@ TEST_STATIONS_1 = """"
   <station>getstations</station>
 </stations>
 """
-
-SUITE: unittest.TestSuite = unittest.TestLoader().loadTestsFromTestCase(TestStations)
 
 
 if __name__ == '__main__':
