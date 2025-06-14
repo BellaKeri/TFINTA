@@ -1,4 +1,4 @@
-#!/usr/bin/python3 -O
+#!/usr/bin/env python3
 #
 # Copyright 2025 BellaKeri (BellaKeri@github.com)
 # GNU General Public License v3 (http://www.gnu.org/licenses/gpl-3.0.txt)

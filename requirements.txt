@@ -1,2 +1,2 @@
 
-baselib @ git+https://github.com/balparda/baselib.git@1.2
+baselib @ git+https://github.com/balparda/baselib.git@1.3
