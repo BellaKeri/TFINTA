@@ -64,8 +64,6 @@ TEST_STATIONS_1 = """"
 </stations>
 """
 
-SUITE: unittest.TestSuite = unittest.TestLoader().loadTestsFromTestCase(TestStations)
-
 
 if __name__ == '__main__':
   logging.basicConfig(level=logging.INFO, format=base.LOG_FORMAT)  # set this as default

@@ -25,9 +25,6 @@ class TestGTFS(unittest.TestCase):
     """Test."""
 
 
-SUITE: unittest.TestSuite = unittest.TestLoader().loadTestsFromTestCase(TestGTFS)
-
-
 if __name__ == '__main__':
   logging.basicConfig(level=logging.INFO, format=base.LOG_FORMAT)  # set this as default
   unittest.main()
