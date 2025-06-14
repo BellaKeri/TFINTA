@@ -20,6 +20,11 @@ __author__ = 'balparda@github.com'
 __version__ = (1, 0)
 
 
+####################################################################################################
+# BASIC CONSTANTS
+####################################################################################################
+
+
 # URLs
 OFFICIAL_GTFS_CSV = 'https://www.transportforireland.ie/transitData/Data/GTFS%20Operator%20Files.csv'
 KNOWN_OPERATORS: set[str] = {
@@ -43,6 +48,11 @@ LOAD_ORDER: list[str] = [
     'stops.txt',       # pk: stop_id / self-ref: parent_station=stop/stop_id
     'stop_times.txt',  # pk: (trips/trip_id, stop_sequence) / ref: stops/stop_id
 ]
+
+
+####################################################################################################
+# BASIC GTFS DATA MODEL: Used to parse and store GTFS data
+####################################################################################################
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
@@ -406,6 +416,11 @@ class GTFSData:
   stops: dict[str, BaseStop]            # {stops.txt/stop_id, BaseStop}
 
 
+####################################################################################################
+# DERIVED DATA MODEL: Derived from GTFS data, used to do higher-level logic
+####################################################################################################
+
+
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class TrackEndpoints:
   """A track start and end stops."""
@@ -425,6 +440,7 @@ class TrackStop:
   """A track stop."""
   stop: str                       # stop_times.txt/stop_id (required) -> stops.txt/stop_id
   name: str                       # stops.txt/stop_name    (required)
+  # even though the name is redundant, if we don't add it here it becomes hard to sort (for example)
   headsign: Optional[str] = None  # stop_times.txt/stop_headsign
   pickup: StopPointType = StopPointType.REGULAR   # stop_times.txt/pickup_type
   dropoff: StopPointType = StopPointType.REGULAR  # stop_times.txt/drop_off_type
@@ -433,7 +449,7 @@ class TrackStop:
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class Track:
   """Collection of stops. A directional shape on the train tracks, basically."""
-  direction: bool              # trips.txt/direction_id (required)
+  direction: bool          # trips.txt/direction_id (required)
   stops: tuple[TrackStop]  # (tuple so it is hashable!)
 
 
