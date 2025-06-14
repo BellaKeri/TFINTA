@@ -15,8 +15,8 @@ from typing import Any, Callable, Generator, Iterable, Optional, Union
 
 from baselib import base
 
-from TFINTA import gtfs_data_model as dm
-from TFINTA import gtfs
+import gtfs_data_model as dm
+import gtfs
 
 __author__ = 'balparda@github.com'
 __version__ = (1, 0)

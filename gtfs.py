@@ -30,7 +30,7 @@ import zoneinfo
 
 from baselib import base
 
-from TFINTA import gtfs_data_model as dm
+import gtfs_data_model as dm
 
 __author__ = 'balparda@github.com'
 __version__ = (1, 0)

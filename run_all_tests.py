@@ -9,8 +9,8 @@ import logging
 import types
 
 from baselib import base
-from TFINTA import gtfs_test
-from TFINTA import stations_test
+import gtfs_test
+import stations_test
 
 __author__ = 'balparda@gmail.com (Daniel Balparda)'
 __version__ = (1, 0)

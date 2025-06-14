@@ -12,7 +12,7 @@ import unittest
 # from unittest import mock
 
 from baselib import base
-from TFINTA import gtfs
+import gtfs
 
 __author__ = 'balparda@gmail.com (Daniel Balparda)'
 __version__ = (1, 0)

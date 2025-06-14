@@ -12,7 +12,7 @@ import unittest
 # from unittest import mock
 
 from baselib import base
-from TFINTA import stations
+import stations
 
 __author__ = 'balparda@gmail.com (Daniel Balparda)'
 __version__ = (1, 0)
