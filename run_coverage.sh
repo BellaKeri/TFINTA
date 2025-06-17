@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Copyright 2025 Daniel Balparda (balparda@gmail.com)
-# GNU General Public License v3
+# Copyright 2025 KeriBella (keribella@git.com) & Daniel Balparda (balparda@gmail.com)
+# Apache-2.0 license
 #
 # https://coverage.readthedocs.io/
 #

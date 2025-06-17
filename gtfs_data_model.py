@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
-# Copyright 2025 Balparda (balparda@github.com)
-# GNU General Public License v3 (http://www.gnu.org/licenses/gpl-3.0.txt)
+# Copyright 2025 KeriBella (keribella@git.com) & Daniel Balparda (balparda@gmail.com)
+# Apache-2.0 license
 #
 """GTFS Data Model: defines the data storage and the CSV formats.
 
@@ -17,7 +17,7 @@ from typing import Any, Optional, TypedDict
 import zoneinfo
 
 __author__ = 'balparda@github.com'
-__version__ = (1, 0)
+__version__ = (1, 1)
 
 
 ####################################################################################################

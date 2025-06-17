@@ -6,10 +6,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "TFINTA"
-version = "1.0.0"
+version = "1.1"
 description = "TFI/NTA database and utilities"
 readme = "README.md"
-license = "GPL-3.0-or-later"
+license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [
   { name = "KeriBella", email = "keribella@git.com" },
@@ -19,7 +19,7 @@ requires-python = ">=3.13.5"  # if version changes, see .vscode/tasks.json & REA
 dependencies = [
   "prettytable>=3.16",
   # Baselib pulled straight from a tagged commit on GitHub
-  "baselib @ git+https://github.com/balparda/baselib.git@1.5"
+  "baselib @ git+https://github.com/balparda/baselib.git@1.6"
 ]
 
 [tool.setuptools]

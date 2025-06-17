@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
-# Copyright 2025 BellaKeri (BellaKeri@github.com)
-# GNU General Public License v3 (http://www.gnu.org/licenses/gpl-3.0.txt)
+# Copyright 2025 KeriBella (keribella@git.com) & Daniel Balparda (balparda@gmail.com)
+# Apache-2.0 license
 #
 """Stations loader."""
 
@@ -13,7 +13,7 @@ import xml.dom.minidom
 import dataclasses
 
 __author__ = 'BellaKeri@github.com'
-__version__ = (1, 0)
+__version__ = (1, 1)
 
 # The TfI URLs:
 ALL_STATIONS_URL = 'http://api.irishrail.ie/realtime/realtime.asmx/getAllStationsXML'

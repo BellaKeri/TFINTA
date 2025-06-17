@@ -1,4 +1,4 @@
 
 prettytable>=3.16
 
-baselib @ git+https://github.com/balparda/baselib.git@1.5
+baselib @ git+https://github.com/balparda/baselib.git@1.6

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #
-# Copyright 2025 Daniel Balparda (balparda@gmail.com)
-# GNU General Public License v3 (http://www.gnu.org/licenses/gpl-3.0.txt)
+# Copyright 2025 KeriBella (keribella@git.com) & Daniel Balparda (balparda@gmail.com)
+# Apache-2.0 license
 #
 # pylint: disable=invalid-name,protected-access
 """gtfs.py unittest."""
@@ -15,7 +15,7 @@ from baselib import base
 import gtfs
 
 __author__ = 'balparda@gmail.com (Daniel Balparda)'
-__version__ = (1, 0)
+__version__ = (1, 1)
 
 
 class TestGTFS(unittest.TestCase):
@@ -27,4 +27,4 @@ class TestGTFS(unittest.TestCase):
 
 if __name__ == '__main__':
   logging.basicConfig(level=logging.INFO, format=base.LOG_FORMAT)  # set this as default
-  unittest.main()
+  unittest.main(verbosity=2)
