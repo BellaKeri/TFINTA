@@ -878,7 +878,7 @@ def Main() -> None:
   # start
   print(f'{base.TERM_BLUE}{base.TERM_BOLD}***********************************************')
   print(f'**                 {base.TERM_LIGHT_RED}GTFS DB{base.TERM_BLUE}                   **')
-  print('**   balparda@gmail.com (Daniel Balparda)    **')
+  print('**   balparda@github.com (Daniel Balparda)    **')
   print(f'***********************************************{base.TERM_END}')
   success_message: str = f'{base.TERM_WARNING}premature end? user paused?'
   try:
