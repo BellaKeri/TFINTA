@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright 2025 KeriBella (keribella@git.com) & Daniel Balparda (balparda@gmail.com)
+# Copyright 2025 BellaKeri (BellaKeri@github.com) & Daniel Balparda (balparda@github.com)
 # Apache-2.0 license
 #
 """Dublin DART: data and extensible tables."""
@@ -17,7 +17,7 @@ import prettytable
 import gtfs_data_model as dm
 import gtfs
 
-__author__ = 'balparda@github.com'
+__author__ = 'BellaKeri@github.com , balparda@github.com'
 __version__ = (1, 1)
 
 

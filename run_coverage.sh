@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright 2025 KeriBella (keribella@git.com) & Daniel Balparda (balparda@gmail.com)
+# Copyright 2025 BellaKeri (BellaKeri@github.com) & Daniel Balparda (balparda@github.com)
 # Apache-2.0 license
 #
 # https://coverage.readthedocs.io/

@@ -12,8 +12,8 @@ readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [
-  { name = "KeriBella", email = "keribella@git.com" },
-  { name = "Daniel Balparda", email = "balparda@gmail.com" }
+  { name = "BellaKeri", email = "BellaKeri@github.com" },
+  { name = "Daniel Balparda", email = "balparda@github.com" }
 ]
 requires-python = ">=3.13.5"  # if version changes, see .vscode/tasks.json & README.md
 dependencies = [

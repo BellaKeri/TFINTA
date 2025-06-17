@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright 2025 KeriBella (keribella@git.com) & Daniel Balparda (balparda@gmail.com)
+# Copyright 2025 BellaKeri (BellaKeri@github.com) & Daniel Balparda (balparda@github.com)
 # Apache-2.0 license
 #
 """Stations loader."""
@@ -12,7 +12,7 @@ import urllib.request
 import xml.dom.minidom
 import dataclasses
 
-__author__ = 'BellaKeri@github.com'
+__author__ = 'BellaKeri@github.com , balparda@github.com'
 __version__ = (1, 1)
 
 # The TfI URLs:
