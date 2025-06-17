@@ -10,6 +10,7 @@ import pdb
 from typing import Optional
 import urllib.request
 import xml.dom.minidom
+import dataclasses
 
 __author__ = 'BellaKeri@github.com'
 __version__ = (1, 1)
@@ -19,6 +20,18 @@ ALL_RUNNING_TRAINS_URL = 'http://api.irishrail.ie/realtime/realtime.asmx/getCurr
 
 XMLType = xml.dom.minidom.Document
 XMLElement = xml.dom.minidom.Element
+
+
+@dataclasses.dataclass
+class Trains:
+  """Stations data."""
+  trains_status: str
+  trains_direct: str
+  trains_lat: float
+  trains_long: float
+  trains_code: str
+  trains_date: str
+  trains_public_mss: str
 
 
 def LoadTrains() -> str:
@@ -33,25 +46,42 @@ def GetTrains(xml_trains_obj: XMLType) -> list[XMLElement]:
   return list(xml_trains_obj.getElementsByTagName('objTrainPositions'))
 
 
-def TrainsData(message_data : list[XMLElement]) -> list[tuple[str, str, str]]:
-  names: list[tuple[str, str, str]] = []
-  for message in message_data:
-    code = message.getElementsByTagName('TrainCode')[0].firstChild.nodeValue
-    direct = message.getElementsByTagName('Direction')[0].firstChild.nodeValue
-    public_mss = message.getElementsByTagName('PublicMessage')[0].firstChild.nodeValue
-    names.append(
+def TrainsData(trains_data : list[XMLElement]) -> list[tuple[str, str, str]]:
+  trains_information: list[tuple[str, str, str]] = []
+  for data_type in trains_data:
+    code = data_type.getElementsByTagName('TrainCode')[0].firstChild.nodeValue
+    direct = data_type.getElementsByTagName('Direction')[0].firstChild.nodeValue
+    public_mss = data_type.getElementsByTagName('PublicMessage')[0].firstChild.nodeValue
+    trains_information.append(
       ('-' if code is None else code.upper().strip(),
        '-' if direct is None else direct.strip(),
        '-' if public_mss is None else public_mss))
-  return sorted(names)
+  return sorted(trains_information)
+
+
+def TrainsDict(trains_data: list[XMLElement]) -> dict[int, Trains]:
+  dict_trains_information: dict[int, Trains] = {}
+  for data_type in trains_data:
+    status = data_type.getElementsByTagName('TrainStatus')[0].firstChild.nodeValue
+    direct = data_type.getElementsByTagName('Direction')[0].firstChild
+    date = data_type.getElementsByTagName('TrainDate')[0].firstChild
+    lat = data_type.getElementsByTagName('TrainLatitude')[0].firstChild.nodeValue
+    long = data_type.getElementsByTagName('TrainLongitude')[0].firstChild.nodeValue
+    code = data_type.getElementsByTagName('TrainCode')[0].firstChild.nodeValue
+    public = data_type.getElementsByTagName('PublicMessage')[0].firstChild.nodeValue
+    dict_trains_information[str(date)] = Trains(
+        trains_status=str(status), trains_direct=str(direct), trains_code=str(code),
+        trains_date=str(date), trains_lat=float(lat), trains_long=float(long), trains_public_mss=str(public))
+  return dict_trains_information
 
 
 def Main() -> None:
   """Main entry point."""
   xml_data = LoadTrains()
   xml_trains_obj = ConvertToXML(xml_data)
-  message_data = GetTrains(xml_trains_obj)
-  parsed_data = TrainsData(message_data)
+  trains_data = GetTrains(xml_trains_obj)
+  parsed_data = TrainsData(trains_data)
+  station_dict = TrainsDict(trains_data)
 
   print()
   print()
@@ -60,6 +90,7 @@ def Main() -> None:
     print(f'{i}: {code}, {direct} : {public_mss.strip()}')
   print()
   print()
+  print(station_dict)
   print()
 
 
