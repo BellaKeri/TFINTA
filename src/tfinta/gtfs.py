@@ -28,9 +28,10 @@ import urllib.request
 import zipfile
 import zoneinfo
 
-from baselib import base  # pylint: disable=no-name-in-module
+from balparda_baselib import base  # pylint: disable=import-error
+# TODO: fix import errors
 
-import gtfs_data_model as dm
+from . import gtfs_data_model as dm
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
 __version__ = (1, 1)

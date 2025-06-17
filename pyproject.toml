@@ -5,8 +5,8 @@ requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "TFINTA"
-version = "1.1"
+name = "tfinta"
+version = "1.2"
 description = "TFI/NTA database and utilities"
 readme = "README.md"
 license = "Apache-2.0"
@@ -16,20 +16,33 @@ authors = [
   { name = "Daniel Balparda", email = "balparda@github.com" }
 ]
 requires-python = ">=3.13.5"  # if version changes, see .vscode/tasks.json & README.md
+classifiers = [  # see: https://pypi.org/classifiers/
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+  "Topic :: Utilities"
+]
 dependencies = [
   "prettytable>=3.16",
-  # Baselib pulled straight from a tagged commit on GitHub
-  "baselib @ git+https://github.com/balparda/baselib.git@1.6"
+  "balparda_baselib>=1.7"
 ]
 
-[tool.setuptools]
-packages = ["baselib"]           # the importable name
+[project.urls]
+Homepage = "https://github.com/BellaKeri/TFINTA"
 
-[tool.setuptools.package-dir]
-baselib = "."                    # maps the name to the repo root
+[tool.setuptools]
+package-dir = {"" = "src"}   # root package namespace lives in src/
+
+[tool.setuptools.packages.find]
+where = ["src"]  # auto-discover every importable package inside src/
 
 [tool.setuptools.package-data]
-"TFINTA" = ["py.typed"]
+"tfinta" = ["py.typed"]
+
+[tool.poetry.requires-plugins]
+poetry-plugin-export = ">=1.8"
+
+[pytest]
+pythonpath = ["src"]
 
 # test with:
 # $ python3

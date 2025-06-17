@@ -7,7 +7,6 @@
 
 # import logging
 import pdb
-from typing import Optional
 import urllib.request
 import xml.dom.minidom
 import dataclasses

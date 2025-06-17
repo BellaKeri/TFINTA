@@ -11,8 +11,9 @@ import logging
 import unittest
 # from unittest import mock
 
-from baselib import base
-import stations
+from balparda_baselib import base  # pylint: disable=import-error
+# TODO: fix import errors
+from src.tfinta import stations
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
 __version__ = (1, 1)
