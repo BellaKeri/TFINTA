@@ -2,14 +2,14 @@
 
 [[package]]
 name = "balparda-baselib"
-version = "1.7"
+version = "1.8"
 description = "A base library for various utilities, by balparda@github.com"
 optional = false
 python-versions = ">=3.13.5"
 groups = ["main"]
 files = [
-    {file = "balparda_baselib-1.7-py3-none-any.whl", hash = "sha256:298975a24362f84bfd383a4a005b07f4820fd1e45c3bca30aeb1a9268637850c"},
-    {file = "balparda_baselib-1.7.tar.gz", hash = "sha256:6b76501828940fce2f9fd59a78200051caf0bda4e56261eff8e321f79e67ceec"},
+    {file = "balparda_baselib-1.8-py3-none-any.whl", hash = "sha256:14b9b55c8020bf347d19926af2df0bb63ac23ae1853646d6d92948492e03fdf2"},
+    {file = "balparda_baselib-1.8.tar.gz", hash = "sha256:139c6f25de937b4d72b3dadbc339be6b00b5224fcf395c77904c21be42ceefb5"},
 ]
 
 [package.dependencies]
@@ -442,14 +442,14 @@ windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
 name = "pytest"
-version = "8.4.0"
+version = "8.4.1"
 description = "pytest: simple powerful testing with Python"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "pytest-8.4.0-py3-none-any.whl", hash = "sha256:f40f825768ad76c0977cbacdf1fd37c6f7a468e460ea6a0636078f8972d4517e"},
-    {file = "pytest-8.4.0.tar.gz", hash = "sha256:14d920b48472ea0dbf68e45b96cd1ffda4705f33307dcc86c676c1b5104838a6"},
+    {file = "pytest-8.4.1-py3-none-any.whl", hash = "sha256:539c70ba6fcead8e78eebbf1115e8b589e7565830d7d006a8723f19ac8a0afb7"},
+    {file = "pytest-8.4.1.tar.gz", hash = "sha256:7c67fd69174877359ed9371ec3af8a3d2b04741818c51e5e99cc1742251fa93c"},
 ]
 
 [package.dependencies]
@@ -533,4 +533,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13.5"
-content-hash = "b91dba4a7b39a1cdf9afbcbfca80bbef1f980e48c62f667fa8820c569016b5cd"
+content-hash = "f807107bf916464174b586d6dc6cd3201249950c447f93654d83138d9efab3c6"
