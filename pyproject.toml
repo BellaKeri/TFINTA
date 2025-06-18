@@ -23,7 +23,7 @@ classifiers = [  # see: https://pypi.org/classifiers/
 ]
 dependencies = [
   "prettytable>=3.16",
-  "balparda_baselib>=1.7"
+  "balparda_baselib>=1.8"
 ]
 
 [project.urls]
@@ -33,7 +33,8 @@ Homepage = "https://github.com/BellaKeri/TFINTA"
 package-dir = {"" = "src"}   # root package namespace lives in src/
 
 [tool.setuptools.packages.find]
-where = ["src"]  # auto-discover every importable package inside src/
+where   = ["src"]      # auto-discover every importable package inside src/
+include = ["tfinta*"]  # avoid picking up stuff not in "tfinta"
 
 [tool.setuptools.package-data]
 "tfinta" = ["py.typed"]

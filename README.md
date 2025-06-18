@@ -1,20 +1,14 @@
 # TFINTA - Transport for Ireland Data
 
+This is a set of libraries for loading, parsing, etc on Irish public transit data.
+
 ## License
 
-Copyright 2025 BellaKeri (BellaKeri@github.com) & Daniel Balparda (balparda@github.com)
+Copyright 2025 BellaKeri <BellaKeri@github.com> & Daniel Balparda <balparda@github.com>
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Licensed under the ***Apache License, Version 2.0*** (the "License"); you may not use this file except in compliance with the License. You may obtain a [copy of the License here](http://www.apache.org/licenses/LICENSE-2.0).
 
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 
 ## Overview
 
@@ -69,24 +63,15 @@ TODO
 
 ### GTFS Schedule Files
 
-The [Official GTFS Schedules](https://data.gov.ie/dataset/operator-gtfs-schedule-files)
-will have a small 19kb CSV,
-[currently here](https://www.transportforireland.ie/transitData/Data/GTFS%20Operator%20Files.csv),
-that has the positions of all GTFS files.
-We will load this CSV to search for the `Iarnród Éireann / Irish Rail` entry.
+The [Official GTFS Schedules](https://data.gov.ie/dataset/operator-gtfs-schedule-files) will have a small 19kb CSV, [currently here](https://www.transportforireland.ie/transitData/Data/GTFS%20Operator%20Files.csv), that has the positions of all GTFS files. We will load this CSV to search for the `Iarnród Éireann / Irish Rail` entry.
 
-GTFS is [defined here](https://gtfs.org/documentation/schedule/reference/).
-It has 6 mandatory tables (files) and a number of optional ones.
-We will start by making a cached loader for this data into memory dicts
-that will be pickled to disk.
+GTFS is [defined here](https://gtfs.org/documentation/schedule/reference/). It has 6 mandatory tables (files) and a number of optional ones. We will start by making a cached loader for this data into memory dicts that will be pickled to disk.
 
 ## Installation & Usage
 
 ### Dependencies
 
-If you want to develop for this project, first install
-[Poetry](https://python-poetry.org/docs/cli/), but make
-sure it is like this:
+If you want to develop for this project, first install [Poetry](https://python-poetry.org/docs/cli/), but make sure it is like this:
 
 ```sh
 brew uninstall poetry
@@ -108,7 +93,7 @@ git clone https://github.com/BellaKeri/TFINTA.git TFINTA
 cd TFINTA
 
 poetry env use python3.13  # creates the venv
-poetry install --sync      # HONOR the project's poetry.lock file, uninstalls stray pkgs
+poetry install --sync      # HONOR the project's poetry.lock file, uninstalls stray packages
 poetry env info            # no-op: just to check
 
 poetry run pytest
