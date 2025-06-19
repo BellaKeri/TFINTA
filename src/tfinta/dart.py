@@ -11,12 +11,11 @@ import logging
 # import pdb
 from typing import Callable, Generator, Optional
 
-from balparda_baselib import base  # pylint: disable=import-error
-import prettytable                 # pylint: disable=import-error
-# TODO: fix import errors
+from balparda_baselib import base
+import prettytable
 
 from . import gtfs_data_model as dm
-from .import gtfs
+from . import gtfs
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
 __version__ = (1, 1)

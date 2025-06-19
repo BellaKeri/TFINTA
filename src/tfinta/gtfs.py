@@ -28,8 +28,7 @@ import urllib.request
 import zipfile
 import zoneinfo
 
-from balparda_baselib import base  # pylint: disable=import-error
-# TODO: fix import errors
+from balparda_baselib import base
 
 from . import gtfs_data_model as dm
 
