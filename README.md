@@ -2,6 +2,10 @@
 
 This is a set of libraries for loading, parsing, etc on Irish public transit data.
 
+Since version 1.2 it is PyPI package:
+
+<https://pypi.org/project/tfinta/>
+
 ## License
 
 Copyright 2025 BellaKeri <BellaKeri@github.com> & Daniel Balparda <balparda@github.com>
@@ -67,9 +71,19 @@ The [Official GTFS Schedules](https://data.gov.ie/dataset/operator-gtfs-schedule
 
 GTFS is [defined here](https://gtfs.org/documentation/schedule/reference/). It has 6 mandatory tables (files) and a number of optional ones. We will start by making a cached loader for this data into memory dicts that will be pickled to disk.
 
-## Installation & Usage
+## Setup
 
-### Dependencies
+### Install
+
+To use in your project just do:
+
+```sh
+pip3 install tfinta
+```
+
+and then `from tfinta import base` for using it.
+
+### Development
 
 If you want to develop for this project, first install [Poetry](https://python-poetry.org/docs/cli/), but make sure it is like this:
 
@@ -87,6 +101,9 @@ Now install the project:
 
 ```sh
 brew install python@3.13 git
+brew update
+brew upgrade
+brew cleanup -s
 # or on Ubuntu/Debian: sudo apt-get install python3.13 python3.13-venv git
 
 git clone https://github.com/BellaKeri/TFINTA.git TFINTA
