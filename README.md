@@ -169,6 +169,7 @@ poetry export --format requirements.txt --without-hashes --output requirements.t
 If you added a dependency to `pyproject.toml`:
 
 ```sh
+poetry run pip3 freeze --all  # lists all dependencies pip knows about
 poetry lock     # re-lock your dependencies, so `poetry.lock` is regenerated
 poetry install  # sync your virtualenv to match the new lock file
 poetry export --format requirements.txt --without-hashes --output requirements.txt
