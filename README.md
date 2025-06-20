@@ -71,7 +71,7 @@ The [Official GTFS Schedules](https://data.gov.ie/dataset/operator-gtfs-schedule
 
 GTFS is [defined here](https://gtfs.org/documentation/schedule/reference/). It has 6 mandatory tables (files) and a number of optional ones. We will start by making a cached loader for this data into memory dicts that will be pickled to disk.
 
-## Setup
+## Use
 
 ### Install
 
@@ -83,7 +83,17 @@ pip3 install tfinta
 
 and then `from tfinta import base` for using it.
 
-### Development
+### Running GTFS to load the database
+
+TODO: this needs quite some work.
+
+```sh
+./gtfs.py read
+```
+
+## Appendix: Development Instructions
+
+### Setup
 
 If you want to develop for this project, first install [Poetry](https://python-poetry.org/docs/cli/), but make sure it is like this:
 
@@ -131,6 +141,8 @@ pytest
 deactivate
 ```
 
+### Updating Dependencies
+
 To update `poetry.lock` file to more current versions:
 
 ```sh
@@ -154,7 +166,7 @@ poetry install  # sync your virtualenv to match the new lock file
 poetry export --format requirements.txt --without-hashes --output requirements.txt
 ```
 
-To update a version do:
+### Creating a New Version
 
 ```sh
 # bump the version!
@@ -174,18 +186,4 @@ git push --tags
 # prepare package for PyPI
 poetry build
 poetry publish
-```
-
-To remove an environment from your machine:
-
-```sh
-poetry env list
-# see name of environment
-poetry env remove <name-of-environment>
-```
-
-### Running GTFS to load the database
-
-```sh
-./gtfs.py read
 ```
