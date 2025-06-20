@@ -48,6 +48,10 @@ poetry-plugin-export = ">=1.8"
 [tool.poetry.group.dev.dependencies]
 pylint = "~3.3"
 flake8 = "~7.2"
+pytest = "^8.4"
+pytest-pythonpath = "^0.7"
+coverage = "^7.9"
+tomli = "^2.2.1"
 
 [tool.poetry.scripts]
 gtfs = "tfinta.gtfs:Main"
