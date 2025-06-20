@@ -83,12 +83,20 @@ pip3 install tfinta
 
 and then `from tfinta import base` for using it.
 
-### Running GTFS to load the database
+### GTFS
 
 TODO: this needs quite some work.
 
 ```sh
-./gtfs.py read
+poetry run gtfs read
+```
+
+### DART
+
+TODO: this needs quite some work.
+
+```sh
+poetry run dart print trip -i [id]
 ```
 
 ## Appendix: Development Instructions

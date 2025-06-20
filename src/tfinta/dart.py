@@ -103,7 +103,7 @@ class DART:
         headsign=trip.stops[i].headsign,
         pickup=trip.stops[i].pickup,
         dropoff=trip.stops[i].dropoff,
-    ) for i in range(1, len(trip.stops)))  # this way guarantees we hit every int (seq)
+    ) for i in range(1, len(trip.stops) + 1))  # this way guarantees we hit every int (seq)
     return (
         dm.Track(
             direction=trip.direction,
@@ -116,7 +116,7 @@ class DART:
                 arrival=trip.stops[i].arrival,
                 departure=trip.stops[i].departure,
                 timepoint=trip.stops[i].timepoint,
-            ) for i in range(1, len(trip.stops))),  # this way guarantees we hit every int (seq)
+            ) for i in range(1, len(trip.stops) + 1)),  # this way guarantees we hit every int (seq)
         ),
     )
 

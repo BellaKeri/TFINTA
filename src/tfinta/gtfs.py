@@ -29,6 +29,7 @@ import zipfile
 import zoneinfo
 
 from balparda_baselib import base
+import prettytable
 
 from . import gtfs_data_model as dm
 
@@ -158,15 +159,15 @@ class GTFS:
     self._file_handlers: dict[str, tuple[_GTFSRowHandler, type, dict[str, tuple[type, bool]], set[str]]] = {  # type:ignore
         # {file_name: (handler, TypedDict_row_definition,
         #              {field: (type, required?)}, {required1, required2, ...})}
-        'feed_info.txt': (self._HandleFeedInfoRow, dm.ExpectedFeedInfoCSVRowType, {}, set()),
-        'agency.txt': (self._HandleAgencyRow, dm.ExpectedAgencyCSVRowType, {}, set()),
-        'calendar.txt': (self._HandleCalendarRow, dm.ExpectedCalendarCSVRowType, {}, set()),
-        'calendar_dates.txt': (self._HandleCalendarDatesRow, dm.ExpectedCalendarDatesCSVRowType, {}, set()),
-        'routes.txt': (self._HandleRoutesRow, dm.ExpectedRoutesCSVRowType, {}, set()),
-        'shapes.txt': (self._HandleShapesRow, dm.ExpectedShapesCSVRowType, {}, set()),
-        'trips.txt': (self._HandleTripsRow, dm.ExpectedTripsCSVRowType, {}, set()),
-        'stops.txt': (self._HandleStopsRow, dm.ExpectedStopsCSVRowType, {}, set()),
-        'stop_times.txt': (self._HandleStopTimesRow, dm.ExpectedStopTimesCSVRowType, {}, set()),
+        'feed_info.txt': (self._HandleFeedInfoRow, dm.ExpectedFeedInfoCSVRowType, {}, set()),                 # type:ignore
+        'agency.txt': (self._HandleAgencyRow, dm.ExpectedAgencyCSVRowType, {}, set()),                        # type:ignore
+        'calendar.txt': (self._HandleCalendarRow, dm.ExpectedCalendarCSVRowType, {}, set()),                  # type:ignore
+        'calendar_dates.txt': (self._HandleCalendarDatesRow, dm.ExpectedCalendarDatesCSVRowType, {}, set()),  # type:ignore
+        'routes.txt': (self._HandleRoutesRow, dm.ExpectedRoutesCSVRowType, {}, set()),                        # type:ignore
+        'shapes.txt': (self._HandleShapesRow, dm.ExpectedShapesCSVRowType, {}, set()),                        # type:ignore
+        'trips.txt': (self._HandleTripsRow, dm.ExpectedTripsCSVRowType, {}, set()),                           # type:ignore
+        'stops.txt': (self._HandleStopsRow, dm.ExpectedStopsCSVRowType, {}, set()),                           # type:ignore
+        'stop_times.txt': (self._HandleStopTimesRow, dm.ExpectedStopTimesCSVRowType, {}, set()),              # type:ignore
     }
     # fill in types, derived from the _Expected*CSVRowType TypedDicts
     for file_name, (_, expected, fields, required) in self._file_handlers.items():
@@ -813,13 +814,21 @@ class GTFS:
     yield f'Name:      {trip.name if trip.name else "-"}'
     yield f'Block:     {trip.block if trip.block else "-"}'
     yield ''
-    yield '#    ARRIVAL  DEPART.  CODE        NAME'
+    table = prettytable.PrettyTable(
+        ['#', 'Arrival', 'Departure', 'Stop ID', 'Code', 'Name', 'Description'])
     for seq in sorted(trip.stops.keys()):
       stop: dm.Stop = trip.stops[seq]
       stop_code, stop_name, stop_description = self.StopName(stop.stop)
-      yield (f'{seq:03}: {SecondsToHMS(stop.arrival)} {SecondsToHMS(stop.departure)} '
-             f'@{stop.stop} {stop_code}/{stop_name}/'
-             f'{stop_description if stop_description else "-"}')
+      table.add_row([
+          seq,
+          SecondsToHMS(stop.arrival),
+          SecondsToHMS(stop.departure),
+          stop.stop,
+          stop_code if stop_code != '0' else '',
+          stop_name,
+          stop_description if stop_description else '',
+      ])
+    yield from table.get_string().splitlines()  # type:ignore
 
 
 def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
@@ -878,7 +887,7 @@ def Main() -> None:
   # start
   print(f'{base.TERM_BLUE}{base.TERM_BOLD}***********************************************')
   print(f'**                 {base.TERM_LIGHT_RED}GTFS DB{base.TERM_BLUE}                   **')
-  print('**   balparda@github.com (Daniel Balparda)    **')
+  print('**   balparda@github.com (Daniel Balparda)   **')
   print(f'***********************************************{base.TERM_END}')
   success_message: str = f'{base.TERM_WARNING}premature end? user paused?'
   try:
