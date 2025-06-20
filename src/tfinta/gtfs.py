@@ -824,9 +824,9 @@ class GTFS:
           SecondsToHMS(stop.arrival),
           SecondsToHMS(stop.departure),
           stop.stop,
-          stop_code if stop_code != '0' else '',
+          stop_code,
           stop_name,
-          stop_description if stop_description else '',
+          stop_description if stop_description else '-',
       ])
     yield from table.get_string().splitlines()  # type:ignore
 
