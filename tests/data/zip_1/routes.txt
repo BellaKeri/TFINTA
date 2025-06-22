@@ -1,0 +1,3 @@
+route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url,route_color,route_text_color
+4452_86269,7778017,rail,Limerick - Galway,,2,,,
+4452_86289,7778017,DART,Bray - Howth,,2,,,

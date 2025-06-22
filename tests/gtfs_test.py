@@ -6,101 +6,116 @@
 # pylint: disable=invalid-name,protected-access
 """gtfs.py unittest."""
 
-import io
 import pathlib
 # import pdb
 import sys
-from typing import Any, Self
-# from unittest import mock
-import zipfile
+from unittest import mock
 
 import pytest
 
 from src.tfinta import gtfs
+
+from . import gtfs_data
 
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
 __version__: tuple[int, int] = (1, 2)
 
 
-TEST_DIR: pathlib.Path = pathlib.Path(__file__).with_suffix('')
-DATA_DIR: pathlib.Path = TEST_DIR / 'data'
-CSV_PATH: pathlib.Path = DATA_DIR / 'sample.csv'
-ZIP_DIR: pathlib.Path = DATA_DIR / 'zip_1'
-
-
-def test_HMSToSeconds() -> None:
+@pytest.mark.parametrize('hms', [
+    '01', '01:01', '01:01:aa', '00:-1:00', '00:00:-1', '00:60:00', '00:00:60',
+])
+def test_HMSToSeconds_fail(hms: str) -> None:
   """Test."""
   with pytest.raises(ValueError):
-    gtfs.HMSToSeconds('01')
-  with pytest.raises(ValueError):
-    gtfs.HMSToSeconds('01:01')
-  with pytest.raises(ValueError):
-    gtfs.HMSToSeconds('01:01:aa')
-  with pytest.raises(ValueError):
-    gtfs.HMSToSeconds('00:-1:00')
-  with pytest.raises(ValueError):
-    gtfs.HMSToSeconds('00:00:-1')
-  with pytest.raises(ValueError):
-    gtfs.HMSToSeconds('00:60:00')
-  with pytest.raises(ValueError):
-    gtfs.HMSToSeconds('00:00:60')
-  assert gtfs.HMSToSeconds('00:00:00') == 0
-  assert gtfs.HMSToSeconds('00:00:01') == 1
-  assert gtfs.HMSToSeconds('00:00:10') == 10
-  assert gtfs.HMSToSeconds('00:01:00') == 60
-  assert gtfs.HMSToSeconds('00:10:00') == 600
-  assert gtfs.HMSToSeconds('01:00:00') == 3600
-  assert gtfs.HMSToSeconds('10:00:00') == 36000
-  assert gtfs.HMSToSeconds('23:59:59') == 86399
-  assert gtfs.HMSToSeconds('24:00:00') == 86400
-  assert gtfs.HMSToSeconds('24:01:01') == 86461
-  assert gtfs.HMSToSeconds('240:33:11') == 865991
-  assert gtfs.HMSToSeconds('666:33:11') == 2399591
+    gtfs.HMSToSeconds(hms)
 
 
-def test_SecondsToHMS() -> None:
+@pytest.mark.parametrize('hms, sec', [
+    ('00:00:00', 0),
+    ('00:00:01', 1),
+    ('00:00:10', 10),
+    ('00:01:00', 60),
+    ('00:10:00', 600),
+    ('01:00:00', 3600),
+    ('10:00:00', 36000),
+    ('23:59:59', 86399),
+    ('24:00:00', 86400),
+    ('24:01:01', 86461),
+    ('240:33:11', 865991),
+    ('666:33:11', 2399591),
+])
+def test_HMSToSeconds(hms: str, sec: int) -> None:
   """Test."""
-  with pytest.raises(ValueError):
-    gtfs.SecondsToHMS(-1)
-  assert gtfs.SecondsToHMS(0) == '00:00:00'
-  assert gtfs.SecondsToHMS(1) == '00:00:01'
-  assert gtfs.SecondsToHMS(60) == '00:01:00'
-  assert gtfs.SecondsToHMS(3600) == '01:00:00'
-  assert gtfs.SecondsToHMS(86399) == '23:59:59'
-  assert gtfs.SecondsToHMS(86400) == '24:00:00'
-  assert gtfs.SecondsToHMS(2399591) == '666:33:11'
+  assert gtfs.HMSToSeconds(hms) == sec
 
 
-def _ZipDirBytes(src_dir: pathlib.Path) -> bytes:
-  """Create an in-memory ZIP from every *.txt file under `src_dir` (non-recursive)."""
-  buf = io.BytesIO()
-  with zipfile.ZipFile(buf, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
-    for txt in src_dir.glob('*.txt'):
-      zf.writestr(txt.name, txt.read_text(encoding='utf-8'))
-  return buf.getvalue()
+@pytest.mark.parametrize('sec, hms', [
+    (0, '00:00:00'),
+    (1, '00:00:01'),
+    (60, '00:01:00'),
+    (3600, '01:00:00'),
+    (86399, '23:59:59'),
+    (86400, '24:00:00'),
+    (2399591, '666:33:11'),
+])
+def test_SecondsToHMS(sec: int, hms: str) -> None:
+  """Test."""
+  assert gtfs.SecondsToHMS(sec) == hms
+  if sec:
+    with pytest.raises(ValueError):
+      gtfs.SecondsToHMS(-sec)  # if not zero, negative values should always fail
 
 
-@pytest.fixture
-def zip_1() -> bytes:
-  """Create an in-memory ZIP for dir `zip_1`."""
-  return _ZipDirBytes(ZIP_DIR)
-
-
-class FakeHTTPStream(io.BytesIO):
-  """
-  Minimal wrapper that mimics the object returned by urllib.request.urlopen
-  (context-manager & read() method).  Accepts *bytes* at construction.
-  """
-  def __init__(self, payload: bytes) -> None:
-    super().__init__(payload)
-
-  def __enter__(self) -> Self:
-    return self
-
-  def __exit__(self, unused_exc_type: Any, unused_exc_val: Any, unused_exc_tb: Any):  # type:ignore
-    self.close()
-    return False  # propagate exceptions
+@mock.patch('src.tfinta.gtfs.time.time', autospec=True)
+@mock.patch('src.tfinta.gtfs.urllib.request.urlopen', autospec=True)
+@mock.patch('balparda_baselib.base.BinSerialize', autospec=True)
+@mock.patch('balparda_baselib.base.BinDeSerialize', autospec=True)
+def test_GTFS(
+    deserialize: mock.MagicMock,
+    serialize: mock.MagicMock,
+    urlopen: mock.MagicMock,
+    time: mock.MagicMock) -> None:
+  """Test."""
+  # empty path should raise
+  with pytest.raises(gtfs.Error):
+    gtfs.GTFS(' \t')
+  # mock
+  db: gtfs.GTFS
+  time.return_value = 1750446841.939905
+  with (mock.patch('src.tfinta.gtfs.os.path.isdir', autospec=True) as is_dir,
+        mock.patch('src.tfinta.gtfs.os.mkdir', autospec=True) as mk_dir,
+        mock.patch('src.tfinta.gtfs.os.path.exists', autospec=True) as exists):
+    is_dir.return_value = False
+    exists.return_value = False
+    # create database
+    db = gtfs.GTFS('\tdb/path ')
+    # check creation path
+    is_dir.assert_called_once_with('db/path')
+    mk_dir.assert_called_once_with('db/path')
+    exists.assert_called_once_with('db/path/transit.db')
+  # load the GTFS data into database: do it BEFORE we mock open()!
+  cache_file = mock.mock_open()
+  fake_csv = gtfs_data.FakeHTTPFile(gtfs_data.OPERATOR_CSV_PATH)
+  zip_bytes: bytes = gtfs_data.ZipDirBytes(pathlib.Path(gtfs_data.ZIP_DIR_1))
+  fake_zip = gtfs_data.FakeHTTPStream(zip_bytes)
+  with (mock.patch('src.tfinta.gtfs.os.path.exists', autospec=True) as exists,
+        mock.patch('src.tfinta.gtfs.os.path.getmtime', autospec=True) as get_time,
+        mock.patch('builtins.open', cache_file) as mock_open):
+    exists.return_value = False
+    urlopen.side_effect = [fake_csv, fake_zip]
+    db.LoadData(gtfs.IRISH_RAIL_OPERATOR, gtfs.IRISH_RAIL_LINK)  # side benefit: tests has these keys
+    exists.assert_called_once_with('db/path/https__www.transportforireland.ie_transitData_Data_GTFS_Irish_Rail.zip')
+    get_time.assert_not_called()
+    mock_open.assert_called_once_with('db/path/https__www.transportforireland.ie_transitData_Data_GTFS_Irish_Rail.zip', 'wb')
+    handle = cache_file()  # same mock returned by open()
+    handle.write.assert_called_once_with(zip_bytes)
+  # check calls
+  deserialize.assert_not_called()
+  assert serialize.call_args_list == [
+      mock.call(db._db, file_path='db/path/transit.db', compress=True)] * 2  # type:ignore
+  # check DB data
+  assert db._db == gtfs_data.ZIP_DB_1  # type:ignore
 
 
 if __name__ == '__main__':

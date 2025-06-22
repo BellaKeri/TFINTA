@@ -25,7 +25,12 @@
 
   // spelling
   "cSpell.words": [
+    "Ardrahan",
+    "Athenry",
+    "Ceannt",
     "Cobh",
+    "Craughwell",
+    "Dalkey",
     "Daly",
     "dolmuş",
     "Donaghmede",
@@ -39,18 +44,24 @@
     "Heuston",
     "Howth",
     "HWTHJ",
+    "Killiney",
+    "Malahide",
     "Marshrutka",
     "Métro",
     "Montjuïc",
+    "Oranmore",
     "prettytable",
     "pypi",
     "Regio",
     "Regionalzug",
     "Rigiblick",
     "Rosslare",
+    "Shankill",
+    "Sixmilebridge",
     "TELECABIN",
     "Telefèric",
     "Thomastown",
-    "timepoint"
+    "timepoint",
+    "transportforireland"
   ]
 }
