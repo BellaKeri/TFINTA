@@ -18,7 +18,7 @@ import io
 import logging
 import os
 import os.path
-import pdb
+# import pdb
 import time
 import types
 from typing import Any, Callable, Generator, IO, Optional
@@ -275,9 +275,9 @@ class GTFS:
     return (agency, None)
 
   def LoadData(
-      self, operator: str, link: str,
-      freshness: int = _DEFAULT_DAYS_FRESHNESS, force_replace: bool = False,
-      override: Optional[str] = None) -> None:
+      self, operator: str, link: str, freshness: int = _DEFAULT_DAYS_FRESHNESS,
+      allow_unknown_file: bool = True, allow_unknown_field: bool = False,
+      force_replace: bool = False, override: Optional[str] = None) -> None:
     """Downloads and parses GTFS data.
 
     Args:
@@ -285,6 +285,8 @@ class GTFS:
       link: URL for GTFS file
       freshness: (default 10) Number of days before data is not fresh anymore and
           has to be reloaded from source
+      allow_unknown_file: (default True) If False will raise on unknown GTFS file
+      allow_unknown_field: (default False) If False will raise on unknown field in file
       force_replace: (default False) If True will parse a repeated version of the ZIP file
       override: (default None) If given, this ZIP file path will override the download
     """
@@ -297,7 +299,10 @@ class GTFS:
     # load GTFS data we are interested in
     if override:
       logging.info('OVERRIDE GTFS source: %s', override)
-      self._LoadGTFSSource(operator, link, force_replace=force_replace, override=override)
+      self._LoadGTFSSource(
+          operator, link,
+          allow_unknown_file=allow_unknown_file, allow_unknown_field=allow_unknown_field,
+          force_replace=force_replace, override=override)
     if (not force_replace and operator in self._db.files.files and
         link in self._db.files.files[operator] and
         self._db.files.files[operator][link] and
@@ -305,7 +310,10 @@ class GTFS:
       logging.info('GTFS sources are fresh (%0.2f days old) - SKIP', age)
     else:
       logging.info('Parsing GTFS ZIP source (%0.2f days old)', age)
-      self._LoadGTFSSource(operator, link, force_replace=force_replace)
+      self._LoadGTFSSource(
+          operator, link,
+          allow_unknown_file=allow_unknown_file, allow_unknown_field=allow_unknown_field,
+          force_replace=force_replace, override=None)
 
   def _InvalidateCaches(self) -> None:
     """Clear all caches."""
@@ -420,7 +428,9 @@ class GTFS:
           file_name = file_name.strip()
           location = _TableLocation(operator=operator, link=link, file_name=file_name)
           try:
-            self._LoadGTFSFile(location, file_data, allow_unknown_file, allow_unknown_field)
+            self._LoadGTFSFile(
+                location, file_data,
+                allow_unknown_file=allow_unknown_file, allow_unknown_field=allow_unknown_field)
           except ParseIdenticalVersionError as err:
             if force_replace:
               logging.warning('Replacing existing data: %s', err)
@@ -866,6 +876,12 @@ def Main() -> None:
       '-f', '--freshness', type=int, default=_DEFAULT_DAYS_FRESHNESS,
       help=f'Number of days to cache; 0 == always load (default: {_DEFAULT_DAYS_FRESHNESS})')
   read_parser.add_argument(
+      '-u', '--unknownfile', type=int, default=1,
+      help='0 == disallows unknown files ; 1 == allows unknown files (default: 1)')
+  read_parser.add_argument(
+      '-i', '--unknownfield', type=int, default=0,
+      help='0 == disallows unknown fields ; 1 == allows unknown fields (default: 0)')
+  read_parser.add_argument(
       '-r', '--replace', type=int, default=0,
       help='0 == does not load the same version again ; 1 == forces replace version (default: 0)')
   read_parser.add_argument(
@@ -900,8 +916,9 @@ def Main() -> None:
       match command:
         case 'read':
           database.LoadData(
-              IRISH_RAIL_OPERATOR, IRISH_RAIL_LINK,
-              freshness=args.freshness, force_replace=bool(args.replace),
+              IRISH_RAIL_OPERATOR, IRISH_RAIL_LINK, freshness=args.freshness,
+              allow_unknown_file=args.unknownfile, allow_unknown_field=args.unknownfield,
+              force_replace=bool(args.replace),
               override=args.override.strip() if args.override else None)
         case 'print':
           # look at sub-command for print

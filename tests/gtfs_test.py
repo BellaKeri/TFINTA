@@ -6,6 +6,7 @@
 # pylint: disable=invalid-name,protected-access
 """gtfs.py unittest."""
 
+import datetime
 import pathlib
 # import pdb
 import sys
@@ -14,6 +15,7 @@ from unittest import mock
 import pytest
 
 from src.tfinta import gtfs
+from src.tfinta import gtfs_data_model as dm
 
 from . import gtfs_data
 
@@ -104,7 +106,9 @@ def test_GTFS(
         mock.patch('builtins.open', cache_file) as mock_open):
     exists.return_value = False
     urlopen.side_effect = [fake_csv, fake_zip]
-    db.LoadData(gtfs.IRISH_RAIL_OPERATOR, gtfs.IRISH_RAIL_LINK)  # side benefit: tests has these keys
+    db.LoadData(
+        gtfs.IRISH_RAIL_OPERATOR, gtfs.IRISH_RAIL_LINK,
+        allow_unknown_file=True, allow_unknown_field=True)
     exists.assert_called_once_with('db/path/https__www.transportforireland.ie_transitData_Data_GTFS_Irish_Rail.zip')
     get_time.assert_not_called()
     mock_open.assert_called_once_with('db/path/https__www.transportforireland.ie_transitData_Data_GTFS_Irish_Rail.zip', 'wb')
@@ -116,6 +120,26 @@ def test_GTFS(
       mock.call(db._db, file_path='db/path/transit.db', compress=True)] * 2  # type:ignore
   # check DB data
   assert db._db == gtfs_data.ZIP_DB_1  # type:ignore
+  # check other methods and corner cases for the loaded data
+  assert db.FindRoute('none') is None
+  assert db.FindTrip('none') == (None, None, None)
+  assert db.StopName('none') == (None, None, None)
+  assert db.StopName('8250IR0022') == ('0', 'Shankill', None)
+  assert db.ServicesForDay(datetime.date(2025, 8, 4)) == {84}
+  assert db.ServicesForDay(datetime.date(2025, 6, 2)) == set()
+  assert db.ServicesForDay(datetime.date(2025, 6, 22)) == {83}
+  assert db.ServicesForDay(datetime.date(2025, 6, 23)) == {87}
+  assert db.ServicesForDay(datetime.date(2028, 7, 1)) == set()
+  assert db.FindAgencyRoute('invalid', dm.RouteType.RAIL, 'none') == (None, None)
+  agency, route = db.FindAgencyRoute(
+      gtfs.IRISH_RAIL_OPERATOR, dm.RouteType.RAIL, 'none')
+  assert agency and agency.id == 7778017
+  assert route is None
+  agency, route = db.FindAgencyRoute(
+      gtfs.IRISH_RAIL_OPERATOR, dm.RouteType.RAIL, 'DART', long_name='Bray - Howth')
+  assert agency and agency.id == 7778017
+  assert route and route.id == '4452_86289'
+  assert '\n'.join(db.PrettyPrintTrip('4452_2655')) == gtfs_data.TRIP_4452_2655
 
 
 if __name__ == '__main__':

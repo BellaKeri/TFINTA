@@ -729,3 +729,29 @@ ZIP_DB_1 = dm.GTFSData(
         ),
     },
 )
+
+
+TRIP_4452_2655 = """\
+ID:     4452_2655
+Agency: Iarnród Éireann / Irish Rail
+Route:  4452_86289
+        Short name:  DART
+        Long name:   Bray - Howth
+        Description: -
+Direction: outbound
+Service:   83
+Shape:     4452_42
+Headsign:  Malahide
+Name:      E818
+Block:     4452_7778018_Txc47315F93-ACBE-4CE8-9F30-920A2B0C3C75
+
++---+----------+-----------+------------+------+-------------+-------------+
+| # | Arrival  | Departure |  Stop ID   | Code |     Name    | Description |
++---+----------+-----------+------------+------+-------------+-------------+
+| 1 | 19:18:00 |  19:18:00 | 8350IR0122 |  0   |  Greystones |      -      |
+| 2 | 19:28:00 |  19:31:00 | 8350IR0123 |  0   | Bray (Daly) |      -      |
+| 3 | 19:35:00 |  19:36:00 | 8250IR0022 |  0   |   Shankill  |      -      |
+| 4 | 19:38:00 |  19:38:00 | 8250IR0021 |  0   |   Killiney  |      -      |
+| 5 | 19:43:00 |  19:43:00 | 8250IR0014 |  0   |    Dalkey   |      -      |
++---+----------+-----------+------------+------+-------------+-------------+\
+"""
