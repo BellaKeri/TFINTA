@@ -201,7 +201,8 @@ def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-na
         case 'read':
           database.LoadData(
               gtfs.IRISH_RAIL_OPERATOR, gtfs.IRISH_RAIL_LINK,
-              freshness=args.freshness, force_replace=bool(args.replace))
+              allow_unknown_file=True, allow_unknown_field=False,
+              freshness=args.freshness, force_replace=bool(args.replace), override=None)
         case 'print':
           print()
           dart = DART(database)

@@ -61,6 +61,37 @@ def test_DART(gtfs_object: gtfs.GTFS) -> None:  # pylint: disable=redefined-oute
   assert '\n'.join(db.PrettyDaySchedule(datetime.date(2025, 8, 4))) == gtfs_data.SCHEDULE_2025_08_04
 
 
+@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
+@mock.patch('src.tfinta.dart.DART', autospec=True)
+def test_main_load(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None:
+  """Test."""
+  db_obj = mock.MagicMock()
+  mock_gtfs.return_value = db_obj
+  assert dart.main(['read']) == 0
+  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  db_obj.LoadData.assert_called_once_with(
+      'Iarnród Éireann / Irish Rail',
+      'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip',
+      freshness=10, allow_unknown_file=True, allow_unknown_field=False,
+      force_replace=False, override=None)
+  mock_dart.assert_not_called()
+
+
+@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
+@mock.patch('src.tfinta.dart.DART', autospec=True)
+def test_main_print(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None:
+  """Test."""
+  db_obj, dart_obj = mock.MagicMock(), mock.MagicMock()
+  mock_gtfs.return_value = db_obj
+  mock_dart.return_value = dart_obj
+  dart_obj.PrettyDaySchedule.return_value = ['foo', 'bar']
+  assert dart.main(['print', '-d', '20250804']) == 0
+  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  db_obj.LoadData.assert_not_called()
+  mock_dart.assert_called_once_with(db_obj)
+  dart_obj.PrettyDaySchedule.assert_called_once_with(datetime.date(2025, 8, 4))
+
+
 if __name__ == '__main__':
   # run only the tests in THIS file but pass through any extra CLI flags
   args: list[str] = sys.argv[1:] + [__file__]
