@@ -82,17 +82,17 @@ def test_GTFS(
   """Test."""
   # empty path should raise
   with pytest.raises(gtfs.Error):
-    gtfs.GTFS(' \t')
+    gtfs.GTFS(' \t')  # some extra spaces...
   # mock
   db: gtfs.GTFS
-  time.return_value = 1750446841.939905
+  time.return_value = gtfs_data.ZIP_DB_1_TM
   with (mock.patch('src.tfinta.gtfs.os.path.isdir', autospec=True) as is_dir,
         mock.patch('src.tfinta.gtfs.os.mkdir', autospec=True) as mk_dir,
         mock.patch('src.tfinta.gtfs.os.path.exists', autospec=True) as exists):
     is_dir.return_value = False
     exists.return_value = False
     # create database
-    db = gtfs.GTFS('\tdb/path ')
+    db = gtfs.GTFS('\tdb/path ')  # some extra spaces...
     # check creation path
     is_dir.assert_called_once_with('db/path')
     mk_dir.assert_called_once_with('db/path')
@@ -126,6 +126,9 @@ def test_GTFS(
   assert db.FindTrip('none') == (None, None, None)
   assert db.StopName('none') == (None, None, None)
   assert db.StopName('8250IR0022') == ('0', 'Shankill', None)
+  with pytest.raises(gtfs.Error):
+    db.StopNameTranslator('none')
+  assert db.StopNameTranslator('8250IR0022') == 'Shankill'
   assert db.ServicesForDay(datetime.date(2025, 8, 4)) == {84}
   assert db.ServicesForDay(datetime.date(2025, 6, 2)) == set()
   assert db.ServicesForDay(datetime.date(2025, 6, 22)) == {83}

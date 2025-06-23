@@ -49,6 +49,16 @@ LOAD_ORDER: list[str] = [
     'stop_times.txt',  # pk: (trips/trip_id, stop_sequence) / ref: stops/stop_id
 ]
 
+DAY_NAME: dict[int, str] = {
+    0: 'Monday',
+    1: 'Tuesday',
+    2: 'Wednesday',
+    3: 'Thursday',
+    4: 'Friday',
+    5: 'Saturday',
+    6: 'Sunday',
+}
+
 
 ####################################################################################################
 # BASIC GTFS DATA MODEL: Used to parse and store GTFS data
@@ -484,3 +494,7 @@ class Schedule(Track):
     if self.times[0].departure != other.times[0].departure:
       return self.times[0].departure < other.times[0].departure
     return self.times[-1].arrival < other.times[-1].arrival
+
+
+CondensedTrips = dict[AgnosticEndpoints, dict[TrackEndpoints, dict[
+    Track, dict[Schedule, dict[int, list[Trip]]]]]]

@@ -227,6 +227,21 @@ class GTFS:
     stop: dm.BaseStop = self._db.stops[stop_id]
     return (stop.code, stop.name, stop.description)
 
+  @functools.lru_cache(maxsize=1 << 10)
+  def StopNameTranslator(self, stop_id: str) -> str:
+    """Translates a stop ID into a name. If not found raises."""
+    name: Optional[str] = self.StopName(stop_id)[1]
+    if not name:
+      raise Error(f'Invalid stop code found: {stop_id}')
+    return name
+
+  def _InvalidateCaches(self) -> None:
+    """Clear all caches."""
+    self.FindRoute.cache_clear()
+    self.FindTrip.cache_clear()
+    self.StopName.cache_clear()
+    self.StopNameTranslator.cache_clear()
+
   def ServicesForDay(self, day: datetime.date) -> set[int]:
     """Return set[int] of services active (available/running/operating) on this day."""
     weekday: int = day.weekday()
@@ -315,12 +330,6 @@ class GTFS:
           operator, link,
           allow_unknown_file=allow_unknown_file, allow_unknown_field=allow_unknown_field,
           force_replace=force_replace, override=None)
-
-  def _InvalidateCaches(self) -> None:
-    """Clear all caches."""
-    self.FindRoute.cache_clear()
-    self.FindTrip.cache_clear()
-    self.StopName.cache_clear()
 
   def _LoadCSVSources(self) -> None:
     """Loads GTFS official sources from CSV."""

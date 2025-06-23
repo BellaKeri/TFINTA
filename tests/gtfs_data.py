@@ -64,11 +64,17 @@ class FakeHTTPFile(FakeHTTPStream):
       super().__init__(payload.read())
 
 
+####################################################################################################
+# PURE GTFS
+####################################################################################################
+
+
 # this is the data in OPERATOR_CSV_PATH and in ZIP_DIR_1
+ZIP_DB_1_TM = 1750446841.939905
 ZIP_DB_1 = dm.GTFSData(
-    tm=1750446841.939905,
+    tm=ZIP_DB_1_TM,
     files=dm.OfficialFiles(
-        tm=1750446841.939905,
+        tm=ZIP_DB_1_TM,
         files={
             "Allen's Bus Hire": {
                 'https://www.transportforireland.ie/transitData/Data/GTFS_All.zip': None,
@@ -77,7 +83,7 @@ ZIP_DB_1 = dm.GTFSData(
             'Iarnród Éireann / Irish Rail': {
                 'https://www.transportforireland.ie/transitData/Data/GTFS_All.zip': None,
                 'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip': dm.FileMetadata(
-                    tm=1750446841.939905,
+                    tm=ZIP_DB_1_TM,
                     publisher='National Transport Authority',
                     url='https://www.nationaltransport.ie/',
                     language='en',
@@ -641,19 +647,6 @@ ZIP_DB_1 = dm.GTFSData(
                                     pickup=dm.StopPointType.REGULAR,
                                     dropoff=dm.StopPointType.REGULAR,
                                 ),
-                                5: dm.Stop(
-                                    id='4452_2655',
-                                    seq=5,
-                                    stop='8250IR0014',
-                                    agency=7778017,
-                                    route='4452_86289',
-                                    arrival=70980,
-                                    departure=70980,
-                                    timepoint=True,
-                                    headsign=None,
-                                    pickup=dm.StopPointType.REGULAR,
-                                    dropoff=dm.StopPointType.REGULAR,
-                                ),
                             },
                         ),
                         '4452_2662': dm.Trip(
@@ -728,7 +721,6 @@ ZIP_DB_1 = dm.GTFSData(
     },
 )
 
-
 TRIP_4452_2655 = """\
 ID:     4452_2655
 Agency: Iarnród Éireann / Irish Rail
@@ -750,6 +742,57 @@ Block:     4452_7778018_Txc47315F93-ACBE-4CE8-9F30-920A2B0C3C75
 | 2 | 19:28:00 |  19:31:00 | 8350IR0123 |  0   | Bray (Daly) |      -      |
 | 3 | 19:35:00 |  19:36:00 | 8250IR0022 |  0   |   Shankill  |      -      |
 | 4 | 19:38:00 |  19:38:00 | 8250IR0021 |  0   |   Killiney  |      -      |
-| 5 | 19:43:00 |  19:43:00 | 8250IR0014 |  0   |    Dalkey   |      -      |
 +---+----------+-----------+------------+------+-------------+-------------+\
+"""
+
+
+####################################################################################################
+# DART
+####################################################################################################
+
+
+STOPS_1: tuple[dm.TrackStop] = (  # type:ignore
+    dm.TrackStop(stop='8350IR0122', name='Greystones', headsign='Malahide',
+                 pickup=dm.StopPointType.REGULAR, dropoff=dm.StopPointType.NOT_AVAILABLE),
+    dm.TrackStop(stop='8350IR0123', name='Bray (Daly)', headsign=None,
+                 pickup=dm.StopPointType.REGULAR, dropoff=dm.StopPointType.REGULAR),
+    dm.TrackStop(stop='8250IR0022', name='Shankill', headsign=None,
+                 pickup=dm.StopPointType.REGULAR, dropoff=dm.StopPointType.REGULAR),
+    dm.TrackStop(stop='8250IR0021', name='Killiney', headsign=None,
+                 pickup=dm.StopPointType.REGULAR, dropoff=dm.StopPointType.REGULAR),
+)
+TIMES_1: tuple[dm.ScheduleStop] = (  # type:ignore
+    dm.ScheduleStop(arrival=69480, departure=69480, timepoint=True),
+    dm.ScheduleStop(arrival=70080, departure=70260, timepoint=True),
+    dm.ScheduleStop(arrival=70500, departure=70560, timepoint=True),
+    dm.ScheduleStop(arrival=70680, departure=70680, timepoint=True),
+)
+
+DART_TRIPS_ZIP_1: dm.CondensedTrips = {
+    dm.AgnosticEndpoints(ends=('8250IR0021', '8350IR0122')): {
+        dm.TrackEndpoints(start='8350IR0122', end='8250IR0021', direction=False): {
+            dm.Track(direction=False, stops=STOPS_1): {
+                dm.Schedule(direction=False, stops=STOPS_1, times=TIMES_1): {
+                    83: [
+                        ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4452_2655'],
+                    ],
+                    84: [
+                        ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4452_2662'],
+                    ],
+                },
+            },
+        },
+    },
+}
+
+SCHEDULE_2025_08_04 = """\
+DART Schedule
+Day:      2025-08-04 (Monday)
+Services: (84,)
+
++-----+------------+----------+-------------+--------------+
+| N/S |   Start    |   End    | Depart Time |  Trip Codes  |
++-----+------------+----------+-------------+--------------+
+|  N  | Greystones | Killiney |   19:18:00  | 84/4452_2662 |
++-----+------------+----------+-------------+--------------+\
 """

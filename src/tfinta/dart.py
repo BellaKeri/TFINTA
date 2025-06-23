@@ -46,23 +46,6 @@ def EndpointsFromTrack(track: dm.Track) -> tuple[dm.AgnosticEndpoints, dm.TrackE
   return (dm.AgnosticEndpoints(ends=ordered), endpoints)
 
 
-# @dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
-# class DARTTrip:
-#   """DART trip, deduplicated."""
-#   # unique DART "trip"
-#   start_stop: str       # (PK) stop_times.txt/stop_id                 (required) -> stops.txt/stop_id
-#   start_departure: int  # (PK) stop_times.txt/departure_time - seconds from midnight, to represent 'HH:MM:SS' (required)
-#   shape: str            # (PK) trips.txt/shape_id         (required) -> shapes.txt/shape_id
-#   # immutable for DART "trip"
-#   route: str            # trips.txt/route_id         (required) -> routes.txt/route_id
-#   agency: int           # <<INFERRED>> -> agency.txt/agency_id
-#   headsign: str         # trips.txt/trip_headsign    (required)
-#   direction: bool       # trips.txt/direction_id     (required)
-#   stops: dict[int, dm.Stop]  # {stop_times.txt/stop_sequence: Stop}
-#   # the many trips in this group
-#   rail_trips: dict[int, list[RailTrip]]  # {trips.txt/service_id: RailTrip}
-
-
 class DART:
   """Dublin DART."""
 
@@ -81,26 +64,18 @@ class DART:
     self._dart_agency: dm.Agency = dart_agency
     self._dart_route: dm.Route = dart_route
     # group dart trips by track then by schedule then by service
-    self._dart_trips: dict[dm.AgnosticEndpoints, dict[dm.TrackEndpoints, dict[
-        dm.Track, dict[dm.Schedule, dict[int, list[dm.Trip]]]]]] = {}
+    self._dart_trips: dm.CondensedTrips = {}
     for trip in dart_route.trips.values():
       track, schedule = self.ScheduleFromTrip(trip)
       agnostic, endpoints = EndpointsFromTrack(track)
       self._dart_trips.setdefault(agnostic, {}).setdefault(endpoints, {}).setdefault(
           track, {}).setdefault(schedule, {}).setdefault(trip.service, []).append(trip)
 
-  def StopNameTranslator(self, stop_id: str) -> str:
-    """Translates a stop ID into a name. If not found raises."""
-    name: Optional[str] = self._gtfs.StopName(stop_id)[1]
-    if not name:
-      raise Error(f'Invalid stop code found: {stop_id}')
-    return name
-
   def ScheduleFromTrip(self, trip: dm.Trip) -> tuple[dm.Track, dm.Schedule]:
     """Builds a schedule object from this particular trip."""
     stops: tuple[dm.TrackStop] = tuple(dm.TrackStop(  # type:ignore
         stop=trip.stops[i].stop,
-        name=self.StopNameTranslator(trip.stops[i].stop),  # needs this for sorting later!!
+        name=self._gtfs.StopNameTranslator(trip.stops[i].stop),  # needs this for sorting later!!
         headsign=trip.stops[i].headsign,
         pickup=trip.stops[i].pickup,
         dropoff=trip.stops[i].dropoff,
@@ -121,13 +96,13 @@ class DART:
         ),
     )
 
-  def DARTServices(self) -> set[int]:
+  def Services(self) -> set[int]:
     """Set of all DART services."""
     return {t.service for t in self._dart_route.trips.values()}
 
-  def DARTServicesForDay(self, day: datetime.date) -> set[int]:
+  def ServicesForDay(self, day: datetime.date) -> set[int]:
     """Set of DART services for a single day."""
-    return self._gtfs.ServicesForDay(day).intersection(self.DARTServices())
+    return self._gtfs.ServicesForDay(day).intersection(self.Services())
 
   def WalkTrips(self) -> Generator[
       tuple[dm.AgnosticEndpoints, dm.TrackEndpoints, dm.Track,
@@ -151,12 +126,37 @@ class DART:
     Returns:
       ({service1, service2, ...}, {schedule: [(service1, trip1), (service2, trip2), ...]})
     """
-    dart_services: set[int] = self.DARTServicesForDay(day)
+    dart_services: set[int] = self.ServicesForDay(day)
     day_dart_schedule: dict[dm.Schedule, list[tuple[int, dm.Trip]]] = {}
     for _, _, _, schedule, service, trips in self.WalkTrips():
       if service in dart_services:
         day_dart_schedule.setdefault(schedule, []).extend((service, t) for t in trips)
     return (dart_services, day_dart_schedule)
+
+  ##################################################################################################
+  # DART PRETTY PRINTS
+  ##################################################################################################
+
+  def PrettyDaySchedule(self, day: datetime.date) -> Generator[str, None, None]:
+    """Generate a pretty version of a DART day's schedule."""
+    if not day:
+      raise Error('empty day')
+    yield 'DART Schedule'
+    yield f'Day:      {day} ({dm.DAY_NAME[day.weekday()]})'
+    dart_services, day_dart_schedule = self.DaySchedule(day)
+    yield f'Services: {tuple(sorted(dart_services))}'
+    yield ''
+    table = prettytable.PrettyTable(['N/S', 'Start', 'End', 'Depart Time', 'Trip Codes'])
+    for schedule in sorted(day_dart_schedule.keys()):
+      table.add_row([  # type: ignore
+          DART_DIRECTION(schedule),
+          schedule.stops[0].name,
+          schedule.stops[-1].name,
+          gtfs.SecondsToHMS(schedule.times[0].departure),
+          ', '.join(f'{s}/{t.id}' for s, t in sorted(
+              day_dart_schedule[schedule], key=lambda s: s[0])),
+      ])
+    yield from table.get_string().splitlines()  # type:ignore
 
 
 def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-name
@@ -205,23 +205,9 @@ def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-na
         case 'print':
           print()
           dart = DART(database)
-          day: datetime.date = gtfs.DATE_OBJ(args.day) if args.day else datetime.date.today()
-          print(f'DART @ {day}/{day.weekday()}')
-          print()
-          dart_services, day_dart_schedule = dart.DaySchedule(day)
-          print(f'DART services: {sorted(dart_services)}')
-          print()
-          table = prettytable.PrettyTable(['N/S', 'Start', 'End', 'Time', 'Trips'])
-          for schedule in sorted(day_dart_schedule.keys()):
-            table.add_row([  # type: ignore
-                DART_DIRECTION(schedule),
-                schedule.stops[0].name,
-                schedule.stops[-1].name,
-                gtfs.SecondsToHMS(schedule.times[0].departure),
-                ', '.join(f'{s}/{t.id}' for s, t in sorted(day_dart_schedule[schedule], key=lambda s: s[0])),
-            ])
-          print(table)
-          print()
+          for line in dart.PrettyDaySchedule(
+              gtfs.DATE_OBJ(args.day) if args.day else datetime.date.today()):
+            print(line)
         case _:
           raise NotImplementedError()
       print()
