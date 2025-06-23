@@ -10,7 +10,7 @@ import datetime
 import logging
 # import pdb
 import sys
-from typing import Callable, Generator, Optional
+from typing import Generator, Optional
 
 from balparda_baselib import base
 import prettytable
@@ -24,26 +24,10 @@ __version__ = (1, 1)
 
 # defaults
 _DEFAULT_DAYS_FRESHNESS = 10
-DART_SHORT_NAME = 'DART'
-DART_LONG_NAME = 'Bray - Howth'
-
-# useful
-DART_DIRECTION: Callable[[dm.Trip | dm.TrackEndpoints | dm.Track], str] = (
-    lambda t: 'S' if t.direction else 'N')
 
 
 class Error(gtfs.Error):
   """DART exception."""
-
-
-def EndpointsFromTrack(track: dm.Track) -> tuple[dm.AgnosticEndpoints, dm.TrackEndpoints]:
-  """Builds track endpoints from a track."""
-  endpoints = dm.TrackEndpoints(
-      start=track.stops[0].stop, end=track.stops[-1].stop, direction=track.direction)
-  ordered: tuple[str, str] = (
-      (endpoints.start, endpoints.end) if endpoints.end >= endpoints.start else
-      (endpoints.end, endpoints.start))
-  return (dm.AgnosticEndpoints(ends=ordered), endpoints)
 
 
 class DART:
@@ -57,8 +41,8 @@ class DART:
     self._gtfs: gtfs.GTFS = gtfs_obj
     # get DART Agency/Route or die
     dart_agency, dart_route = self._gtfs.FindAgencyRoute(
-        gtfs.IRISH_RAIL_OPERATOR, dm.RouteType.RAIL,
-        DART_SHORT_NAME, long_name=DART_LONG_NAME)
+        dm.IRISH_RAIL_OPERATOR, dm.RouteType.RAIL,
+        dm.DART_SHORT_NAME, long_name=dm.DART_LONG_NAME)
     if not dart_agency or not dart_route:
       raise gtfs.Error('Database does not have the DART route: maybe run `read` command?')
     self._dart_agency: dm.Agency = dart_agency
@@ -67,7 +51,7 @@ class DART:
     self._dart_trips: dm.CondensedTrips = {}
     for trip in dart_route.trips.values():
       track, schedule = self.ScheduleFromTrip(trip)
-      agnostic, endpoints = EndpointsFromTrack(track)
+      agnostic, endpoints = dm.EndpointsFromTrack(track)
       self._dart_trips.setdefault(agnostic, {}).setdefault(endpoints, {}).setdefault(
           track, {}).setdefault(schedule, {}).setdefault(trip.service, []).append(trip)
 
@@ -149,7 +133,7 @@ class DART:
     table = prettytable.PrettyTable(['N/S', 'Start', 'End', 'Depart Time', 'Trip Codes'])
     for schedule in sorted(day_dart_schedule.keys()):
       table.add_row([  # type: ignore
-          DART_DIRECTION(schedule),
+          dm.DART_DIRECTION(schedule),
           schedule.stops[0].name,
           schedule.stops[-1].name,
           gtfs.SecondsToHMS(schedule.times[0].departure),
@@ -200,14 +184,14 @@ def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-na
       match command:
         case 'read':
           database.LoadData(
-              gtfs.IRISH_RAIL_OPERATOR, gtfs.IRISH_RAIL_LINK,
+              dm.IRISH_RAIL_OPERATOR, dm.IRISH_RAIL_LINK,
               allow_unknown_file=True, allow_unknown_field=False,
               freshness=args.freshness, force_replace=bool(args.replace), override=None)
         case 'print':
           print()
           dart = DART(database)
           for line in dart.PrettyDaySchedule(
-              gtfs.DATE_OBJ(args.day) if args.day else datetime.date.today()):
+              dm.DATE_OBJ(args.day) if args.day else datetime.date.today()):
             print(line)
         case _:
           raise NotImplementedError()

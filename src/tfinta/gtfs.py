@@ -45,15 +45,6 @@ _SECONDS_IN_DAY = 60 * 60 * 24
 DAYS_OLD: Callable[[float], float] = lambda t: (time.time() - t) / _SECONDS_IN_DAY
 DEFAULT_DATA_DIR: str = base.MODULE_PRIVATE_DIR(__file__, '.tfinta-data')
 _DB_FILE_NAME = 'transit.db'
-IRISH_RAIL_OPERATOR = 'Iarnród Éireann / Irish Rail'
-IRISH_RAIL_LINK = 'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip'
-
-# data parsing utils
-_DATETIME_OBJ: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(
-    s, '%Y%m%d')
-# _UTC_DATE: Callable[[str], float] = lambda s: _DATETIME_OBJ(s).replace(
-#     tzinfo=datetime.timezone.utc).timestamp()
-DATE_OBJ: Callable[[str], datetime.date] = lambda s: _DATETIME_OBJ(s).date()
 
 # type maps for efficiency and memory (so we don't build countless enum objects)
 _LOCATION_TYPE_MAP: dict[int, dm.LocationType] = {e.value: e for e in dm.LocationType}
@@ -248,7 +239,7 @@ class GTFS:
     services: set[int] = set()
     # go over available services
     for service, calendar in self._db.calendar.items():
-      if calendar.start <= day <= calendar.end:
+      if calendar.days.start <= day <= calendar.days.end:
         # day is in range for this service; check day of week and the exceptions
         weekday_service: bool = calendar.week[weekday]
         service_exception: Optional[bool] = calendar.exceptions.get(day)
@@ -570,8 +561,8 @@ class GTFS:
       raise RowError(
           f'feed_info.txt table ({location}) is only supported to have 1 row (got {count}): {row}')
     # get data, check
-    start: datetime.date = DATE_OBJ(row['feed_start_date'])
-    end: datetime.date = DATE_OBJ(row['feed_end_date'])
+    start: datetime.date = dm.DATE_OBJ(row['feed_start_date'])
+    end: datetime.date = dm.DATE_OBJ(row['feed_end_date'])
     if start > end:
       raise RowError(f'incompatible start/end dates in {location}: {row}')
     # check against current version (and log)
@@ -585,8 +576,8 @@ class GTFS:
       if (row['feed_version'] == current_data.version and
           row['feed_publisher_name'] == current_data.publisher and
           row['feed_lang'] == current_data.language and
-          start == current_data.start and
-          end == current_data.end):
+          start == current_data.days.start and
+          end == current_data.days.end):
         # same version of the data!
         # note that since we `raise` we don't update the timestamp, so the timestamp
         # is the time we first processed this version of the ZIP file
@@ -600,7 +591,7 @@ class GTFS:
     # update
     self._db.files.files[location.operator][location.link] = dm.FileMetadata(
         tm=tm, publisher=row['feed_publisher_name'], url=row['feed_publisher_url'],
-        language=row['feed_lang'], start=start, end=end,
+        language=row['feed_lang'], days=dm.DaysRange(start=start, end=end),
         version=row['feed_version'], email=row['feed_contact_email'])
 
   def _HandleAgencyRow(
@@ -638,8 +629,8 @@ class GTFS:
       RowError: error parsing this record
     """
     # get data, check
-    start: datetime.date = DATE_OBJ(row['start_date'])
-    end: datetime.date = DATE_OBJ(row['end_date'])
+    start: datetime.date = dm.DATE_OBJ(row['start_date'])
+    end: datetime.date = dm.DATE_OBJ(row['end_date'])
     if start > end:
       raise RowError(f'inconsistent row @{count} / {location}: {row}')
     # update
@@ -647,7 +638,7 @@ class GTFS:
         id=row['service_id'],
         week=(row['monday'], row['tuesday'], row['wednesday'],
               row['thursday'], row['friday'], row['saturday'], row['sunday']),
-        start=start, end=end, exceptions={})
+        days=dm.DaysRange(start=start, end=end), exceptions={})
 
   def _HandleCalendarDatesRow(
       self, unused_location: _TableLocation, unused_count: int,
@@ -664,7 +655,7 @@ class GTFS:
     Raises:
       RowError: error parsing this record
     """
-    self._db.calendar[row['service_id']].exceptions[DATE_OBJ(row['date'])] = (
+    self._db.calendar[row['service_id']].exceptions[dm.DATE_OBJ(row['date'])] = (
         row['exception_type'] == '1')
 
   def _HandleRoutesRow(
@@ -712,7 +703,7 @@ class GTFS:
       self._db.shapes[row['shape_id']] = dm.Shape(id=row['shape_id'], points={})
     self._db.shapes[row['shape_id']].points[row['shape_pt_sequence']] = dm.ShapePoint(
         id=row['shape_id'], seq=row['shape_pt_sequence'],
-        latitude=row['shape_pt_lat'], longitude=row['shape_pt_lon'],
+        point=dm.Point(latitude=row['shape_pt_lat'], longitude=row['shape_pt_lon']),
         distance=row['shape_dist_traveled'])
 
   def _HandleTripsRow(
@@ -767,7 +758,7 @@ class GTFS:
     # update
     self._db.stops[row['stop_id']] = dm.BaseStop(
         id=row['stop_id'], parent=row['parent_station'], code=row['stop_code'],
-        name=row['stop_name'], latitude=row['stop_lat'], longitude=row['stop_lon'],
+        name=row['stop_name'], point=dm.Point(latitude=row['stop_lat'], longitude=row['stop_lon']),
         zone=row['zone_id'], description=row['stop_desc'],
         url=row['stop_url'], location=location_type)
 
@@ -926,7 +917,7 @@ def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-na
       match command:
         case 'read':
           database.LoadData(
-              IRISH_RAIL_OPERATOR, IRISH_RAIL_LINK, freshness=args.freshness,
+              dm.IRISH_RAIL_OPERATOR, dm.IRISH_RAIL_LINK, freshness=args.freshness,
               allow_unknown_file=args.unknownfile == 1,
               allow_unknown_field=args.unknownfield == 1,
               force_replace=bool(args.replace),

@@ -3,6 +3,7 @@
 # Copyright 2025 BellaKeri (BellaKeri@github.com) & Daniel Balparda (balparda@github.com)
 # Apache-2.0 license
 #
+# pylint: disable=too-many-instance-attributes
 """GTFS Data Model: defines the data storage and the CSV formats.
 
 See: https://gtfs.org/documentation/schedule/reference/
@@ -13,7 +14,7 @@ import datetime
 import enum
 import functools
 # import pdb
-from typing import Any, Optional, TypedDict
+from typing import Any, Callable, Optional, TypedDict
 import zoneinfo
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
@@ -25,12 +26,22 @@ __version__ = (1, 1)
 ####################################################################################################
 
 
-# URLs
+# URLs and basic names for known parts of the Irish system
+IRISH_RAIL_OPERATOR = 'Iarnród Éireann / Irish Rail'
 OFFICIAL_GTFS_CSV = 'https://www.transportforireland.ie/transitData/Data/GTFS%20Operator%20Files.csv'
+IRISH_RAIL_LINK = 'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip'
 KNOWN_OPERATORS: set[str] = {
     # the operators we care about and will load GTFS for
-    'Iarnród Éireann / Irish Rail',
+    IRISH_RAIL_OPERATOR,
 }
+DART_SHORT_NAME = 'DART'
+DART_LONG_NAME = 'Bray - Howth'
+
+# data parsing utils
+_DT_OBJ: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(s, '%Y%m%d')
+# _UTC_DATE: Callable[[str], float] = lambda s: _DT_OBJ(s).replace(
+#     tzinfo=datetime.timezone.utc).timestamp()
+DATE_OBJ: Callable[[str], datetime.date] = lambda s: _DT_OBJ(s).date()
 
 # Files
 REQUIRED_FILES: set[str] = {
@@ -65,16 +76,31 @@ DAY_NAME: dict[int, str] = {
 ####################################################################################################
 
 
+@functools.total_ordering
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class DaysRange:
+  """Range of calendar days (supposes start <= end, but doesn't check). Sortable."""
+  start: datetime.date
+  end: datetime.date
+
+  def __lt__(self, other: Any) -> Any:
+    """Less than. Makes sortable (b/c base class already defines __eq__)."""
+    if not isinstance(other, DaysRange):
+      return NotImplemented
+    if self.start != other.start:
+      return self.start < other.start
+    return self.end < other.end
+
+
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class FileMetadata:
   """GTFS file metadata (mostly from loading feed_info.txt tables)."""
-  tm: float       # timestamp of first load of this version of this GTFS ZIP file
-  publisher: str  # feed_info.txt/feed_publisher_name   (required)
-  url: str        # feed_info.txt/feed_publisher_url    (required)
-  language: str   # feed_info.txt/feed_lang             (required)
-  start: datetime.date         # feed_info.txt/feed_start_date (required)
-  end: datetime.date           # feed_info.txt/feed_end_date   (required)
-  version: str                 # feed_info.txt/feed_version    (required)
+  tm: float        # timestamp of first load of this version of this GTFS ZIP file
+  publisher: str   # feed_info.txt/feed_publisher_name           (required)
+  url: str         # feed_info.txt/feed_publisher_url            (required)
+  language: str    # feed_info.txt/feed_lang                     (required)
+  days: DaysRange  # feed_info.txt/feed_start_date+feed_end_date (required)
+  version: str     # feed_info.txt/feed_version                  (required)
   email: Optional[str] = None  # feed_info.txt/feed_contact_email
 
 
@@ -87,6 +113,13 @@ class ExpectedFeedInfoCSVRowType(TypedDict):
   feed_end_date: str
   feed_version: str
   feed_contact_email: Optional[str]
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class Point:
+  """A point (location) on Earth. Latitude and longitude in decimal degrees (WGS84)."""
+  latitude: float   # latitude;   -90.0 <= lat <= 90.0  (required)
+  longitude: float  # longitude; -180.0 <= lat <= 180.0 (required)
 
 
 class LocationType(enum.Enum):
@@ -106,12 +139,11 @@ class BaseStop:  # stops.txt
   parent: Optional[str] = None  # stops.txt/parent_station -> stops.txt/stop_id (required)
   code: str              # stops.txt/stop_code    (required)
   name: str              # stops.txt/stop_name    (required)
-  latitude: float        # stops.txt/stop_lat - WGS84 latitude in decimal degrees (-90.0 <= lat <= 90.0)    (required)
-  longitude: float       # stops.txt/stop_lon - WGS84 longitude in decimal degrees (-180.0 <= lat <= 180.0) (required)
+  point: Point           # stops.txt/stop_lat+stop_lon - WGS84 latitude & longitude
+  location: LocationType = LocationType.STOP  # stops.txt/location_type
   zone: Optional[str] = None         # stops.txt/zone_id
   description: Optional[str] = None  # stops.txt/stop_desc
   url: Optional[str] = None          # stops.txt/stop_url
-  location: LocationType = LocationType.STOP  # stops.txt/location_type
 
 
 class ExpectedStopsCSVRowType(TypedDict):
@@ -353,10 +385,9 @@ class ExpectedAgencyCSVRowType(TypedDict):
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
 class CalendarService:
   """Service dates specified using a weekly schedule & start/end dates. Includes the exceptions."""
-  id: int  # (PK) calendar.txt/service_id         (required)
+  id: int  # (PK) calendar.txt/service_id (required)
   week: tuple[bool, bool, bool, bool, bool, bool, bool]  # calendar.txt/monday...sunday (required)
-  start: datetime.date  # calendar.txt/start_date (required)
-  end: datetime.date    # calendar.txt/end_date   (required)
+  days: DaysRange                        # calendar.txt/start_date+end_date             (required)
   exceptions: dict[datetime.date, bool]  # {calendar_dates.txt/date: has_service?}
   # where `has_service` comes from calendar_dates.txt/exception_type
 
@@ -385,11 +416,10 @@ class ExpectedCalendarDatesCSVRowType(TypedDict):
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class ShapePoint:
   """Point in a shape, a place in the real world."""
-  id: str           # (PK) shapes.txt/shape_id          (required) -> shapes.txt/shape_id
-  seq: int          # (PK) shapes.txt/shape_pt_sequence (required)
-  latitude: float   # shapes.txt/shape_pt_lat - WGS84 latitude in decimal degrees (-90.0 <= lat <= 90.0)    (required)
-  longitude: float  # shapes.txt/shape_pt_lon - WGS84 longitude in decimal degrees (-180.0 <= lat <= 180.0) (required)
-  distance: float   # shapes.txt/shape_dist_traveled    (required)
+  id: str          # (PK) shapes.txt/shape_id          (required) -> shapes.txt/shape_id
+  seq: int         # (PK) shapes.txt/shape_pt_sequence (required)
+  point: Point     # shapes.txt/shape_pt_lat+shape_pt_lon - WGS84 latitude & longitude
+  distance: float  # shapes.txt/shape_dist_traveled    (required)
 
 
 class ExpectedShapesCSVRowType(TypedDict):
@@ -474,7 +504,7 @@ class ScheduleStop:
 @functools.total_ordering
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class Schedule(Track):
-  """A track scheduled (timed) route. A track + timetable, basically."""
+  """A track scheduled (timed) route. A track + timetable, basically. Sortable."""
   times: tuple[ScheduleStop]  # (tuple so it is hashable!)
 
   def __lt__(self, other: Any) -> Any:
@@ -496,5 +526,20 @@ class Schedule(Track):
     return self.times[-1].arrival < other.times[-1].arrival
 
 
+# useful
+
+DART_DIRECTION: Callable[[Trip | TrackEndpoints | Track], str] = (
+    lambda t: 'S' if t.direction else 'N')
+
 CondensedTrips = dict[AgnosticEndpoints, dict[TrackEndpoints, dict[
     Track, dict[Schedule, dict[int, list[Trip]]]]]]
+
+
+def EndpointsFromTrack(track: Track) -> tuple[AgnosticEndpoints, TrackEndpoints]:
+  """Builds track endpoints from a track."""
+  endpoints = TrackEndpoints(
+      start=track.stops[0].stop, end=track.stops[-1].stop, direction=track.direction)
+  ordered: tuple[str, str] = (
+      (endpoints.start, endpoints.end) if endpoints.end >= endpoints.start else
+      (endpoints.end, endpoints.start))
+  return (AgnosticEndpoints(ends=ordered), endpoints)

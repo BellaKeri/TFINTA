@@ -108,7 +108,7 @@ def test_GTFS_load_and_parse_from_net(
     exists.return_value = False
     urlopen.side_effect = [fake_csv, fake_zip]
     db.LoadData(
-        gtfs.IRISH_RAIL_OPERATOR, gtfs.IRISH_RAIL_LINK,
+        dm.IRISH_RAIL_OPERATOR, dm.IRISH_RAIL_LINK,
         allow_unknown_file=True, allow_unknown_field=True)
     exists.assert_called_once_with('db/path/https__www.transportforireland.ie_transitData_Data_GTFS_Irish_Rail.zip')
     get_time.assert_not_called()
@@ -136,14 +136,14 @@ def test_GTFS_load_and_parse_from_net(
   assert db.ServicesForDay(datetime.date(2028, 7, 1)) == set()
   assert db.FindAgencyRoute('invalid', dm.RouteType.RAIL, 'none') == (None, None)
   agency, route = db.FindAgencyRoute(
-      gtfs.IRISH_RAIL_OPERATOR, dm.RouteType.RAIL, 'none')
+      dm.IRISH_RAIL_OPERATOR, dm.RouteType.RAIL, 'none')
   assert agency and agency.id == 7778017
   assert route is None
   agency, route = db.FindAgencyRoute(
-      gtfs.IRISH_RAIL_OPERATOR, dm.RouteType.RAIL, 'DART', long_name='Bray - Howth')
+      dm.IRISH_RAIL_OPERATOR, dm.RouteType.RAIL, dm.DART_SHORT_NAME, long_name=dm.DART_LONG_NAME)
   assert agency and agency.id == 7778017
   agency, route = db.FindAgencyRoute(
-      gtfs.IRISH_RAIL_OPERATOR, dm.RouteType.RAIL, 'DART')
+      dm.IRISH_RAIL_OPERATOR, dm.RouteType.RAIL, dm.DART_SHORT_NAME)
   assert agency and agency.id == 7778017
   assert route and route.id == '4452_86289'
   with pytest.raises(gtfs.Error):
