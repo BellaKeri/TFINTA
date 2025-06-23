@@ -2,9 +2,7 @@
 #
 # Copyright 2025 BellaKeri (BellaKeri@github.com) & Daniel Balparda (balparda@github.com)
 # Apache-2.0 license
-#
-# pylint: disable=invalid-name,protected-access
-"""gtfs.py unittest."""
+"""GTFS unittest data."""
 
 import datetime
 import io

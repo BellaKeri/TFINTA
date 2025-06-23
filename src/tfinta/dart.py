@@ -9,6 +9,7 @@ import argparse
 import datetime
 import logging
 # import pdb
+import sys
 from typing import Callable, Generator, Optional
 
 from balparda_baselib import base
@@ -158,7 +159,7 @@ class DART:
     return (dart_services, day_dart_schedule)
 
 
-def Main() -> None:
+def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-name
   """Main entry point."""
   # parse the input arguments, add subparser for `command`
   parser: argparse.ArgumentParser = argparse.ArgumentParser()
@@ -182,7 +183,7 @@ def Main() -> None:
   # parser.add_argument(
   #     '-r', '--readonly', type=bool, default=False,
   #     help='If "True" will not save database (default: False)')
-  args: argparse.Namespace = parser.parse_args()
+  args: argparse.Namespace = parser.parse_args(argv)
   command = args.command.lower().strip() if args.command else ''
   # start
   print(f'{base.TERM_BLUE}{base.TERM_BOLD}***********************************************')
@@ -228,6 +229,7 @@ def Main() -> None:
     print(f'Executed in {base.TERM_GREEN}{op_timer.readable}{base.TERM_END}')
     print()
     success_message = f'{base.TERM_GREEN}success'
+    return 0
   except Exception as err:
     success_message = f'{base.TERM_FAIL}error: {err}'
     raise
@@ -237,4 +239,4 @@ def Main() -> None:
 
 if __name__ == '__main__':
   logging.basicConfig(level=logging.INFO, format=base.LOG_FORMAT)  # set this as default
-  Main()
+  sys.exit(main())

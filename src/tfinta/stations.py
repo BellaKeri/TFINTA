@@ -5,12 +5,13 @@
 #
 """Stations loader."""
 
+import dataclasses
 # import logging
 import pdb
+import sys
 from typing import Optional
 import urllib.request
 import xml.dom.minidom
-import dataclasses
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
 __version__ = (1, 1)
@@ -84,7 +85,7 @@ def StationDict(stations: list[XMLElement]) -> dict[int, Station]:
   return dict_names
 
 
-def Main() -> None:
+def main(unused_argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-name
   """Main entry point."""
   xml_data = LoadStations()
   xml_obj = ConvertToXML(xml_data)
@@ -98,7 +99,8 @@ def Main() -> None:
 #   for i, (code, name, alias, id) in enumerate(station_data, start = 1):
 #     print(f'{i}: {code}/{id} - {name}{"" if alias is None else f" ({alias.strip()})"}')
   print(station_dict)
+  return 0
 
 
 if __name__ == '__main__':
-  Main()
+  sys.exit(main())

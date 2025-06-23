@@ -4,6 +4,7 @@
 # Apache-2.0 license
 #
 # pylint: disable=invalid-name,protected-access
+# pyright: reportPrivateUsage=false
 """stations.py unittest."""
 
 # import pdb

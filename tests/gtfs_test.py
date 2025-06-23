@@ -4,6 +4,7 @@
 # Apache-2.0 license
 #
 # pylint: disable=invalid-name,protected-access
+# pyright: reportPrivateUsage=false
 """gtfs.py unittest."""
 
 import datetime
@@ -117,9 +118,9 @@ def test_GTFS(
   # check calls
   deserialize.assert_not_called()
   assert serialize.call_args_list == [
-      mock.call(db._db, file_path='db/path/transit.db', compress=True)] * 2  # type:ignore
+      mock.call(db._db, file_path='db/path/transit.db', compress=True)] * 2
   # check DB data
-  assert db._db == gtfs_data.ZIP_DB_1  # type:ignore
+  assert db._db == gtfs_data.ZIP_DB_1
   # check other methods and corner cases for the loaded data
   assert db.FindRoute('none') is None
   assert db.FindTrip('none') == (None, None, None)
@@ -138,8 +139,135 @@ def test_GTFS(
   agency, route = db.FindAgencyRoute(
       gtfs.IRISH_RAIL_OPERATOR, dm.RouteType.RAIL, 'DART', long_name='Bray - Howth')
   assert agency and agency.id == 7778017
+  agency, route = db.FindAgencyRoute(
+      gtfs.IRISH_RAIL_OPERATOR, dm.RouteType.RAIL, 'DART')
+  assert agency and agency.id == 7778017
   assert route and route.id == '4452_86289'
+  with pytest.raises(gtfs.Error):
+    list(db.PrettyPrintTrip('none'))
   assert '\n'.join(db.PrettyPrintTrip('4452_2655')) == gtfs_data.TRIP_4452_2655
+  # check corner cases for handlers
+  # feed_info.txt
+  loc = gtfs._TableLocation(
+      operator='Iarnród Éireann / Irish Rail',
+      link='https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip',
+      file_name='baz.txt')
+  info_row = dm.ExpectedFeedInfoCSVRowType(
+      # this is the same data in the DB so it will clash
+      feed_publisher_name='National Transport Authority',
+      feed_publisher_url='https://www.nationaltransport.ie/',
+      feed_lang='en',
+      feed_start_date='20250530',
+      feed_end_date='20240530',  # changed to be invalid
+      feed_version='826FB35E-D58B-4FAB-92EC-C5D5CB697E68',
+      feed_contact_email=None)
+  with pytest.raises(gtfs.RowError, match='1 row'):
+    db._HandleFeedInfoRow(loc, 1, info_row)
+  with pytest.raises(gtfs.RowError, match='start/end dates'):
+    db._HandleFeedInfoRow(loc, 0, info_row)
+  info_row['feed_end_date'] = '20260530'  # the original
+  with pytest.raises(gtfs.ParseIdenticalVersionError):
+    db._HandleFeedInfoRow(loc, 0, info_row)
+  # agency.txt - no raise to test
+  # calendar.txt
+  with pytest.raises(gtfs.RowError, match='inconsistent row'):
+    db._HandleCalendarRow(loc, 1, dm.ExpectedCalendarCSVRowType(
+        service_id=2, monday=True, tuesday=True, wednesday=True, thursday=True,
+        friday=True, saturday=True, sunday=True,
+        start_date='20250530', end_date='20240530'))
+  # calendar_dates.txt - no raise to test
+  # routes.txt - no raise to test
+  # shapes.txt
+  shape = dm.ExpectedShapesCSVRowType(
+      shape_id='foo', shape_pt_sequence=2,
+      shape_pt_lat=10.0, shape_pt_lon=10.0,
+      shape_dist_traveled=-4.0)  # starts with only invalid distance
+  with pytest.raises(gtfs.RowError, match='invalid row'):
+    db._HandleShapesRow(loc, 1, shape)
+  shape['shape_dist_traveled'] = 4.0  # fix distance
+  shape['shape_pt_lat'] = 100.0       # latitude too big
+  with pytest.raises(gtfs.RowError, match='invalid row'):
+    db._HandleShapesRow(loc, 1, shape)
+  shape['shape_pt_lat'] = -100.0  # still too big
+  with pytest.raises(gtfs.RowError, match='invalid row'):
+    db._HandleShapesRow(loc, 1, shape)
+  shape['shape_pt_lat'] = 10.0   # fix latitude
+  shape['shape_pt_lon'] = 185.0  # longitude too big
+  with pytest.raises(gtfs.RowError, match='invalid row'):
+    db._HandleShapesRow(loc, 1, shape)
+  shape['shape_pt_lon'] = -185.0  # still too big
+  with pytest.raises(gtfs.RowError, match='invalid row'):
+    db._HandleShapesRow(loc, 1, shape)
+  # trips.txt
+  with pytest.raises(gtfs.RowError, match='agency in row was not found'):
+    db._HandleTripsRow(loc, 1, dm.ExpectedTripsCSVRowType(
+        trip_id='foo', route_id='bar', service_id=10, direction_id=True,
+        shape_id=None, trip_headsign=None, block_id=None, trip_short_name=None))
+  # stops.txt
+  stop = dm.ExpectedStopsCSVRowType(
+      stop_id='foo',
+      parent_station='bar',  # parent station is invalid
+      stop_code='baz', stop_name='STOP!',
+      stop_lat=10.0, stop_lon=10.0,
+      zone_id=None, stop_desc=None, stop_url=None, location_type=None)
+  with pytest.raises(gtfs.RowError, match='parent_station in row was not found'):
+    db._HandleStopsRow(loc, 1, stop)
+  stop['parent_station'] = None  # fix parent
+  stop['stop_lat'] = 100.0  # latitude too big
+  with pytest.raises(gtfs.RowError, match='invalid latitude/longitude'):
+    db._HandleStopsRow(loc, 1, stop)
+  stop['stop_lat'] = -100.0  # still too big
+  with pytest.raises(gtfs.RowError, match='invalid latitude/longitude'):
+    db._HandleStopsRow(loc, 1, stop)
+  stop['stop_lat'] = 100.0  # fix latitude
+  stop['stop_lon'] = 185.0  # longitude too big
+  with pytest.raises(gtfs.RowError, match='invalid latitude/longitude'):
+    db._HandleStopsRow(loc, 1, stop)
+  stop['stop_lon'] = -185.0  # still too big
+  with pytest.raises(gtfs.RowError, match='invalid latitude/longitude'):
+    db._HandleStopsRow(loc, 1, stop)
+  # stop_times.txt
+  stop_time = dm.ExpectedStopTimesCSVRowType(
+      trip_id='4669_10288', stop_sequence=10, stop_id='8360IR0003',
+      arrival_time='10:00:00', departure_time='09:00:00',  # departure before arrival!
+      timepoint=True, stop_headsign=None, pickup_type=None, drop_off_type=None, dropoff_type=None)
+  with pytest.raises(gtfs.RowError, match='invalid row'):
+    db._HandleStopTimesRow(loc, 1, stop_time)
+  stop_time['departure_time'] = '10:00:10'  # valid
+  stop_time['stop_id'] = 'foo'              # invalid
+  with pytest.raises(gtfs.RowError, match='stop_id in row was not found'):
+    db._HandleStopTimesRow(loc, 1, stop_time)
+  stop_time['stop_id'] = '8360IR0003'  # valid
+  stop_time['trip_id'] = 'bar'         # invalid
+  with pytest.raises(gtfs.RowError, match='trip_id in row was not found'):
+    db._HandleStopTimesRow(loc, 1, stop_time)
+
+
+@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
+def test_main_load(mock_gtfs: mock.MagicMock) -> None:
+  """Test."""
+  db_obj = mock.MagicMock()
+  mock_gtfs.return_value = db_obj
+  assert gtfs.main(['read']) == 0
+  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  db_obj.LoadData.assert_called_once_with(
+      'Iarnród Éireann / Irish Rail',
+      'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip',
+      freshness=10, allow_unknown_file=True, allow_unknown_field=False,
+      force_replace=False, override=None)
+  db_obj.PrettyPrintTrip.assert_not_called()
+
+
+@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
+def test_main_print(mock_gtfs: mock.MagicMock) -> None:
+  """Test."""
+  db_obj = mock.MagicMock()
+  mock_gtfs.return_value = db_obj
+  db_obj.PrettyPrintTrip.return_value = ['foo', 'bar']
+  assert gtfs.main(['print', 'trip', '-i', 'tid']) == 0
+  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  db_obj.LoadData.assert_not_called()
+  db_obj.PrettyPrintTrip.assert_called_once_with('tid')
 
 
 if __name__ == '__main__':

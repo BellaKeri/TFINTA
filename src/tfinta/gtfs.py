@@ -19,6 +19,7 @@ import logging
 import os
 import os.path
 # import pdb
+import sys
 import time
 import types
 from typing import Any, Callable, Generator, IO, Optional
@@ -696,7 +697,7 @@ class GTFS:
     if (not -90.0 <= row['shape_pt_lat'] <= 90.0 or
         not -180.0 <= row['shape_pt_lon'] <= 180.0 or
         row['shape_dist_traveled'] < 0.0):
-      raise RowError(f'empty/invalid row @{count} / {location}: {row}')
+      raise RowError(f'invalid row @{count} / {location}: {row}')
     # update
     if row['shape_id'] not in self._db.shapes:
       self._db.shapes[row['shape_id']] = dm.Shape(id=row['shape_id'], points={})
@@ -810,7 +811,7 @@ class GTFS:
     """Generate a pretty version of a Trip."""
     agency, route, trip = self.FindTrip(trip_id)
     if not agency or not route or not trip:
-      raise ValueError(f'trip id {trip_id!r} was not found')
+      raise Error(f'trip id {trip_id!r} was not found')
     yield f'ID:     {trip.id}'
     yield f'Agency: {agency.name}'
     yield f'Route:  {route.id}'
@@ -864,7 +865,7 @@ def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
         yield (file_name, file_data.read())
 
 
-def Main() -> None:
+def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-name
   """Main entry point."""
   # parse the input arguments, add subparser for `command`
   parser: argparse.ArgumentParser = argparse.ArgumentParser()
@@ -898,7 +899,7 @@ def Main() -> None:
   # parser.add_argument(
   #     '-r', '--readonly', type=bool, default=False,
   #     help='If "True" will not save database (default: False)')
-  args: argparse.Namespace = parser.parse_args()
+  args: argparse.Namespace = parser.parse_args(argv)
   command = args.command.lower().strip() if args.command else ''
   # start
   print(f'{base.TERM_BLUE}{base.TERM_BOLD}***********************************************')
@@ -917,7 +918,8 @@ def Main() -> None:
         case 'read':
           database.LoadData(
               IRISH_RAIL_OPERATOR, IRISH_RAIL_LINK, freshness=args.freshness,
-              allow_unknown_file=args.unknownfile, allow_unknown_field=args.unknownfield,
+              allow_unknown_file=args.unknownfile == 1,
+              allow_unknown_field=args.unknownfield == 1,
               force_replace=bool(args.replace),
               override=args.override.strip() if args.override else None)
         case 'print':
@@ -936,6 +938,7 @@ def Main() -> None:
     print(f'Executed in {base.TERM_GREEN}{op_timer.readable}{base.TERM_END}')
     print()
     success_message = f'{base.TERM_GREEN}success'
+    return 0
   except Exception as err:
     success_message = f'{base.TERM_FAIL}error: {err}'
     raise
@@ -945,4 +948,4 @@ def Main() -> None:
 
 if __name__ == '__main__':
   logging.basicConfig(level=logging.INFO, format=base.LOG_FORMAT)  # set this as default
-  Main()
+  sys.exit(main())

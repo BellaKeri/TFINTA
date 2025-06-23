@@ -10,6 +10,8 @@ import pdb
 import urllib.request
 import xml.dom.minidom
 import dataclasses
+import sys
+from typing import Optional
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
 __version__ = (1, 1)
@@ -74,7 +76,7 @@ def TrainsDict(trains_data: list[XMLElement]) -> dict[int, Trains]:
   return dict_trains_information
 
 
-def Main() -> None:
+def main(unused_argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-name
   """Main entry point."""
   xml_data = LoadTrains()
   xml_trains_obj = ConvertToXML(xml_data)
@@ -91,7 +93,8 @@ def Main() -> None:
   print()
   print(station_dict)
   print()
+  return 0
 
 
 if __name__ == '__main__':
-  Main()
+  sys.exit(main())
