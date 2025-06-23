@@ -799,9 +799,9 @@ class GTFS:
     # update
     self._db.agencies[agency.id].routes[route.id].trips[row['trip_id']].stops[row['stop_sequence']] = dm.Stop(
         id=row['trip_id'], seq=row['stop_sequence'], stop=row['stop_id'],
-        agency=agency.id, route=route.id, arrival=arrival, departure=departure,
-        timepoint=row['timepoint'], headsign=row['stop_headsign'],
-        pickup=pickup, dropoff=dropoff)
+        agency=agency.id, route=route.id,
+        scheduled=dm.ScheduleStop(arrival=arrival, departure=departure, timepoint=row['timepoint']),
+        headsign=row['stop_headsign'], pickup=pickup, dropoff=dropoff)
 
   ##################################################################################################
   # GTFS PRETTY PRINTS
@@ -832,8 +832,8 @@ class GTFS:
       stop_code, stop_name, stop_description = self.StopName(stop.stop)
       table.add_row([
           seq,
-          SecondsToHMS(stop.arrival),
-          SecondsToHMS(stop.departure),
+          SecondsToHMS(stop.scheduled.arrival),
+          SecondsToHMS(stop.scheduled.departure),
           stop.stop,
           stop_code,
           stop_name,

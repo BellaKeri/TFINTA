@@ -169,6 +169,26 @@ class StopPointType(enum.Enum):
   DRIVER_ONLY = 3    # Must coordinate with driver to arrange pickup/drop-off
 
 
+@functools.total_ordering
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class ScheduleStop:
+  """A timetable entry, with arrival & departure. Sortable (by departure first then arrival)."""
+  arrival: int            # stop_times.txt/arrival_time - seconds from midnight, to represent 'HH:MM:SS'   (required)
+  departure: int          # stop_times.txt/departure_time - seconds from midnight, to represent 'HH:MM:SS' (required)
+  timepoint: bool = True  # stop_times.txt/timepoint (required) - False==Times are considered approximate; True==Times are considered exact
+
+  def __lt__(self, other: Any) -> Any:
+    """Less than. Makes sortable (b/c base class already defines __eq__)."""
+    if not isinstance(other, ScheduleStop):
+      return NotImplemented
+    if self.timepoint != other.timepoint:
+      # for now we disallow comparing with mixed precisions!
+      return NotImplemented
+    if self.departure != other.departure:
+      return self.departure < other.departure
+    return self.arrival < other.arrival
+
+
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class Stop:  # stop_times.txt
   """Time that a vehicle arrives/departs from a stop for a trip."""
@@ -177,9 +197,7 @@ class Stop:  # stop_times.txt
   stop: str  # stop_times.txt/stop_id                 (required) -> stops.txt/stop_id
   agency: int     # <<INFERRED>> -> agency.txt/agency_id
   route: str      # <<INFERRED>> -> routes.txt/route_id
-  arrival: int    # stop_times.txt/arrival_time - seconds from midnight, to represent 'HH:MM:SS'   (required)
-  departure: int  # stop_times.txt/departure_time - seconds from midnight, to represent 'HH:MM:SS' (required)
-  timepoint: bool                 # stop_times.txt/timepoint (required) - False==Times are considered approximate; True==Times are considered exact
+  scheduled: ScheduleStop  # stop_times.txt/arrival_time+departure_time+timepoint - arrival & departure
   headsign: Optional[str] = None  # stop_times.txt/stop_headsign
   pickup: StopPointType = StopPointType.REGULAR   # stop_times.txt/pickup_type
   dropoff: StopPointType = StopPointType.REGULAR  # stop_times.txt/drop_off_type
@@ -493,14 +511,6 @@ class Track:
   stops: tuple[TrackStop]  # (tuple so it is hashable!)
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class ScheduleStop:
-  """A service timetable entry."""
-  arrival: int     # stop_times.txt/arrival_time - seconds from midnight, to represent 'HH:MM:SS'   (required)
-  departure: int   # stop_times.txt/departure_time - seconds from midnight, to represent 'HH:MM:SS' (required)
-  timepoint: bool  # stop_times.txt/timepoint (required) - False==Times are considered approximate; True==Times are considered exact
-
-
 @functools.total_ordering
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class Schedule(Track):
@@ -521,9 +531,7 @@ class Schedule(Track):
       return self.stops[-1].name < other.stops[-1].name
     if self.stops[-1].stop != other.stops[-1].stop:
       return self.stops[-1].stop < other.stops[-1].stop
-    if self.times[0].departure != other.times[0].departure:
-      return self.times[0].departure < other.times[0].departure
-    return self.times[-1].arrival < other.times[-1].arrival
+    return self.times[-1] < other.times[-1]
 
 
 # useful

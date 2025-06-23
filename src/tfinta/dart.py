@@ -72,11 +72,9 @@ class DART:
         dm.Schedule(
             direction=trip.direction,
             stops=stops,
-            times=tuple(dm.ScheduleStop(  # type:ignore
-                arrival=trip.stops[i].arrival,
-                departure=trip.stops[i].departure,
-                timepoint=trip.stops[i].timepoint,
-            ) for i in range(1, len(trip.stops) + 1)),  # this way guarantees we hit every int (seq)
+            times=tuple(  # type:ignore
+                # this way guarantees we hit every int (seq)
+                trip.stops[i].scheduled for i in range(1, len(trip.stops) + 1)),
         ),
     )
 
