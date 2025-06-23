@@ -74,7 +74,7 @@ def test_SecondsToHMS(sec: int, hms: str) -> None:
 @mock.patch('src.tfinta.gtfs.urllib.request.urlopen', autospec=True)
 @mock.patch('balparda_baselib.base.BinSerialize', autospec=True)
 @mock.patch('balparda_baselib.base.BinDeSerialize', autospec=True)
-def test_GTFS(
+def test_GTFS_load_and_parse_from_net(
     deserialize: mock.MagicMock,
     serialize: mock.MagicMock,
     urlopen: mock.MagicMock,
@@ -244,6 +244,29 @@ def test_GTFS(
   stop_time['trip_id'] = 'bar'         # invalid
   with pytest.raises(gtfs.RowError, match='trip_id in row was not found'):
     db._HandleStopTimesRow(loc, 1, stop_time)
+
+
+@mock.patch('balparda_baselib.base.BinSerialize', autospec=True)
+@mock.patch('balparda_baselib.base.BinDeSerialize', autospec=True)
+def test_GTFS_load_existing(deserialize: mock.MagicMock, serialize: mock.MagicMock) -> None:
+  """Test."""
+  # mock
+  deserialize.return_value = dm.GTFSData(
+      tm=0.0, files=dm.OfficialFiles(tm=0.0, files={}),
+      agencies={}, calendar={}, shapes={}, stops={})
+  with (mock.patch('src.tfinta.gtfs.os.path.isdir', autospec=True) as is_dir,
+        mock.patch('src.tfinta.gtfs.os.mkdir', autospec=True) as mk_dir,
+        mock.patch('src.tfinta.gtfs.os.path.exists', autospec=True) as exists):
+    is_dir.return_value = True
+    exists.return_value = True
+    # create database
+    gtfs.GTFS(' db/path\t')  # some extra spaces...
+    # check creation path
+    is_dir.assert_called_once_with('db/path')
+    mk_dir.assert_not_called()
+    exists.assert_called_once_with('db/path/transit.db')
+  deserialize.assert_called_once_with(file_path='db/path/transit.db', compress=True)
+  serialize.assert_not_called()
 
 
 @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
