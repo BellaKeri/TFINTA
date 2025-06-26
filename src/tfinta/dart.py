@@ -289,50 +289,38 @@ def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-na
   print(f'**                 {base.TERM_LIGHT_RED}DART DB{base.TERM_BLUE}                   **')
   print('**   balparda@github.com (Daniel Balparda)   **')
   print(f'***********************************************{base.TERM_END}')
-  success_message: str = f'{base.TERM_WARNING}premature end? user paused?'
-  try:
-    # open DB
-    database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
-    # execute the command
-    print()
-    with base.Timer() as op_timer:
-      match command:
-        case 'read':
-          database.LoadData(
-              dm.IRISH_RAIL_OPERATOR, dm.IRISH_RAIL_LINK,
-              allow_unknown_file=True, allow_unknown_field=False,
-              freshness=args.freshness, force_replace=bool(args.replace), override=None)
-        case 'print':
-          # look at sub-command for print
-          print_command = args.print_command.lower().strip() if args.print_command else ''
-          dart = DART(database)
-          match print_command:
-            case 'trips':
-              # trips for a day
-              for line in dart.PrettyDaySchedule(
-                  dm.DATE_OBJ(args.day) if args.day else datetime.date.today()):
-                print(line)
-            case 'station':
-              # station chart for a day
-              for line in dart.PrettyStationSchedule(
-                  database.StopIDFromNameFragmentOrID(args.station),
-                  dm.DATE_OBJ(args.day) if args.day else datetime.date.today()):
-                print(line)
-            case _:
-              raise NotImplementedError()
+  # open DB
+  database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
+  # execute the command
+  print()
+  match command:
+    case 'read':
+      database.LoadData(
+          dm.IRISH_RAIL_OPERATOR, dm.IRISH_RAIL_LINK,
+          allow_unknown_file=True, allow_unknown_field=False,
+          freshness=args.freshness, force_replace=bool(args.replace), override=None)
+    case 'print':
+      # look at sub-command for print
+      print_command = args.print_command.lower().strip() if args.print_command else ''
+      dart = DART(database)
+      match print_command:
+        case 'trips':
+          # trips for a day
+          for line in dart.PrettyDaySchedule(
+              dm.DATE_OBJ(args.day) if args.day else datetime.date.today()):
+            print(line)
+        case 'station':
+          # station chart for a day
+          for line in dart.PrettyStationSchedule(
+              database.StopIDFromNameFragmentOrID(args.station),
+              dm.DATE_OBJ(args.day) if args.day else datetime.date.today()):
+            print(line)
         case _:
           raise NotImplementedError()
-      print()
-      print()
-    print(f'Executed in {base.TERM_GREEN}{op_timer.readable}{base.TERM_END}')
-    print()
-    success_message = f'{base.TERM_GREEN}success'
-    return 0
-  except Exception as err:
-    success_message = f'{base.TERM_FAIL}error: {err}'
-    raise
-  finally:
-    print(f'{base.TERM_BLUE}{base.TERM_BOLD}THE END: {success_message}{base.TERM_END}')
+    case _:
+      raise NotImplementedError()
+  print()
+  return 0
 
 
 if __name__ == '__main__':

@@ -957,44 +957,32 @@ def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-na
   print(f'**                 {base.TERM_LIGHT_RED}GTFS DB{base.TERM_BLUE}                   **')
   print('**   balparda@github.com (Daniel Balparda)   **')
   print(f'***********************************************{base.TERM_END}')
-  success_message: str = f'{base.TERM_WARNING}premature end? user paused?'
-  try:
-    # open DB
-    database = GTFS(DEFAULT_DATA_DIR)
-    # execute the command
-    print()
-    with base.Timer() as op_timer:
-      # look at main command
-      match command:
-        case 'read':
-          database.LoadData(
-              dm.IRISH_RAIL_OPERATOR, dm.IRISH_RAIL_LINK, freshness=args.freshness,
-              allow_unknown_file=args.unknownfile == 1,
-              allow_unknown_field=args.unknownfield == 1,
-              force_replace=bool(args.replace),
-              override=args.override.strip() if args.override else None)
-        case 'print':
-          # look at sub-command for print
-          print_command = args.print_command.lower().strip() if args.print_command else ''
-          match print_command:
-            case 'trip':
-              for line in database.PrettyPrintTrip(args.id):
-                print(line)
-            case _:
-              raise NotImplementedError()
+  # open DB
+  database = GTFS(DEFAULT_DATA_DIR)
+  # execute the command
+  print()
+  # look at main command
+  match command:
+    case 'read':
+      database.LoadData(
+          dm.IRISH_RAIL_OPERATOR, dm.IRISH_RAIL_LINK, freshness=args.freshness,
+          allow_unknown_file=args.unknownfile == 1,
+          allow_unknown_field=args.unknownfield == 1,
+          force_replace=bool(args.replace),
+          override=args.override.strip() if args.override else None)
+    case 'print':
+      # look at sub-command for print
+      print_command = args.print_command.lower().strip() if args.print_command else ''
+      match print_command:
+        case 'trip':
+          for line in database.PrettyPrintTrip(args.id):
+            print(line)
         case _:
           raise NotImplementedError()
-      print()
-      print()
-    print(f'Executed in {base.TERM_GREEN}{op_timer.readable}{base.TERM_END}')
-    print()
-    success_message = f'{base.TERM_GREEN}success'
-    return 0
-  except Exception as err:
-    success_message = f'{base.TERM_FAIL}error: {err}'
-    raise
-  finally:
-    print(f'{base.TERM_BLUE}{base.TERM_BOLD}THE END: {success_message}{base.TERM_END}')
+    case _:
+      raise NotImplementedError()
+  print()
+  return 0
 
 
 if __name__ == '__main__':
