@@ -46,6 +46,11 @@ DAYS_OLD: Callable[[float], float] = lambda t: (time.time() - t) / _SECONDS_IN_D
 DEFAULT_DATA_DIR: str = base.MODULE_PRIVATE_DIR(__file__, '.tfinta-data')
 _DB_FILE_NAME = 'transit.db'
 
+# cache sizes (in entries)
+_SMALL_CACHE = 1 << 10   # 1024
+_MEDIUM_CACHE = 1 << 14  # 16384
+_LARGE_CACHE = 1 << 16   # 65536
+
 # type maps for efficiency and memory (so we don't build countless enum objects)
 _LOCATION_TYPE_MAP: dict[int, dm.LocationType] = {e.value: e for e in dm.LocationType}
 _STOP_POINT_TYPE_MAP: dict[int, dm.StopPointType] = {e.value: e for e in dm.StopPointType}
@@ -192,7 +197,7 @@ class GTFS:
       self._changed = False
       logging.info('Saved DB to %r (%s)', self._db_path, tm_save.readable)
 
-  @functools.lru_cache(maxsize=1 << 14)
+  @functools.lru_cache(maxsize=_MEDIUM_CACHE)  # remember to update self._InvalidateCaches()
   def FindRoute(self, route_id: str) -> Optional[dm.Agency]:
     """Find route by finding its Agency."""
     for agency in self._db.agencies.values():
@@ -200,7 +205,7 @@ class GTFS:
         return agency
     return None
 
-  @functools.lru_cache(maxsize=1 << 16)
+  @functools.lru_cache(maxsize=_LARGE_CACHE)  # remember to update self._InvalidateCaches()
   def FindTrip(self, trip_id: str) -> tuple[
       Optional[dm.Agency], Optional[dm.Route], Optional[dm.Trip]]:
     """Find route by finding its Agency & Route. Return (agency, route, trip)."""
@@ -210,7 +215,7 @@ class GTFS:
           return (agency, route, route.trips[trip_id])
     return (None, None, None)
 
-  @functools.lru_cache(maxsize=1 << 10)
+  @functools.lru_cache(maxsize=_SMALL_CACHE)  # remember to update self._InvalidateCaches()
   def StopName(self, stop_id: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
     """Gets (code, name, description) for a Stop object of `id`."""
     if stop_id not in self._db.stops:
@@ -218,7 +223,7 @@ class GTFS:
     stop: dm.BaseStop = self._db.stops[stop_id]
     return (stop.code, stop.name, stop.description)
 
-  @functools.lru_cache(maxsize=1 << 10)
+  @functools.lru_cache(maxsize=_SMALL_CACHE)  # remember to update self._InvalidateCaches()
   def StopNameTranslator(self, stop_id: str) -> str:
     """Translates a stop ID into a name. If not found raises."""
     name: Optional[str] = self.StopName(stop_id)[1]
@@ -226,12 +231,58 @@ class GTFS:
       raise Error(f'Invalid stop code found: {stop_id}')
     return name
 
+  @functools.lru_cache(maxsize=_SMALL_CACHE)  # remember to update self._InvalidateCaches()
+  def StopIDFromNameFragmentOrID(self, stop_name_or_id: str) -> str:
+    """Searches for `stop_id` based on either an ID (verifies exists) or stop name.
+
+    If searching by name, will search for a case-insensitive partial match that is UNIQUE.
+
+    Args:
+      stop_name_or_id: either a stop_id (case-sensitive) or a partial station name match (case-insensitive)
+
+    Returns:
+      stop_id if found unique match; None otherwise
+
+    Raises:
+      Error: more than one match or no match
+    """
+    # test empty case
+    stop_name_or_id = stop_name_or_id.strip()
+    if not stop_name_or_id:
+      raise Error('empty station ID/name')
+    # test input as stop_id
+    if stop_name_or_id in self._db.stops:
+      return stop_name_or_id  # found, so just use it...
+    # this will be a name-based search, which will be case-insensitive
+    stop_name: str = stop_name_or_id.lower()
+    matches: set[str] = set()
+    for stop_id, stop in self._db.stops.items():
+      if stop_name in stop.name.lower():
+        matches.add(stop_id)
+    # check what sort of results we got
+    if not matches:
+      # did not find anything
+      raise Error(f'No matches for station {stop_name_or_id!r}')
+    if len(matches) > 1:
+      # cannot decide between many options
+      raise Error(
+          f'Station name {stop_name_or_id!r} matches stations: '
+          f'{", ".join(f"{s}/{self._db.stops[s].name}" for s in sorted(matches))} '
+          '--- Use ID or be more specific')
+    # exactly one real match, so that is the one
+    return matches.pop()
+
   def _InvalidateCaches(self) -> None:
     """Clear all caches."""
-    self.FindRoute.cache_clear()
-    self.FindTrip.cache_clear()
-    self.StopName.cache_clear()
-    self.StopNameTranslator.cache_clear()
+    for method in (
+        # list cache methods here
+        self.FindRoute,
+        self.FindTrip,
+        self.StopName,
+        self.StopNameTranslator,
+        self.StopIDFromNameFragmentOrID,
+    ):
+      method.cache_clear()
 
   def ServicesForDay(self, day: datetime.date) -> set[int]:
     """Return set[int] of services active (available/running/operating) on this day."""

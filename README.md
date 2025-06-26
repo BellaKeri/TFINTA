@@ -196,3 +196,8 @@ git push --tags
 poetry build
 poetry publish
 ```
+
+### TODO
+
+* Versioning of GTFS data
+* Migrate to SQL?

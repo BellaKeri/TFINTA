@@ -132,6 +132,7 @@ class LocationType(enum.Enum):
   BOARDING_AREA = 4  # A specific location on a platform, where passengers can board and/or alight vehicles
 
 
+@functools.total_ordering
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class BaseStop:  # stops.txt
   """Stop where vehicles pick up or drop-off riders."""
@@ -144,6 +145,12 @@ class BaseStop:  # stops.txt
   zone: Optional[str] = None         # stops.txt/zone_id
   description: Optional[str] = None  # stops.txt/stop_desc
   url: Optional[str] = None          # stops.txt/stop_url
+
+  def __lt__(self, other: Any) -> Any:
+    """Less than. Makes sortable (b/c base class already defines __eq__)."""
+    if not isinstance(other, BaseStop):
+      return NotImplemented
+    return self.name < other.name
 
 
 class ExpectedStopsCSVRowType(TypedDict):
@@ -217,6 +224,7 @@ class ExpectedStopTimesCSVRowType(TypedDict):
   dropoff_type: Optional[int]  # legacy spelling, here for backwards compatibility
 
 
+@functools.total_ordering  # limited sorting by ID only!!
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
 class Trip:
   """Trip for a route."""
@@ -229,7 +237,14 @@ class Trip:
   block: Optional[str] = None     # trips.txt/block_id
   headsign: Optional[str] = None  # trips.txt/trip_headsign
   name: Optional[str] = None      # trips.txt/trip_short_name
+  # A trip_short_name value, if provided, should uniquely identify a trip within a service day
   stops: dict[int, Stop]          # {stop_times.txt/stop_sequence: Stop}
+
+  def __lt__(self, other: Any) -> Any:
+    """Less than. Makes sortable (b/c base class already defines __eq__)."""
+    if not isinstance(other, Trip):
+      return NotImplemented
+    return self.id < other.id  # we will sort only by ID for now!!
 
 
 class ExpectedTripsCSVRowType(TypedDict):
@@ -479,6 +494,7 @@ class GTFSData:
 ####################################################################################################
 
 
+@functools.total_ordering
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class TrackEndpoints:
   """A track start and end stops."""
@@ -486,13 +502,31 @@ class TrackEndpoints:
   end: str         # stop_times.txt/stop_id (required) -> stops.txt/stop_id
   direction: bool  # trips.txt/direction_id (required)
 
+  def __lt__(self, other: Any) -> Any:
+    """Less than. Makes sortable (b/c base class already defines __eq__)."""
+    if not isinstance(other, TrackEndpoints):
+      return NotImplemented
+    if self.direction != other.direction:
+      return self.direction < other.direction
+    if self.start != other.start:
+      return self.start < other.start
+    return self.end < other.end
 
+
+@functools.total_ordering
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class AgnosticEndpoints:
   """A track extremities (start & stop) but in a fixed (sorted) order."""
   ends: tuple[str, str]  # SORTED!! stop_times.txt/stop_id (required) -> stops.txt/stop_id
 
+  def __lt__(self, other: Any) -> Any:
+    """Less than. Makes sortable (b/c base class already defines __eq__)."""
+    if not isinstance(other, AgnosticEndpoints):
+      return NotImplemented
+    return self.ends < other.ends
 
+
+@functools.total_ordering
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class TrackStop:
   """A track stop."""
@@ -503,12 +537,27 @@ class TrackStop:
   pickup: StopPointType = StopPointType.REGULAR   # stop_times.txt/pickup_type
   dropoff: StopPointType = StopPointType.REGULAR  # stop_times.txt/drop_off_type
 
+  def __lt__(self, other: Any) -> Any:
+    """Less than. Makes sortable (b/c base class already defines __eq__)."""
+    if not isinstance(other, TrackStop):
+      return NotImplemented
+    return self.name < other.name
 
+
+@functools.total_ordering
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class Track:
   """Collection of stops. A directional shape on the train tracks, basically."""
   direction: bool          # trips.txt/direction_id (required)
   stops: tuple[TrackStop]  # (tuple so it is hashable!)
+
+  def __lt__(self, other: Any) -> Any:
+    """Less than. Makes sortable (b/c base class already defines __eq__)."""
+    if not isinstance(other, Track):
+      return NotImplemented
+    if self.direction != other.direction:
+      return self.direction < other.direction
+    return self.stops < other.stops
 
 
 @functools.total_ordering
@@ -523,15 +572,9 @@ class Schedule(Track):
       return NotImplemented
     if self.direction != other.direction:
       return self.direction < other.direction
-    if self.stops[0].name != other.stops[0].name:
-      return self.stops[0].name < other.stops[0].name
-    if self.stops[0].stop != other.stops[0].stop:
-      return self.stops[0].stop < other.stops[0].stop
-    if self.stops[-1].name != other.stops[-1].name:
-      return self.stops[-1].name < other.stops[-1].name
-    if self.stops[-1].stop != other.stops[-1].stop:
-      return self.stops[-1].stop < other.stops[-1].stop
-    return self.times[-1] < other.times[-1]
+    if self.stops != other.stops:
+      return self.stops < other.stops
+    return self.times < other.times
 
 
 # useful
@@ -540,7 +583,7 @@ DART_DIRECTION: Callable[[Trip | TrackEndpoints | Track], str] = (
     lambda t: 'S' if t.direction else 'N')
 
 CondensedTrips = dict[AgnosticEndpoints, dict[TrackEndpoints, dict[
-    Track, dict[Schedule, dict[int, list[Trip]]]]]]
+    Track, dict[str, dict[int, dict[Schedule, list[Trip]]]]]]]
 
 
 def EndpointsFromTrack(track: Track) -> tuple[AgnosticEndpoints, TrackEndpoints]:

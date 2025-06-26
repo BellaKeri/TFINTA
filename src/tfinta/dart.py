@@ -10,7 +10,7 @@ import datetime
 import logging
 # import pdb
 import sys
-from typing import Generator, Optional
+from typing import Any, Generator, Optional
 
 from balparda_baselib import base
 import prettytable
@@ -28,6 +28,12 @@ _DEFAULT_DAYS_FRESHNESS = 10
 
 class Error(gtfs.Error):
   """DART exception."""
+
+
+def SortedItems[K: Any, V: Any](d: dict[K, V]) -> Generator[tuple[K, V], None, None]:
+  """Behaves like dict.items() but gets (key, value) pairs sorted by keys."""
+  for key in sorted(d.keys()):
+    yield (key, d[key])
 
 
 class DART:
@@ -49,11 +55,24 @@ class DART:
     self._dart_route: dm.Route = dart_route
     # group dart trips by track then by schedule then by service
     self._dart_trips: dm.CondensedTrips = {}
-    for trip in dart_route.trips.values():
+    for trip in self._dart_route.trips.values():
       track, schedule = self.ScheduleFromTrip(trip)
       agnostic, endpoints = dm.EndpointsFromTrack(track)
+      if not trip.name:
+        raise Error(f'empty trip name: {trip}')
       self._dart_trips.setdefault(agnostic, {}).setdefault(endpoints, {}).setdefault(
-          track, {}).setdefault(schedule, {}).setdefault(trip.service, []).append(trip)
+          track, {}).setdefault(trip.name, {}).setdefault(trip.service, {}).setdefault(
+              schedule, []).append(trip)
+    # count them: we can't have lost any, or we need to investigate!
+    if (total_trips := len(self._dart_route.trips)) != (collected_trips := sum(
+        len(trips)
+        for endpoints in self._dart_trips.values()
+        for tracks in endpoints.values()
+        for names in tracks.values()
+        for services in names.values()
+        for schedules in services.values()
+        for trips in schedules.values())):
+      raise Error(f'DART route has {total_trips} trips, but only {collected_trips} in structure')
 
   def ScheduleFromTrip(self, trip: dm.Trip) -> tuple[dm.Track, dm.Schedule]:
     """Builds a schedule object from this particular trip."""
@@ -86,34 +105,50 @@ class DART:
     """Set of DART services for a single day."""
     return self._gtfs.ServicesForDay(day).intersection(self.Services())
 
-  def WalkTrips(self) -> Generator[
-      tuple[dm.AgnosticEndpoints, dm.TrackEndpoints, dm.Track,
-            dm.Schedule, int, list[dm.Trip]], None, None]:
+  def WalkTrips(self, filter_services: Optional[set[int]] = None) -> Generator[tuple[
+      dm.AgnosticEndpoints, dm.TrackEndpoints, dm.Track, str, int,
+      dm.Schedule, dm.Trip], None, None]:
     """Iterates over all DART trips in a sensible order."""
-    for agnostic, endpoints in self._dart_trips.items():
-      for endpoint, tracks in endpoints.items():
-        for track, schedules in tracks.items():
-          for schedule in sorted(schedules.keys()):
-            for service, trips in schedules[schedule].items():
-              # for trip in trips:
-              yield (agnostic, endpoint, track, schedule, service, trips)
+    for agnostic, endpoint_map in SortedItems(self._dart_trips):
+      for endpoint, track_map in SortedItems(endpoint_map):
+        for track, name_map in SortedItems(track_map):
+          for name, service_map in SortedItems(name_map):
+            for service, schedule_map in SortedItems(service_map):
+              if not filter_services or service in filter_services:
+                for schedule, trip_list in SortedItems(schedule_map):
+                  for trip in trip_list:
+                    yield (agnostic, endpoint, track, name, service, schedule, trip)
 
-  def DaySchedule(self, day: datetime.date) -> tuple[
-      set[int], dict[dm.Schedule, list[tuple[int, dm.Trip]]]]:
-    """Schedule for `day`.
-
-    Args:
-      day: datetime.date to fetch schedule for
-
-    Returns:
-      ({service1, service2, ...}, {schedule: [(service1, trip1), (service2, trip2), ...]})
-    """
-    dart_services: set[int] = self.ServicesForDay(day)
-    day_dart_schedule: dict[dm.Schedule, list[tuple[int, dm.Trip]]] = {}
-    for _, _, _, schedule, service, trips in self.WalkTrips():
-      if service in dart_services:
-        day_dart_schedule.setdefault(schedule, []).extend((service, t) for t in trips)
-    return (dart_services, day_dart_schedule)
+  def WalkTrains(self, filter_services: Optional[set[int]] = None) -> Generator[tuple[
+      dm.AgnosticEndpoints, dm.TrackEndpoints, dm.Track, dm.Schedule, str,
+      list[tuple[int, dm.Schedule, dm.Trip]]], None, None]:
+    """Iterates over actual physical DART trains in a sensible order."""
+    # go over the trips (self.WalkTrips) and bucket by trip.name, which is a physical DART train
+    key: tuple[dm.AgnosticEndpoints, dm.TrackEndpoints, dm.Track, str]
+    previous_key: Optional[tuple[dm.AgnosticEndpoints, dm.TrackEndpoints, dm.Track, str]] = None
+    trips_in_train: list[tuple[int, dm.Schedule, dm.Trip]] = []
+    schedules_in_train: set[dm.Schedule] = set()
+    for agnostic, endpoint, track, name, service, schedule, trip in self.WalkTrips(
+        filter_services=filter_services):
+      key = (agnostic, endpoint, track, name)
+      if key == previous_key:
+        # same name (same train)
+        trips_in_train.append((service, schedule, trip))
+        schedules_in_train.add(schedule)
+      else:
+        # new name (different train)
+        if previous_key and trips_in_train and schedules_in_train:
+          yield (
+              previous_key[0], previous_key[1], previous_key[2],                 # pylint: disable=unsubscriptable-object
+              min(schedules_in_train), previous_key[3], sorted(trips_in_train))  # pylint: disable=unsubscriptable-object
+        trips_in_train = [(service, schedule, trip)]
+        schedules_in_train = {schedule}
+        previous_key = key
+    # make sure we return last one
+    if previous_key and trips_in_train and schedules_in_train:
+      yield (
+          previous_key[0], previous_key[1], previous_key[2],
+          min(schedules_in_train), previous_key[3], sorted(trips_in_train))
 
   ##################################################################################################
   # DART PRETTY PRINTS
@@ -125,18 +160,21 @@ class DART:
       raise Error('empty day')
     yield 'DART Schedule'
     yield f'Day:      {day} ({dm.DAY_NAME[day.weekday()]})'
-    dart_services, day_dart_schedule = self.DaySchedule(day)
-    yield f'Services: {tuple(sorted(dart_services))}'
+    day_services: set[int] = self.ServicesForDay(day)
+    yield f'Services: {tuple(sorted(day_services))}'
     yield ''
-    table = prettytable.PrettyTable(['N/S', 'Start', 'End', 'Depart Time', 'Trip Codes'])
-    for schedule in sorted(day_dart_schedule.keys()):
+    table = prettytable.PrettyTable(
+        ['N/S', 'Start', 'End', 'Depart Time', 'Train', 'Service/Trip Codes'])
+    for _, _, track, schedule, name, trips_in_train in self.WalkTrains(
+        filter_services=day_services):
       table.add_row([  # type: ignore
-          dm.DART_DIRECTION(schedule),
-          schedule.stops[0].name,
-          schedule.stops[-1].name,
+          dm.DART_DIRECTION(track),
+          track.stops[0].name,
+          track.stops[-1].name,
           gtfs.SecondsToHMS(schedule.times[0].departure),
-          ', '.join(f'{s}/{t.id}' for s, t in sorted(
-              day_dart_schedule[schedule], key=lambda s: s[0])),
+          name,
+          ', '.join(f'{s}{"" if sc == schedule else "/*"}/{t.id}'
+                    for s, sc, t in sorted(trips_in_train)),
       ])
     yield from table.get_string().splitlines()  # type:ignore
 
@@ -158,7 +196,18 @@ def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-na
   # "print" command
   print_parser: argparse.ArgumentParser = command_arg_subparsers.add_parser(
       'print', help='Print DB')
-  print_parser.add_argument(
+  print_arg_subparsers = print_parser.add_subparsers(dest='print_command')
+  trip_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser(
+      'trips', help='Print Trips')
+  trip_parser.add_argument(
+      '-d', '--day', type=str, default='',
+      help='day to consider in "YYYYMMDD" format (default: TODAY/NOW)')
+  station_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser(
+      'station', help='Print Station Chart')
+  station_parser.add_argument(
+      '-s', '--station', type=str, default='',
+      help='station to print chart for; finds by ID (stops.txt/stop_id) or by name (stop_name)')
+  station_parser.add_argument(
       '-d', '--day', type=str, default='',
       help='day to consider in "YYYYMMDD" format (default: TODAY/NOW)')
   # ALL commands
@@ -186,11 +235,24 @@ def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-na
               allow_unknown_file=True, allow_unknown_field=False,
               freshness=args.freshness, force_replace=bool(args.replace), override=None)
         case 'print':
-          print()
+          # look at sub-command for print
+          print_command = args.print_command.lower().strip() if args.print_command else ''
           dart = DART(database)
-          for line in dart.PrettyDaySchedule(
-              dm.DATE_OBJ(args.day) if args.day else datetime.date.today()):
-            print(line)
+          match print_command:
+            case 'trips':
+              # trips for a day
+              for line in dart.PrettyDaySchedule(
+                  dm.DATE_OBJ(args.day) if args.day else datetime.date.today()):
+                print(line)
+            case 'station':
+              # station chart for a day
+              raise NotImplementedError()
+              # for line in dart.PrettyStationSchedule(
+              #     database.StopIDFromNameFragmentOrID(args.station),
+              #     dm.DATE_OBJ(args.day) if args.day else datetime.date.today()):
+              #   print(line)
+            case _:
+              raise NotImplementedError()
         case _:
           raise NotImplementedError()
       print()

@@ -128,6 +128,15 @@ def test_GTFS_load_and_parse_from_net(
   assert db.StopName('8250IR0022') == ('0', 'Shankill', None)
   with pytest.raises(gtfs.Error):
     db.StopNameTranslator('none')
+  with pytest.raises(gtfs.Error, match='empty station'):
+    db.StopIDFromNameFragmentOrID(' \t')
+  with pytest.raises(gtfs.Error, match=r'Killiney.*Shankill'):
+    db.StopIDFromNameFragmentOrID('kill')
+  with pytest.raises(gtfs.Error, match='No matches'):
+    db.StopIDFromNameFragmentOrID('invalid')
+  assert db.StopIDFromNameFragmentOrID('8350IR0122') == '8350IR0122'
+  assert db.StopIDFromNameFragmentOrID('grey') == '8350IR0122'
+  assert db.StopIDFromNameFragmentOrID('ceannt') == '8460IR0044'
   assert db.StopNameTranslator('8250IR0022') == 'Shankill'
   assert db.ServicesForDay(datetime.date(2025, 8, 4)) == {84}
   assert db.ServicesForDay(datetime.date(2025, 6, 2)) == set()
