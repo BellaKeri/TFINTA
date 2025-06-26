@@ -61,10 +61,10 @@ def test_DART(gtfs_object: gtfs.GTFS) -> None:  # pylint: disable=redefined-oute
     list(db.PrettyDaySchedule(None))  # type: ignore
   assert '\n'.join(db.PrettyDaySchedule(datetime.date(2025, 8, 4))) == (
       gtfs_data.TRIPS_SCHEDULE_2025_08_04)
-  # with pytest.raises(gtfs.Error):
-  #   list(db.PrettyStationSchedule(' \t', datetime.date(2025, 8, 4)))  # type: ignore
-  # assert '\n'.join(db.PrettyStationSchedule('8350IR0123', datetime.date(2025, 8, 4))) == (
-  #     gtfs_data.STATION_SCHEDULE_2025_08_04)
+  with pytest.raises(gtfs.Error):
+    list(db.PrettyStationSchedule(' \t', datetime.date(2025, 8, 4)))  # type: ignore
+  assert '\n'.join(db.PrettyStationSchedule('8350IR0123', datetime.date(2025, 8, 4))) == (
+      gtfs_data.STATION_SCHEDULE_2025_08_04)
 
 
 @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
@@ -99,22 +99,22 @@ def test_main_print_trips(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) 
   dart_obj.PrettyStationSchedule.assert_not_called()
 
 
-# @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-# @mock.patch('src.tfinta.dart.DART', autospec=True)
-# def test_main_print_station(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None:
-#   """Test."""
-#   db_obj, dart_obj = mock.MagicMock(), mock.MagicMock()
-#   mock_gtfs.return_value = db_obj
-#   mock_dart.return_value = dart_obj
-#   db_obj.StopIDFromNameFragmentOrID.return_value = 'bray'
-#   dart_obj.PrettyStationSchedule.return_value = ['foo', 'bar']
-#   assert dart.main(['print', 'station', '-s', 'daly', '-d', '20250804']) == 0
-#   mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
-#   db_obj.LoadData.assert_not_called()
-#   db_obj.StopIDFromNameFragmentOrID.assert_called_once_with('daly')
-#   mock_dart.assert_called_once_with(db_obj)
-#   dart_obj.PrettyStationSchedule.assert_called_once_with('bray', datetime.date(2025, 8, 4))
-#   dart_obj.PrettyDaySchedule.assert_not_called()
+@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
+@mock.patch('src.tfinta.dart.DART', autospec=True)
+def test_main_print_station(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None:
+  """Test."""
+  db_obj, dart_obj = mock.MagicMock(), mock.MagicMock()
+  mock_gtfs.return_value = db_obj
+  mock_dart.return_value = dart_obj
+  db_obj.StopIDFromNameFragmentOrID.return_value = 'bray'
+  dart_obj.PrettyStationSchedule.return_value = ['foo', 'bar']
+  assert dart.main(['print', 'station', '-s', 'daly', '-d', '20250804']) == 0
+  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  db_obj.LoadData.assert_not_called()
+  db_obj.StopIDFromNameFragmentOrID.assert_called_once_with('daly')
+  mock_dart.assert_called_once_with(db_obj)
+  dart_obj.PrettyStationSchedule.assert_called_once_with('bray', datetime.date(2025, 8, 4))
+  dart_obj.PrettyDaySchedule.assert_not_called()
 
 
 if __name__ == '__main__':

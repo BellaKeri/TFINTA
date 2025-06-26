@@ -168,6 +168,21 @@ class DART:
           previous_key[0], previous_key[1],
           min(schedules_in_train), previous_key[2], sorted(trips_in_train))
 
+  def StationSchedule(self, stop_id: str, day: datetime.date) -> dict[
+      tuple[str, dm.ScheduleStop], tuple[str, dm.Schedule, list[tuple[int, dm.Schedule, dm.Trip]]]]:
+    """Data for trains in a `stop` for a specific `day`."""
+    day_services: set[int] = self.ServicesForDay(day)
+    station: dict[tuple[str, dm.ScheduleStop], tuple[str, dm.Schedule, list[tuple[int, dm.Schedule, dm.Trip]]]] = {}
+    for _, _, schedule, name, trips_in_train in self.WalkTrains(
+        filter_services=day_services):
+      for i, stop in enumerate(schedule.stops):
+        if stop.stop == stop_id:
+          new_key: tuple[str, dm.ScheduleStop] = (schedule.stops[-1].stop, schedule.times[i])
+          if new_key in station:
+            raise Error(f'Duplicate stop/time {new_key}: NEW {trips_in_train} OLD {station[new_key][1]}')
+          station[new_key] = (name, schedule, trips_in_train)
+    return station
+
   ##################################################################################################
   # DART PRETTY PRINTS
   ##################################################################################################
@@ -177,9 +192,10 @@ class DART:
     if not day:
       raise Error('empty day')
     yield 'DART Schedule'
+    yield ''
     yield f'Day:      {day} ({dm.DAY_NAME[day.weekday()]})'
     day_services: set[int] = self.ServicesForDay(day)
-    yield f'Services: {tuple(sorted(day_services))}'
+    yield f'Services: {", ".join(str(s) for s in sorted(day_services))}'
     yield ''
     table = prettytable.PrettyTable(
         ['N/S', 'Start', 'End', 'Depart Time', 'Train', 'Service/Trip Codes/[*Alt.Times]'])
@@ -194,6 +210,40 @@ class DART:
           ', '.join(f'{s}/{t.id}{"" if sc == schedule else "/[*]"}'
                     for s, sc, t in sorted(trips_in_train)),
       ])
+    yield from table.get_string().splitlines()  # type:ignore
+
+  def PrettyStationSchedule(self, stop_id: str, day: datetime.date) -> Generator[str, None, None]:
+    """Generate a pretty version of a DART station (stop) day's schedule."""
+    stop_id = stop_id.strip()
+    if not day or not stop_id:
+      raise Error('empty stop/day')
+    stop_name: str = self._gtfs.StopNameTranslator(stop_id)
+    yield f'DART Schedule for Station {stop_name} - {stop_id}'
+    yield ''
+    yield f'Day:          {day} ({dm.DAY_NAME[day.weekday()]})'
+    day_services: set[int] = self.ServicesForDay(day)
+    yield f'Services:     {", ".join(str(s) for s in sorted(day_services))}'
+    day_dart_schedule = self.StationSchedule(stop_id, day)
+    destinations: set[str] = {self._gtfs.StopNameTranslator(k[0]) for k in day_dart_schedule}
+    yield f'Destinations: {", ".join(sorted(destinations))}'
+    yield ''
+    table = prettytable.PrettyTable(['Train', 'Destination', 'Arrival', 'Departure', 'Service/Trip Codes'])
+    last_arrival: int = 0
+    last_departure: int = 0
+    for dest, time in sorted(day_dart_schedule.keys(), key=lambda k: (k[1], k[0])):
+      name, schedule, trips_in_train = day_dart_schedule[(dest, time)]
+      if time.arrival < last_arrival or time.departure < last_departure:
+        # make sure both arrival and departures are strictly moving forward
+        raise Error(f'time moved backwards in schedule @ {dest} / {time}')
+      table.add_row([  # type: ignore
+          name,
+          schedule.stops[-1].name,
+          gtfs.SecondsToHMS(time.arrival),
+          gtfs.SecondsToHMS(time.departure),
+          ', '.join(f'{s}/{t.id}{"" if sc == schedule else "/[*]"}'
+                    for s, sc, t in sorted(trips_in_train)),
+      ])
+      last_arrival, last_departure = time.arrival, time.departure
     yield from table.get_string().splitlines()  # type:ignore
 
 
@@ -264,11 +314,10 @@ def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-na
                 print(line)
             case 'station':
               # station chart for a day
-              raise NotImplementedError()
-              # for line in dart.PrettyStationSchedule(
-              #     database.StopIDFromNameFragmentOrID(args.station),
-              #     dm.DATE_OBJ(args.day) if args.day else datetime.date.today()):
-              #   print(line)
+              for line in dart.PrettyStationSchedule(
+                  database.StopIDFromNameFragmentOrID(args.station),
+                  dm.DATE_OBJ(args.day) if args.day else datetime.date.today()):
+                print(line)
             case _:
               raise NotImplementedError()
         case _:

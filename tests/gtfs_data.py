@@ -777,8 +777,9 @@ DART_TRIPS_ZIP_1: dm.CondensedTrips = {
 
 TRIPS_SCHEDULE_2025_08_04 = """\
 DART Schedule
+
 Day:      2025-08-04 (Monday)
-Services: (84,)
+Services: 84
 
 +-----+------------+----------+-------------+-------+---------------------------------+
 | N/S |   Start    |   End    | Depart Time | Train | Service/Trip Codes/[*Alt.Times] |
@@ -789,12 +790,14 @@ Services: (84,)
 
 STATION_SCHEDULE_2025_08_04 = """\
 DART Schedule for Station Bray (Daly) - 8350IR0123
+
 Day:          2025-08-04 (Monday)
+Services:     84
 Destinations: Killiney
 
-+-------------+----------+-----------+--------------------+
-| Destination | Arrival  | Departure | Service/Trip Codes |
-+-------------+----------+-----------+--------------------+
-|   Killiney  | 19:28:00 |  19:31:00 |    84/4452_2662    |
-+-------------+----------+-----------+--------------------+\
++-------+-------------+----------+-----------+--------------------+
+| Train | Destination | Arrival  | Departure | Service/Trip Codes |
++-------+-------------+----------+-----------+--------------------+
+|  E818 |   Killiney  | 19:28:00 |  19:31:00 |    84/4452_2662    |
++-------+-------------+----------+-----------+--------------------+\
 """
