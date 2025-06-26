@@ -582,8 +582,7 @@ class Schedule(Track):
 DART_DIRECTION: Callable[[Trip | TrackEndpoints | Track], str] = (
     lambda t: 'S' if t.direction else 'N')
 
-CondensedTrips = dict[AgnosticEndpoints, dict[TrackEndpoints, dict[
-    Track, dict[str, dict[int, dict[Schedule, list[Trip]]]]]]]
+CondensedTrips = dict[TrackEndpoints, dict[Track, dict[str, dict[int, dict[Schedule, list[Trip]]]]]]
 
 
 def EndpointsFromTrack(track: Track) -> tuple[AgnosticEndpoints, TrackEndpoints]:

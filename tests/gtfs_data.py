@@ -757,14 +757,16 @@ TIMES_1: tuple[dm.ScheduleStop] = (  # type:ignore
 )
 
 DART_TRIPS_ZIP_1: dm.CondensedTrips = {
-    dm.AgnosticEndpoints(ends=('8250IR0021', '8350IR0122')): {
-        dm.TrackEndpoints(start='8350IR0122', end='8250IR0021', direction=False): {
-            dm.Track(direction=False, stops=STOPS_1): {
-                dm.Schedule(direction=False, stops=STOPS_1, times=TIMES_1): {
-                    83: [
+    dm.TrackEndpoints(start='8350IR0122', end='8250IR0021', direction=False): {
+        dm.Track(direction=False, stops=STOPS_1): {
+            'E818': {
+                83: {
+                    dm.Schedule(direction=False, stops=STOPS_1, times=TIMES_1): [
                         ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4452_2655'],
                     ],
-                    84: [
+                },
+                84: {
+                    dm.Schedule(direction=False, stops=STOPS_1, times=TIMES_1): [
                         ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4452_2662'],
                     ],
                 },
@@ -778,11 +780,11 @@ DART Schedule
 Day:      2025-08-04 (Monday)
 Services: (84,)
 
-+-----+------------+----------+-------------+--------------------+
-| N/S |   Start    |   End    | Depart Time | Service/Trip Codes |
-+-----+------------+----------+-------------+--------------------+
-|  N  | Greystones | Killiney |   19:18:00  |    84/4452_2662    |
-+-----+------------+----------+-------------+--------------------+\
++-----+------------+----------+-------------+-------+---------------------------------+
+| N/S |   Start    |   End    | Depart Time | Train | Service/Trip Codes/[*Alt.Times] |
++-----+------------+----------+-------------+-------+---------------------------------+
+|  N  | Greystones | Killiney |   19:18:00  |  E818 |           84/4452_2662          |
++-----+------------+----------+-------------+-------+---------------------------------+\
 """
 
 STATION_SCHEDULE_2025_08_04 = """\
