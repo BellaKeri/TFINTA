@@ -438,6 +438,29 @@ ZIP_DB_1 = dm.GTFSData(
                 ),
             },
         ),
+        '4669_68': dm.Shape(
+            id='4669_68',
+            points={
+                1: dm.ShapePoint(
+                    id='4669_68',
+                    seq=1,
+                    point=dm.Point(
+                        latitude=53.1441008463398,
+                        longitude=-6.06088487517706,
+                    ),
+                    distance=0.0,
+                ),
+                2: dm.ShapePoint(
+                    id='4669_68',
+                    seq=2,
+                    point=dm.Point(
+                        latitude=53.1441497,
+                        longitude=-6.0608973,
+                    ),
+                    distance=5.5,
+                ),
+            },
+        ),
     },
     agencies={
         7778017: dm.Agency(
@@ -705,6 +728,66 @@ ZIP_DB_1 = dm.GTFSData(
                                 ),
                             },
                         ),
+                        '4669_4802': dm.Trip(
+                            id='4669_4802',
+                            route='4452_86289',
+                            agency=7778017,
+                            service=84,
+                            direction=False,
+                            shape='4669_68',
+                            block='4669_7778018_Txc8293CD9E-01F8-40DB-BD1B-EBC38AE79EB1',
+                            headsign='Malahide',
+                            name='E818',
+                            stops={
+                                1: dm.Stop(
+                                    id='4669_4802',
+                                    seq=1,
+                                    stop='8350IR0122',
+                                    agency=7778017,
+                                    route='4452_86289',
+                                    scheduled=dm.ScheduleStop(
+                                        arrival=69480,
+                                        departure=69480,
+                                    ),
+                                    headsign='Malahide',
+                                    pickup=dm.StopPointType.REGULAR,
+                                    dropoff=dm.StopPointType.NOT_AVAILABLE,
+                                ),
+                                2: dm.Stop(
+                                    id='4669_4802',
+                                    seq=2,
+                                    stop='8350IR0123',
+                                    agency=7778017,
+                                    route='4452_86289',
+                                    scheduled=dm.ScheduleStop(
+                                        arrival=70080,
+                                        departure=70260,
+                                    ),
+                                ),
+                                3: dm.Stop(
+                                    id='4669_4802',
+                                    seq=3,
+                                    stop='8250IR0022',
+                                    agency=7778017,
+                                    route='4452_86289',
+                                    scheduled=dm.ScheduleStop(
+                                        arrival=70500,
+                                        departure=70560,
+                                    ),
+                                ),
+                                4: dm.Stop(
+                                    id='4669_4802',
+                                    seq=4,
+                                    stop='8250IR0021',
+                                    agency=7778017,
+                                    route='4452_86289',
+                                    scheduled=dm.ScheduleStop(
+                                        arrival=70800,
+                                        departure=70800,
+                                    ),
+                                ),
+                            },
+                        ),
                     },
                 ),
             },
@@ -755,6 +838,12 @@ TIMES_1: tuple[dm.ScheduleStop] = (  # type:ignore
     dm.ScheduleStop(arrival=70500, departure=70560),
     dm.ScheduleStop(arrival=70680, departure=70680),
 )
+TIMES_2: tuple[dm.ScheduleStop] = (  # type:ignore
+    TIMES_1[0],
+    TIMES_1[1],  # type:ignore
+    TIMES_1[2],  # type:ignore
+    dm.ScheduleStop(arrival=70800, departure=70800),
+)
 
 DART_TRIPS_ZIP_1: dm.CondensedTrips = {
     dm.TrackEndpoints(start='8350IR0122', end='8250IR0021', direction=False): {
@@ -768,6 +857,9 @@ DART_TRIPS_ZIP_1: dm.CondensedTrips = {
                 84: {
                     dm.Schedule(direction=False, stops=STOPS_1, times=TIMES_1): [
                         ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4452_2662'],
+                    ],
+                    dm.Schedule(direction=False, stops=STOPS_1, times=TIMES_2): [
+                        ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4669_4802'],
                     ],
                 },
             },
@@ -784,7 +876,7 @@ Services: 84
 +-----+------------+----------+-------------+-------+---------------------------------+
 | N/S |   Start    |   End    | Depart Time | Train | Service/Trip Codes/[*Alt.Times] |
 +-----+------------+----------+-------------+-------+---------------------------------+
-|  N  | Greystones | Killiney |   19:18:00  |  E818 |           84/4452_2662          |
+|  N  | Greystones | Killiney |   19:18:00  |  E818 |  84/4452_2662, 84/4669_4802/[*] |
 +-----+------------+----------+-------------+-------+---------------------------------+\
 """
 
@@ -795,9 +887,9 @@ Day:          2025-08-04 (Monday)
 Services:     84
 Destinations: Killiney
 
-+-------+-------------+----------+-----------+--------------------+
-| Train | Destination | Arrival  | Departure | Service/Trip Codes |
-+-------+-------------+----------+-----------+--------------------+
-|  E818 |   Killiney  | 19:28:00 |  19:31:00 |    84/4452_2662    |
-+-------+-------------+----------+-----------+--------------------+\
++-------+-------------+----------+-----------+---------------------------------+
+| Train | Destination | Arrival  | Departure | Service/Trip Codes/[*Alt.Times] |
++-------+-------------+----------+-----------+---------------------------------+
+|  E818 |   Killiney  | 19:28:00 |  19:31:00 |  84/4452_2662, 84/4669_4802/[*] |
++-------+-------------+----------+-----------+---------------------------------+\
 """

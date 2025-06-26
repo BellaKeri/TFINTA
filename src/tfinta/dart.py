@@ -227,7 +227,8 @@ class DART:
     destinations: set[str] = {self._gtfs.StopNameTranslator(k[0]) for k in day_dart_schedule}
     yield f'Destinations: {", ".join(sorted(destinations))}'
     yield ''
-    table = prettytable.PrettyTable(['Train', 'Destination', 'Arrival', 'Departure', 'Service/Trip Codes'])
+    table = prettytable.PrettyTable(
+        ['Train', 'Destination', 'Arrival', 'Departure', 'Service/Trip Codes/[*Alt.Times]'])
     last_arrival: int = 0
     last_departure: int = 0
     for dest, time in sorted(day_dart_schedule.keys(), key=lambda k: (k[1], k[0])):
