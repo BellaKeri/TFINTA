@@ -59,15 +59,15 @@ def test_DART(gtfs_object: gtfs.GTFS) -> None:  # pylint: disable=redefined-oute
   assert db._dart_trips == gtfs_data.DART_TRIPS_ZIP_1
   with pytest.raises(gtfs.Error):
     list(db.PrettyDaySchedule(None))  # type: ignore
-  assert gtfs_data.STRIP_ANSI('\n'.join(db.PrettyDaySchedule(datetime.date(2025, 8, 4)))) == (
+  assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyDaySchedule(datetime.date(2025, 8, 4)))) == (
       gtfs_data.TRIPS_SCHEDULE_2025_08_04)
   with pytest.raises(gtfs.Error):
     list(db.PrettyStationSchedule(' \t', datetime.date(2025, 8, 4)))
-  assert gtfs_data.STRIP_ANSI('\n'.join(db.PrettyStationSchedule(
+  assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyStationSchedule(
       '8350IR0123', datetime.date(2025, 8, 4)))) == gtfs_data.STATION_SCHEDULE_2025_08_04
   with pytest.raises(gtfs.Error):
     list(db.PrettyPrintTrip(' \t'))
-  assert gtfs_data.STRIP_ANSI('\n'.join(db.PrettyPrintTrip('E818'))) == gtfs_data.TRIP_E818
+  assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintTrip('E818'))) == gtfs_data.TRIP_E818
 
 
 @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)

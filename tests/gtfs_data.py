@@ -9,8 +9,7 @@ import io
 import os.path
 import pathlib
 # import pdb
-import re
-from typing import Any, Callable, Self
+from typing import Any, Self
 import zipfile
 import zoneinfo
 
@@ -795,11 +794,6 @@ ZIP_DB_1 = dm.GTFSData(
         ),
     },
 )
-
-
-_ANSI_ESCAPE: re.Pattern[str] = re.compile(r'\x1b\[[0-9;]*m')
-STRIP_ANSI: Callable[[str], str] = lambda s: _ANSI_ESCAPE.sub('', s)
-# TODO: remove these after base >= 1.9
 
 TRIP_4452_2655: str = """\
 GTFS Trip ID 4452_2655
