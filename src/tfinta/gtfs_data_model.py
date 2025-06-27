@@ -20,7 +20,7 @@ import zoneinfo
 from balparda_baselib import base
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__ = (1, 1)
+__version__: tuple[int, int] = (1, 3)  # v1.3 - 2025/06/27
 
 
 ####################################################################################################

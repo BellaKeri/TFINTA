@@ -35,7 +35,7 @@ import prettytable
 from . import gtfs_data_model as dm
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 2)
+__version__: tuple[int, int] = (1, 3)  # v1.3 - 2025/06/27
 
 
 # defaults

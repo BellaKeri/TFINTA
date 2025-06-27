@@ -14,12 +14,10 @@ from typing import Any, Callable, Self
 import zipfile
 import zoneinfo
 
-from balparda_baselib import base
-
 from src.tfinta import gtfs_data_model as dm
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 2)
+__version__: tuple[int, int] = (1, 3)
 
 
 # test dir

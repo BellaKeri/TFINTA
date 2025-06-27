@@ -14,7 +14,7 @@ import sys
 from typing import Optional
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__ = (1, 1)
+__version__: tuple[int, int] = (1, 3)  # v1.3 - 2025/06/27
 
 
 ALL_RUNNING_TRAINS_URL = 'http://api.irishrail.ie/realtime/realtime.asmx/getCurrentTrainsXML'
