@@ -900,6 +900,14 @@ class GTFS:
       ])
     yield from table.get_string().splitlines()  # type:ignore
 
+  def PrettyPrintAllDatabase(self) -> Generator[str, None, None]:
+    """Print everything in the database."""
+    for agency in sorted(self._db.agencies.keys()):
+      for route in sorted(self._db.agencies[agency].routes.keys()):
+        for trip in sorted(t.id for t in self._db.agencies[agency].routes[route].trips.values()):
+          yield from self.PrettyPrintTrip(trip)
+          yield ''
+
 
 def _UnzipFiles(in_file: IO[bytes], /) -> Generator[tuple[str, bytes], None, None]:
   """Unzips `in_file` bytes buffer. Manages multiple files, preserving case-sensitive _LOAD_ORDER.
@@ -954,6 +962,8 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name
   trip_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser(
       'trip', help='Print Trip')
   trip_parser.add_argument('-i', '--id', type=str, default='', help='Trip ID (default: "")')
+  _: argparse.ArgumentParser = print_arg_subparsers.add_parser(
+      'all', help='Print All Data')
   # ALL commands
   # parser.add_argument(
   #     '-r', '--readonly', type=bool, default=False,
@@ -977,6 +987,9 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name
       match print_command:
         case 'trip':
           for line in database.PrettyPrintTrip(args.id):
+            print(line)
+        case 'all':
+          for line in database.PrettyPrintAllDatabase():
             print(line)
         case _:
           raise NotImplementedError()

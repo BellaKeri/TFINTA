@@ -788,6 +788,139 @@ ZIP_DB_1 = dm.GTFSData(
                                 ),
                             },
                         ),
+                        '4452_2666': dm.Trip(
+                            id='4452_2666',
+                            route='4452_86289',
+                            agency=7778017,
+                            service=83,
+                            direction=False,
+                            shape='4452_42',
+                            block='4452_776668_TxcB8ED8C45-6923-4D5B-8601-5F8CC37418F3',
+                            headsign='Malahide',
+                            name='E666',
+                            stops={
+                                1: dm.Stop(
+                                    id='4452_2666',
+                                    seq=1,
+                                    stop='8350IR0122',
+                                    agency=7778017,
+                                    route='4452_86289',
+                                    scheduled=dm.ScheduleStop(
+                                        arrival=76680,
+                                        departure=76680,
+                                    ),
+                                    headsign='Malahide',
+                                    pickup=dm.StopPointType.REGULAR,
+                                    dropoff=dm.StopPointType.NOT_AVAILABLE,
+                                ),
+                                2: dm.Stop(
+                                    id='4452_2666',
+                                    seq=2,
+                                    stop='8350IR0123',
+                                    agency=7778017,
+                                    route='4452_86289',
+                                    scheduled=dm.ScheduleStop(
+                                        arrival=77280,
+                                        departure=77460,
+                                    ),
+                                ),
+                                3: dm.Stop(
+                                    id='4452_2666',
+                                    seq=3,
+                                    stop='8250IR0022',
+                                    agency=7778017,
+                                    route='4452_86289',
+                                    scheduled=dm.ScheduleStop(
+                                        arrival=77700,
+                                        departure=77760,
+                                    ),
+                                ),
+                                4: dm.Stop(
+                                    id='4452_2666',
+                                    seq=4,
+                                    stop='8250IR0021',
+                                    agency=7778017,
+                                    route='4452_86289',
+                                    scheduled=dm.ScheduleStop(
+                                        arrival=77880,
+                                        departure=77880,
+                                    ),
+                                ),
+                            },
+                        ),
+                        '4669_4666': dm.Trip(
+                            id='4669_4666',
+                            route='4452_86289',
+                            agency=7778017,
+                            service=84,
+                            direction=True,
+                            shape='4669_68',
+                            block='4669_7778018_Txc829999E-01F8-40DB-BD1B-EBC38AE79EB1',
+                            headsign='Malahide',
+                            name='E666',
+                            stops={
+                                1: dm.Stop(
+                                    id='4669_4666',
+                                    seq=1,
+                                    stop='8250IR0022',
+                                    agency=7778017,
+                                    route='4452_86289',
+                                    scheduled=dm.ScheduleStop(
+                                        arrival=77700,
+                                        departure=77760,
+                                    ),
+                                ),
+                                2: dm.Stop(
+                                    id='4669_4666',
+                                    seq=2,
+                                    stop='8250IR0021',
+                                    agency=7778017,
+                                    route='4452_86289',
+                                    scheduled=dm.ScheduleStop(
+                                        arrival=77880,
+                                        departure=77880,
+                                    ),
+                                ),
+                            },
+                        ),
+                        '4669_4999': dm.Trip(
+                            id='4669_4999',
+                            route='4452_86289',
+                            agency=7778017,
+                            service=83,
+                            direction=False,
+                            shape='4669_657',
+                            block='4669_7778018_Txc829999E-01F8-6666-BD1B-EBC38AE79EB1',
+                            headsign='Malahide',
+                            name='E666',
+                            stops={
+                                1: dm.Stop(
+                                    id='4669_4999',
+                                    seq=1,
+                                    stop='8350IR0122',
+                                    agency=7778017,
+                                    route='4452_86289',
+                                    scheduled=dm.ScheduleStop(
+                                        arrival=76680,
+                                        departure=76680,
+                                    ),
+                                    headsign='Malahide',
+                                    pickup=dm.StopPointType.REGULAR,
+                                    dropoff=dm.StopPointType.NOT_AVAILABLE,
+                                ),
+                                2: dm.Stop(
+                                    id='4669_4999',
+                                    seq=2,
+                                    stop='8350IR0123',
+                                    agency=7778017,
+                                    route='4452_86289',
+                                    scheduled=dm.ScheduleStop(
+                                        arrival=77280,
+                                        departure=77460,
+                                    ),
+                                ),
+                            },
+                        ),
                     },
                 ),
             },
@@ -818,6 +951,167 @@ Block:         4452_7778018_Txc47315F93-ACBE-4CE8-9F30-920A2B0C3C75
 | 3 | 8250IR0022 |   Shankill  | 19:35:00 |  19:36:00 |  0   |      ∅      |
 | 4 | 8250IR0021 |   Killiney  | 19:38:00 |  19:38:00 |  0   |      ∅      |
 +---+------------+-------------+----------+-----------+------+-------------+\
+"""
+
+ALL_TRIPS: str = f"""\
+GTFS Trip ID 4669_10287
+
+Agency:        Iarnród Éireann / Irish Rail
+Route:         4452_86269
+  Short name:  rail
+  Long name:   Limerick - Galway
+  Description: ∅
+Direction:     inbound
+Service:       87
+Shape:         4669_658
+Headsign:      Limerick (Colbert)
+Name:          A481
+Block:         4669_7778018_TxcF5814085-2EF0-4E72-998E-4B282D5CC9AC
+
++---+------------+-----------------+----------+-----------+------+-------------+
+| # |  Stop ID   |       Name      | Arrival  | Departure | Code | Description |
++---+------------+-----------------+----------+-----------+------+-------------+
+| 1 | 8460IR0044 | Galway (Ceannt) | 06:15:00 |  06:15:00 |  0   |      ∅      |
+| 2 | 8470IR050  |     Oranmore    | 06:22:00 |  06:22:00 |  0   |      ∅      |
+| 3 | 8470IR0043 |     Athenry     | 06:33:00 |  06:37:00 |  0   |      ∅      |
+| 4 | 8470IR0049 |    Craughwell   | 06:46:00 |  06:47:00 |  0   |      ∅      |
+| 5 | 8470IR0042 |     Ardrahan    | 06:55:00 |  06:56:00 |  0   |      ∅      |
++---+------------+-----------------+----------+-----------+------+-------------+
+
+GTFS Trip ID 4669_10288
+
+Agency:        Iarnród Éireann / Irish Rail
+Route:         4452_86269
+  Short name:  rail
+  Long name:   Limerick - Galway
+  Description: ∅
+Direction:     inbound
+Service:       87
+Shape:         4669_657
+Headsign:      Limerick (Colbert)
+Name:          A471
+Block:         4669_7778018_Txc107C7D84-5B07-4FDE-8875-8E9673265809
+
++---+------------+--------------------+----------+-----------+------+-------------+
+| # |  Stop ID   |        Name        | Arrival  | Departure | Code | Description |
++---+------------+--------------------+----------+-----------+------+-------------+
+| 1 | 8360IR0003 |       Ennis        | 06:50:00 |  06:50:00 |  0   |      ∅      |
+| 2 | 8360IR0010 |   Sixmilebridge    | 07:06:00 |  07:06:00 |  0   |      ∅      |
+| 3 | 8400IR0127 | Limerick (Colbert) | 07:30:00 |  07:30:00 |  0   |      ∅      |
++---+------------+--------------------+----------+-----------+------+-------------+
+
+{TRIP_4452_2655}
+
+GTFS Trip ID 4452_2662
+
+Agency:        Iarnród Éireann / Irish Rail
+Route:         4452_86289
+  Short name:  DART
+  Long name:   Bray - Howth
+  Description: ∅
+Direction:     outbound
+Service:       84
+Shape:         4452_42
+Headsign:      Malahide
+Name:          E818
+Block:         4452_7778018_TxcB8ED8C45-6923-4D5B-8601-5F8CC37418F3
+
++---+------------+-------------+----------+-----------+------+-------------+
+| # |  Stop ID   |     Name    | Arrival  | Departure | Code | Description |
++---+------------+-------------+----------+-----------+------+-------------+
+| 1 | 8350IR0122 |  Greystones | 19:18:00 |  19:18:00 |  0   |      ∅      |
+| 2 | 8350IR0123 | Bray (Daly) | 19:28:00 |  19:31:00 |  0   |      ∅      |
+| 3 | 8250IR0022 |   Shankill  | 19:35:00 |  19:36:00 |  0   |      ∅      |
+| 4 | 8250IR0021 |   Killiney  | 19:38:00 |  19:38:00 |  0   |      ∅      |
++---+------------+-------------+----------+-----------+------+-------------+
+
+GTFS Trip ID 4452_2666
+
+Agency:        Iarnród Éireann / Irish Rail
+Route:         4452_86289
+  Short name:  DART
+  Long name:   Bray - Howth
+  Description: ∅
+Direction:     outbound
+Service:       83
+Shape:         4452_42
+Headsign:      Malahide
+Name:          E666
+Block:         4452_776668_TxcB8ED8C45-6923-4D5B-8601-5F8CC37418F3
+
++---+------------+-------------+----------+-----------+------+-------------+
+| # |  Stop ID   |     Name    | Arrival  | Departure | Code | Description |
++---+------------+-------------+----------+-----------+------+-------------+
+| 1 | 8350IR0122 |  Greystones | 21:18:00 |  21:18:00 |  0   |      ∅      |
+| 2 | 8350IR0123 | Bray (Daly) | 21:28:00 |  21:31:00 |  0   |      ∅      |
+| 3 | 8250IR0022 |   Shankill  | 21:35:00 |  21:36:00 |  0   |      ∅      |
+| 4 | 8250IR0021 |   Killiney  | 21:38:00 |  21:38:00 |  0   |      ∅      |
++---+------------+-------------+----------+-----------+------+-------------+
+
+GTFS Trip ID 4669_4666
+
+Agency:        Iarnród Éireann / Irish Rail
+Route:         4452_86289
+  Short name:  DART
+  Long name:   Bray - Howth
+  Description: ∅
+Direction:     inbound
+Service:       84
+Shape:         4669_68
+Headsign:      Malahide
+Name:          E666
+Block:         4669_7778018_Txc829999E-01F8-40DB-BD1B-EBC38AE79EB1
+
++---+------------+----------+----------+-----------+------+-------------+
+| # |  Stop ID   |   Name   | Arrival  | Departure | Code | Description |
++---+------------+----------+----------+-----------+------+-------------+
+| 1 | 8250IR0022 | Shankill | 21:35:00 |  21:36:00 |  0   |      ∅      |
+| 2 | 8250IR0021 | Killiney | 21:38:00 |  21:38:00 |  0   |      ∅      |
++---+------------+----------+----------+-----------+------+-------------+
+
+GTFS Trip ID 4669_4802
+
+Agency:        Iarnród Éireann / Irish Rail
+Route:         4452_86289
+  Short name:  DART
+  Long name:   Bray - Howth
+  Description: ∅
+Direction:     outbound
+Service:       84
+Shape:         4669_68
+Headsign:      Malahide
+Name:          E818
+Block:         4669_7778018_Txc8293CD9E-01F8-40DB-BD1B-EBC38AE79EB1
+
++---+------------+-------------+----------+-----------+------+-------------+
+| # |  Stop ID   |     Name    | Arrival  | Departure | Code | Description |
++---+------------+-------------+----------+-----------+------+-------------+
+| 1 | 8350IR0122 |  Greystones | 19:18:00 |  19:18:00 |  0   |      ∅      |
+| 2 | 8350IR0123 | Bray (Daly) | 19:28:00 |  19:31:00 |  0   |      ∅      |
+| 3 | 8250IR0022 |   Shankill  | 19:35:00 |  19:36:00 |  0   |      ∅      |
+| 4 | 8250IR0021 |   Killiney  | 19:40:00 |  19:40:00 |  0   |      ∅      |
++---+------------+-------------+----------+-----------+------+-------------+
+
+GTFS Trip ID 4669_4999
+
+Agency:        Iarnród Éireann / Irish Rail
+Route:         4452_86289
+  Short name:  DART
+  Long name:   Bray - Howth
+  Description: ∅
+Direction:     outbound
+Service:       83
+Shape:         4669_657
+Headsign:      Malahide
+Name:          E666
+Block:         4669_7778018_Txc829999E-01F8-6666-BD1B-EBC38AE79EB1
+
++---+------------+-------------+----------+-----------+------+-------------+
+| # |  Stop ID   |     Name    | Arrival  | Departure | Code | Description |
++---+------------+-------------+----------+-----------+------+-------------+
+| 1 | 8350IR0122 |  Greystones | 21:18:00 |  21:18:00 |  0   |      ∅      |
+| 2 | 8350IR0123 | Bray (Daly) | 21:28:00 |  21:31:00 |  0   |      ∅      |
++---+------------+-------------+----------+-----------+------+-------------+
 """
 
 
@@ -878,6 +1172,7 @@ Services: 84
 | N/S | Train |   Start    |   End    | Depart Time | Service/Trip Codes/[★Alt.Times] |
 +-----+-------+------------+----------+-------------+---------------------------------+
 |  N  |  E818 | Greystones | Killiney |   19:18:00  |  84/4452_2662, 84/4669_4802/[★] |
+|  S  |  E666 |  Shankill  | Killiney |   21:36:00  |           84/4669_4666          |
 +-----+-------+------------+----------+-------------+---------------------------------+\
 """
 
@@ -896,6 +1191,47 @@ Destinations: Killiney
 """
 
 TRIP_E818: str = """\
+DART Trip E666
+
+Agency:        Iarnród Éireann / Irish Rail
+Route:         4452_86289
+  Short name:  DART
+  Long name:   Bray - Howth
+  Description: ∅
+Headsign:      Malahide
+
++---------+------------+------------+------------+
+| Trip ID | 4669_4999  | 4452_2666  | 4669_4666  |
++---------+------------+------------+------------+
+| Service |     83     |     83     |     84     |
++---------+------------+------------+------------+
+|   N/S   |     N      |     N      |     S      |
++---------+------------+------------+------------+
+|  Shape  |  4669_657  |  4452_42   |  4669_68   |
++---------+------------+------------+------------+
+|  Block  | 4669_7778… | 4452_7766… | 4669_7778… |
++---------+------------+------------+------------+
+|    #    |    Stop    |    Stop    |    Stop    |
+|         |  Dropoff   |  Dropoff   |  Dropoff   |
+|         |   Pickup   |   Pickup   |   Pickup   |
++---------+------------+------------+------------+
+|    1    | Greystones | Greystones |            |
+|         | 19:18:00✗  | 19:18:00✗  |     ✗      |
+|         | 21:18:00✓  | 21:18:00✓  |            |
++---------+------------+------------+------------+
+|    2    | Bray (Dal… | Bray (Dal… |            |
+|         | 19:28:00✓  | 19:28:00✓  |     ✗      |
+|         | 21:31:00✓  | 21:31:00✓  |            |
++---------+------------+------------+------------+
+|    3    |            |  Shankill  |  Shankill  |
+|         |     ✗      | 19:35:00✓  | 19:35:00✓  |
+|         |            | 21:36:00✓  | 21:36:00✓  |
++---------+------------+------------+------------+
+|    4    |            |  Killiney  |  Killiney  |
+|         |     ✗      | 19:38:00✓  | 19:38:00✓  |
+|         |            | 21:38:00✓  | 21:38:00✓  |
++---------+------------+------------+------------+
+
 DART Trip E818
 
 Agency:        Iarnród Éireann / Irish Rail
@@ -903,13 +1239,14 @@ Route:         4452_86289
   Short name:  DART
   Long name:   Bray - Howth
   Description: ∅
-Direction:     outbound
 Headsign:      Malahide
 
 +---------+------------+------------+------------+
 | Trip ID | 4452_2655  | 4452_2662  | 4669_4802  |
 +---------+------------+------------+------------+
 | Service |     83     |     84     |     84     |
++---------+------------+------------+------------+
+|   N/S   |     N      |     N      |     N      |
 +---------+------------+------------+------------+
 |  Shape  |  4452_42   |  4452_42   |  4669_68   |
 +---------+------------+------------+------------+

@@ -68,6 +68,7 @@ def test_DART(gtfs_object: gtfs.GTFS) -> None:  # pylint: disable=redefined-oute
   with pytest.raises(gtfs.Error):
     list(db.PrettyPrintTrip(' \t'))
   assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintTrip('E818'))) == gtfs_data.TRIP_E818
+  assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintAllDatabase())) == gtfs_data.TRIP_E818 + '\n'
 
 
 @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
@@ -101,6 +102,7 @@ def test_main_print_trips(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) 
   dart_obj.PrettyDaySchedule.assert_called_once_with(datetime.date(2025, 8, 4))
   dart_obj.PrettyStationSchedule.assert_not_called()
   dart_obj.PrettyPrintTrip.assert_not_called()
+  dart_obj.PrettyPrintAllDatabase.assert_not_called()
 
 
 @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
@@ -120,6 +122,7 @@ def test_main_print_station(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock
   dart_obj.PrettyStationSchedule.assert_called_once_with('bray', datetime.date(2025, 8, 4))
   dart_obj.PrettyDaySchedule.assert_not_called()
   dart_obj.PrettyPrintTrip.assert_not_called()
+  dart_obj.PrettyPrintAllDatabase.assert_not_called()
 
 
 @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
@@ -135,6 +138,25 @@ def test_main_print_trip(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -
   db_obj.LoadData.assert_not_called()
   mock_dart.assert_called_once_with(db_obj)
   dart_obj.PrettyPrintTrip.assert_called_once_with('E108')
+  dart_obj.PrettyStationSchedule.assert_not_called()
+  dart_obj.PrettyDaySchedule.assert_not_called()
+  dart_obj.PrettyPrintAllDatabase.assert_not_called()
+
+
+@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
+@mock.patch('src.tfinta.dart.DART', autospec=True)
+def test_main_print_all(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None:
+  """Test."""
+  db_obj, dart_obj = mock.MagicMock(), mock.MagicMock()
+  mock_gtfs.return_value = db_obj
+  mock_dart.return_value = dart_obj
+  dart_obj.PrettyStationSchedule.return_value = ['foo', 'bar']
+  assert dart.main(['print', 'all']) == 0
+  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  db_obj.LoadData.assert_not_called()
+  mock_dart.assert_called_once_with(db_obj)
+  dart_obj.PrettyPrintAllDatabase.assert_called_once_with()
+  dart_obj.PrettyPrintTrip.assert_not_called()
   dart_obj.PrettyStationSchedule.assert_not_called()
   dart_obj.PrettyDaySchedule.assert_not_called()
 

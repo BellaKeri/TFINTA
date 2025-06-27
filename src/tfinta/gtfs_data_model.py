@@ -593,6 +593,10 @@ DART_DIRECTION: Callable[[Trip | TrackEndpoints | Track], str] = (
     lambda t: f'{base.TERM_LIGHT_BLUE}S{base.TERM_END}' if t.direction else
     f'{base.TERM_LIGHT_RED}N{base.TERM_END}')
 
+NULL_STOP = Stop(
+    id='', seq=0, stop='', agency=0, route='', scheduled=ScheduleStop(arrival=0, departure=0),
+    pickup=StopPointType.NOT_AVAILABLE, dropoff=StopPointType.NOT_AVAILABLE)
+
 NULL_TEXT: str = f'{base.TERM_BLUE}\u2205{base.TERM_END}'  # ∅
 LIMITED_TEXT: Callable[[str | None, int], str] = (
     lambda s, w: NULL_TEXT if s is None else (s if len(s) <= w else f'{s[:(w - 1)]}\u2026'))  # …

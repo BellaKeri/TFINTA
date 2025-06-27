@@ -158,6 +158,7 @@ def test_GTFS_load_and_parse_from_net(
   with pytest.raises(gtfs.Error):
     list(db.PrettyPrintTrip('none'))
   assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintTrip('4452_2655'))) == gtfs_data.TRIP_4452_2655
+  assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintAllDatabase())) == gtfs_data.ALL_TRIPS
   # check corner cases for handlers
   # feed_info.txt
   loc = gtfs._TableLocation(
@@ -294,7 +295,7 @@ def test_main_load(mock_gtfs: mock.MagicMock) -> None:
 
 
 @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-def test_main_print(mock_gtfs: mock.MagicMock) -> None:
+def test_main_print_trip(mock_gtfs: mock.MagicMock) -> None:
   """Test."""
   db_obj = mock.MagicMock()
   mock_gtfs.return_value = db_obj
@@ -303,6 +304,20 @@ def test_main_print(mock_gtfs: mock.MagicMock) -> None:
   mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
   db_obj.LoadData.assert_not_called()
   db_obj.PrettyPrintTrip.assert_called_once_with('tid')
+  db_obj.PrettyPrintAllDatabase.assert_not_called()
+
+
+@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
+def test_main_print_all(mock_gtfs: mock.MagicMock) -> None:
+  """Test."""
+  db_obj = mock.MagicMock()
+  mock_gtfs.return_value = db_obj
+  db_obj.PrettyPrintTrip.return_value = ['foo', 'bar']
+  assert gtfs.main(['print', 'all']) == 0
+  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  db_obj.LoadData.assert_not_called()
+  db_obj.PrettyPrintAllDatabase.assert_called_once_with()
+  db_obj.PrettyPrintTrip.assert_not_called()
 
 
 if __name__ == '__main__':

@@ -6,6 +6,8 @@
 """Dublin DART: data and extensible tables."""
 
 import argparse
+import collections
+import copy
 import datetime
 import logging
 # import pdb
@@ -127,8 +129,7 @@ class DART:
                   yield (endpoint, track, name, service, schedule, trip)
 
   def WalkTrains(self, /, *, filter_services: set[int] | None = None) -> Generator[tuple[
-      dm.TrackEndpoints, dm.Track, dm.Schedule, str,
-      list[tuple[int, dm.Schedule, dm.Trip]]], None, None]:
+      dm.Schedule, str, list[tuple[int, dm.Schedule, dm.Trip]]], None, None]:
     """Iterates over actual physical DART trains in a sensible order.
 
     DART behaves oddly:
@@ -142,38 +143,20 @@ class DART:
         the "min()" of the schedules, i.e. the first to depart, the "smaller" in time
     """
     # go over the trips (self.WalkTrips) and bucket by trip.name, which is a physical DART train
-    key: tuple[dm.TrackEndpoints, dm.Track, str]
-    previous_key: tuple[dm.TrackEndpoints, dm.Track, str] | None = None
-    trips_in_train: list[tuple[int, dm.Schedule, dm.Trip]] = []
-    schedules_in_train: set[dm.Schedule] = set()
-    for endpoint, track, name, service, schedule, trip in self.WalkTrips(
-        filter_services=filter_services):
-      key = (endpoint, track, name)
-      if key == previous_key:
-        # same name (same train)
-        trips_in_train.append((service, schedule, trip))
-        schedules_in_train.add(schedule)
-      else:
-        # new name (different train)
-        if previous_key and trips_in_train and schedules_in_train:
-          yield (
-              previous_key[0], previous_key[1], min(schedules_in_train), previous_key[2],  # pylint: disable=unsubscriptable-object
-              sorted(trips_in_train))
-        trips_in_train = [(service, schedule, trip)]
-        schedules_in_train = {schedule}
-        previous_key = key
-    # make sure we return last one
-    if previous_key and trips_in_train and schedules_in_train:
-      yield (
-          previous_key[0], previous_key[1],
-          min(schedules_in_train), previous_key[2], sorted(trips_in_train))
+    trains: collections.OrderedDict[
+        str, list[tuple[int, dm.Schedule, dm.Trip]]] = collections.OrderedDict()
+    for _, _, name, service, schedule, trip in self.WalkTrips(filter_services=filter_services):
+      trains.setdefault(name, []).append((service, schedule, trip))
+    # yield by name (train) preserving collection order
+    for name, trips in trains.items():
+      yield (min(s for _, s, _ in trips), name, sorted(trips))
 
   def StationSchedule(self, stop_id: str, day: datetime.date, /) -> dict[
       tuple[str, dm.ScheduleStop], tuple[str, dm.Schedule, list[tuple[int, dm.Schedule, dm.Trip]]]]:
     """Data for trains in a `stop` for a specific `day`."""
     day_services: set[int] = self.ServicesForDay(day)
     station: dict[tuple[str, dm.ScheduleStop], tuple[str, dm.Schedule, list[tuple[int, dm.Schedule, dm.Trip]]]] = {}
-    for _, _, schedule, name, trips_in_train in self.WalkTrains(
+    for schedule, name, trips_in_train in self.WalkTrains(
         filter_services=day_services):
       for i, stop in enumerate(schedule.stops):
         if stop.stop == stop_id:
@@ -207,16 +190,16 @@ class DART:
          f'{base.TERM_BOLD}{base.TERM_CYAN}Depart Time{base.TERM_END}',
          f'{base.TERM_BOLD}{base.TERM_CYAN}Service/Trip Codes/{base.TERM_END}'
          f'{base.TERM_RED}[\u2605Alt.Times]{base.TERM_END}'])  # ★
-    for _, track, schedule, name, trips_in_train in self.WalkTrains(
+    for schedule, name, trips_in_train in self.WalkTrains(
         filter_services=day_services):
       trip_codes: str = ', '.join(
           f'{s}/{t.id}{"" if sc == schedule else f"/{base.TERM_RED}[\u2605]{base.TERM_END}{base.TERM_BOLD}"}'
           for s, sc, t in sorted(trips_in_train))
       table.add_row([  # type: ignore
-          f'{base.TERM_BOLD}{dm.DART_DIRECTION(track)}{base.TERM_END}',
+          f'{base.TERM_BOLD}{dm.DART_DIRECTION(schedule)}{base.TERM_END}',
           f'{base.TERM_BOLD}{base.TERM_YELLOW}{name}{base.TERM_END}',
-          f'{base.TERM_BOLD}{track.stops[0].name}{base.TERM_END}',
-          f'{base.TERM_BOLD}{track.stops[-1].name}{base.TERM_END}',
+          f'{base.TERM_BOLD}{schedule.stops[0].name}{base.TERM_END}',
+          f'{base.TERM_BOLD}{schedule.stops[-1].name}{base.TERM_END}',
           f'{base.TERM_BOLD}{base.TERM_YELLOW}{gtfs.SecondsToHMS(schedule.times[0].departure)}{base.TERM_END}',
           f'{base.TERM_BOLD}{trip_codes}{base.TERM_END}',
       ])
@@ -277,42 +260,66 @@ class DART:
     # get the trips for this name
     trains: dict[dm.Schedule, dict[int, list[dm.Trip]]] = {}
     trip: dm.Trip
-    for _, _, _, name, trips_in_train in self.WalkTrains():
+    n_stops: int = 0
+    min_stop: str | None = None
+    max_stop: str | None = None
+    for _, name, trips_in_train in self.WalkTrains():
       if name.upper() != trip_name:
         continue
       for service, schedule, trip in trips_in_train:
         trains.setdefault(schedule, {}).setdefault(service, []).append(trip)
-    if not trains:
+        if (len_trip := len(trip.stops)) > n_stops:
+          n_stops, min_stop, max_stop = len_trip, trip.stops[1].stop, trip.stops[len_trip].stop
+    if not trains or not min_stop or not max_stop:
       raise Error(f'trip name/code {trip_name!r} was not found')
     trips: list[dm.Trip] = [trip for schedule in sorted(trains.keys())
                             for service in sorted(trains[schedule].keys())
                             for trip in trains[schedule][service]]
     yield f'{base.TERM_MAGENTA}DART Trip {base.TERM_BOLD}{trip_name}{base.TERM_END}'
     yield ''
-    # check for unexpected things that should not happen
-    n_stops: int = len(trips[0].stops)
-    for trip in trips[1:]:
+    # check for unexpected things that should not happen and pad trips that are shorter
+    padded_trips: list[dm.Trip] = []
+    for trip in trips:
       if (trips[0].route != trip.route or
           trips[0].agency != trip.agency or
-          trips[0].direction != trip.direction or
           trips[0].headsign != trip.headsign or
           trips[0].name != trip.name):
         raise Error(
-            f'route/agency/direction/headsign/name should be consistent: {trips[0]} versus {trip}')
+            'route/agency/headsign/name should be consistent '
+            f'{trip_name!r}: {trips[0]} versus {trip}')
       if n_stops != (n_trip := len(trip.stops)):
-        raise Error(f'All trips should be the same size: {n_stops} versus {n_trip}')
+        n_missing: int = n_stops - n_trip
+        new_trip: dm.Trip = copy.deepcopy(trip)
+        if trip.stops[1].stop == min_stop:
+          # stops are aligned with beginning of longest trips
+          for _ in range(n_missing):
+            new_trip.stops[max(new_trip.stops) + 1] = dm.NULL_STOP
+        elif trip.stops[len(trip.stops)].stop == max_stop:
+          # stops are aligned with end of longest trips
+          for i in sorted(new_trip.stops, reverse=True):
+            new_trip.stops[i + n_missing] = new_trip.stops[i]
+            del new_trip.stops[i]
+          for i in range(n_missing):
+            new_trip.stops[i + 1] = dm.NULL_STOP
+        else:
+          raise Error(
+              f'Could not find alignment, missing {n_missing} @ {trip_name!r}/{min_stop=}'
+              f'/{max_stop=}: {[s.stop for s in trip.stops.values()]}')
+        padded_trips.append(new_trip)
+      else:
+        # size is already max, we just copy
+        padded_trips.append(trip)
+    trips = padded_trips
     # print the static stuff
     agency, route, _ = self._gtfs.FindTrip(trips[0].id)
     if not agency or not route:
-      raise Error(f'trip id {trips[0].id!r} was not found')
+      raise Error(f'trip id {trips[0].id!r} was not found ({trip_name!r})')
     yield f'Agency:        {base.TERM_BOLD}{base.TERM_YELLOW}{agency.name}{base.TERM_END}'
     yield f'Route:         {base.TERM_BOLD}{base.TERM_YELLOW}{route.id}{base.TERM_END}'
     yield f'  Short name:  {base.TERM_BOLD}{base.TERM_YELLOW}{route.short_name}{base.TERM_END}'
     yield f'  Long name:   {base.TERM_BOLD}{base.TERM_YELLOW}{route.long_name}{base.TERM_END}'
     yield (f'  Description: {base.TERM_BOLD}'
            f'{route.description if route.description else dm.NULL_TEXT}{base.TERM_END}')
-    yield (f'Direction:     {base.TERM_BOLD}{base.TERM_YELLOW}'
-           f'{"inbound" if trips[0].direction else "outbound"}{base.TERM_END}')
     yield (f'Headsign:      {base.TERM_BOLD}{trips[0].headsign if trips[0].headsign else dm.NULL_TEXT}'
            f'{base.TERM_END}')
     yield ''
@@ -323,6 +330,9 @@ class DART:
     table.add_row(
         [f'{base.TERM_BOLD}{base.TERM_CYAN}Service{base.TERM_END}'] +
         [f'{base.TERM_BOLD}{base.TERM_YELLOW}{trip.service}{base.TERM_END}' for trip in trips])
+    table.add_row(
+        [f'{base.TERM_BOLD}{base.TERM_CYAN}N/S{base.TERM_END}'] +
+        [f'{base.TERM_BOLD}{dm.DART_DIRECTION(trip)}{base.TERM_END}' for trip in trips])
     table.add_row(
         [f'{base.TERM_BOLD}{base.TERM_CYAN}Shape{base.TERM_END}'] +
         [(f'{base.TERM_BOLD}{trip.shape}{base.TERM_END}' if trip.shape else dm.NULL_TEXT)
@@ -341,16 +351,25 @@ class DART:
       table_row: list[str] = [f'{base.TERM_BOLD}{base.TERM_CYAN}{seq}{base.TERM_END}']
       for trip in trips:
         stop: dm.Stop = trip.stops[seq]
-        table_row.append(
-            f'{base.TERM_BOLD}{base.TERM_YELLOW}'
-            f'{dm.LIMITED_TEXT(self._gtfs.StopNameTranslator(stop.stop), 10)}{base.TERM_END}\n'
-            f'{base.TERM_BOLD}{gtfs.SecondsToHMS(stop.scheduled.arrival)}'
-            f'{dm.STOP_TYPE_STR[stop.dropoff]}{base.TERM_END}\n'
-            f'{base.TERM_BOLD}{gtfs.SecondsToHMS(stop.scheduled.departure)}'
-            f'{dm.STOP_TYPE_STR[stop.pickup]}{base.TERM_END}')
+        if stop == dm.NULL_STOP:
+          table_row.append(f'\n{base.TERM_BOLD}{base.TERM_RED}\u2717{base.TERM_END}')  # ✗
+        else:
+          table_row.append(
+              f'{base.TERM_BOLD}{base.TERM_YELLOW}'
+              f'{dm.LIMITED_TEXT(self._gtfs.StopNameTranslator(stop.stop), 10)}{base.TERM_END}\n'
+              f'{base.TERM_BOLD}{gtfs.SecondsToHMS(stop.scheduled.arrival)}'
+              f'{dm.STOP_TYPE_STR[stop.dropoff]}{base.TERM_END}\n'
+              f'{base.TERM_BOLD}{gtfs.SecondsToHMS(stop.scheduled.departure)}'
+              f'{dm.STOP_TYPE_STR[stop.pickup]}{base.TERM_END}')
       table.add_row(table_row)
     table.hrules = prettytable.HRuleStyle.ALL
     yield from table.get_string().splitlines()  # type:ignore
+
+  def PrettyPrintAllDatabase(self) -> Generator[str, None, None]:
+    """Print everything in the database."""
+    for _, name, _ in self.WalkTrains():
+      yield from self.PrettyPrintTrip(name)
+      yield ''
 
 
 def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,too-many-locals
@@ -388,6 +407,8 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
       'trip', help='Print DART Trip')
   trip_parser.add_argument(
       '-c', '--code', type=str, default='', help='DART train code, like "E108" for example')
+  _: argparse.ArgumentParser = print_arg_subparsers.add_parser(
+      'all', help='Print All Data')
   # ALL commands
   # parser.add_argument(
   #     '-r', '--readonly', type=bool, default=False,
@@ -422,6 +443,9 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
         case 'trip':
           # DART trip
           for line in dart.PrettyPrintTrip(args.code):
+            print(line)
+        case 'all':
+          for line in dart.PrettyPrintAllDatabase():
             print(line)
         case _:
           raise NotImplementedError()
