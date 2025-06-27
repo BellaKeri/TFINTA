@@ -9,9 +9,12 @@ import io
 import os.path
 import pathlib
 # import pdb
-from typing import Any, Self
+import re
+from typing import Any, Callable, Self
 import zipfile
 import zoneinfo
+
+from balparda_baselib import base
 
 from src.tfinta import gtfs_data_model as dm
 
@@ -795,28 +798,34 @@ ZIP_DB_1 = dm.GTFSData(
     },
 )
 
-TRIP_4452_2655 = """\
-ID:     4452_2655
-Agency: Iarnród Éireann / Irish Rail
-Route:  4452_86289
-        Short name:  DART
-        Long name:   Bray - Howth
-        Description: -
-Direction: outbound
-Service:   83
-Shape:     4452_42
-Headsign:  Malahide
-Name:      E818
-Block:     4452_7778018_Txc47315F93-ACBE-4CE8-9F30-920A2B0C3C75
 
-+---+----------+-----------+------------+------+-------------+-------------+
-| # | Arrival  | Departure |  Stop ID   | Code |     Name    | Description |
-+---+----------+-----------+------------+------+-------------+-------------+
-| 1 | 19:18:00 |  19:18:00 | 8350IR0122 |  0   |  Greystones |      -      |
-| 2 | 19:28:00 |  19:31:00 | 8350IR0123 |  0   | Bray (Daly) |      -      |
-| 3 | 19:35:00 |  19:36:00 | 8250IR0022 |  0   |   Shankill  |      -      |
-| 4 | 19:38:00 |  19:38:00 | 8250IR0021 |  0   |   Killiney  |      -      |
-+---+----------+-----------+------------+------+-------------+-------------+\
+_ANSI_ESCAPE: re.Pattern[str] = re.compile(r'\x1b\[[0-9;]*m')
+STRIP_ANSI: Callable[[str], str] = lambda s: _ANSI_ESCAPE.sub('', s)
+# TODO: remove these after base >= 1.9
+
+TRIP_4452_2655: str = """\
+GTFS Trip ID 4452_2655
+
+Agency:        Iarnród Éireann / Irish Rail
+Route:         4452_86289
+  Short name:  DART
+  Long name:   Bray - Howth
+  Description: ∅
+Direction:     outbound
+Service:       83
+Shape:         4452_42
+Headsign:      Malahide
+Name:          E818
+Block:         4452_7778018_Txc47315F93-ACBE-4CE8-9F30-920A2B0C3C75
+
++---+------------+-------------+----------+-----------+------+-------------+
+| # |  Stop ID   |     Name    | Arrival  | Departure | Code | Description |
++---+------------+-------------+----------+-----------+------+-------------+
+| 1 | 8350IR0122 |  Greystones | 19:18:00 |  19:18:00 |  0   |      ∅      |
+| 2 | 8350IR0123 | Bray (Daly) | 19:28:00 |  19:31:00 |  0   |      ∅      |
+| 3 | 8250IR0022 |   Shankill  | 19:35:00 |  19:36:00 |  0   |      ∅      |
+| 4 | 8250IR0021 |   Killiney  | 19:38:00 |  19:38:00 |  0   |      ∅      |
++---+------------+-------------+----------+-----------+------+-------------+\
 """
 
 
@@ -867,29 +876,71 @@ DART_TRIPS_ZIP_1: dm.CondensedTrips = {
     },
 }
 
-TRIPS_SCHEDULE_2025_08_04 = """\
+TRIPS_SCHEDULE_2025_08_04: str = """\
 DART Schedule
 
 Day:      2025-08-04 (Monday)
 Services: 84
 
-+-----+------------+----------+-------------+-------+---------------------------------+
-| N/S |   Start    |   End    | Depart Time | Train | Service/Trip Codes/[*Alt.Times] |
-+-----+------------+----------+-------------+-------+---------------------------------+
-|  N  | Greystones | Killiney |   19:18:00  |  E818 |  84/4452_2662, 84/4669_4802/[*] |
-+-----+------------+----------+-------------+-------+---------------------------------+\
++-----+-------+------------+----------+-------------+---------------------------------+
+| N/S | Train |   Start    |   End    | Depart Time | Service/Trip Codes/[★Alt.Times] |
++-----+-------+------------+----------+-------------+---------------------------------+
+|  N  |  E818 | Greystones | Killiney |   19:18:00  |  84/4452_2662, 84/4669_4802/[★] |
++-----+-------+------------+----------+-------------+---------------------------------+\
 """
 
-STATION_SCHEDULE_2025_08_04 = """\
+STATION_SCHEDULE_2025_08_04: str = """\
 DART Schedule for Station Bray (Daly) - 8350IR0123
 
 Day:          2025-08-04 (Monday)
 Services:     84
 Destinations: Killiney
 
-+-------+-------------+----------+-----------+---------------------------------+
-| Train | Destination | Arrival  | Departure | Service/Trip Codes/[*Alt.Times] |
-+-------+-------------+----------+-----------+---------------------------------+
-|  E818 |   Killiney  | 19:28:00 |  19:31:00 |  84/4452_2662, 84/4669_4802/[*] |
-+-------+-------------+----------+-----------+---------------------------------+\
++-----+-------+-------------+----------+-----------+---------------------------------+
+| N/S | Train | Destination | Arrival  | Departure | Service/Trip Codes/[★Alt.Times] |
++-----+-------+-------------+----------+-----------+---------------------------------+
+|  N  |  E818 |   Killiney  | 19:28:00 |  19:31:00 |  84/4452_2662, 84/4669_4802/[★] |
++-----+-------+-------------+----------+-----------+---------------------------------+\
+"""
+
+TRIP_E818: str = """\
+DART Trip E818
+
+Agency:        Iarnród Éireann / Irish Rail
+Route:         4452_86289
+  Short name:  DART
+  Long name:   Bray - Howth
+  Description: ∅
+Direction:     outbound
+Headsign:      Malahide
+
++---------+------------+------------+------------+
+| Trip ID | 4452_2655  | 4452_2662  | 4669_4802  |
++---------+------------+------------+------------+
+| Service |     83     |     84     |     84     |
++---------+------------+------------+------------+
+|  Shape  |  4452_42   |  4452_42   |  4669_68   |
++---------+------------+------------+------------+
+|  Block  | 4452_7778… | 4452_7778… | 4669_7778… |
++---------+------------+------------+------------+
+|    #    |    Stop    |    Stop    |    Stop    |
+|         |  Dropoff   |  Dropoff   |  Dropoff   |
+|         |   Pickup   |   Pickup   |   Pickup   |
++---------+------------+------------+------------+
+|    1    | Greystones | Greystones | Greystones |
+|         | 19:18:00✗  | 19:18:00✗  | 19:18:00✗  |
+|         | 19:18:00✓  | 19:18:00✓  | 19:18:00✓  |
++---------+------------+------------+------------+
+|    2    | Bray (Dal… | Bray (Dal… | Bray (Dal… |
+|         | 19:28:00✓  | 19:28:00✓  | 19:28:00✓  |
+|         | 19:31:00✓  | 19:31:00✓  | 19:31:00✓  |
++---------+------------+------------+------------+
+|    3    |  Shankill  |  Shankill  |  Shankill  |
+|         | 19:35:00✓  | 19:35:00✓  | 19:35:00✓  |
+|         | 19:36:00✓  | 19:36:00✓  | 19:36:00✓  |
++---------+------------+------------+------------+
+|    4    |  Killiney  |  Killiney  |  Killiney  |
+|         | 19:38:00✓  | 19:38:00✓  | 19:40:00✓  |
+|         | 19:38:00✓  | 19:38:00✓  | 19:40:00✓  |
++---------+------------+------------+------------+\
 """

@@ -863,32 +863,41 @@ class GTFS:
     agency, route, trip = self.FindTrip(trip_id)
     if not agency or not route or not trip:
       raise Error(f'trip id {trip_id!r} was not found')
-    yield f'ID:     {trip.id}'
-    yield f'Agency: {agency.name}'
-    yield f'Route:  {route.id}'
-    yield f'        Short name:  {route.short_name}'
-    yield f'        Long name:   {route.long_name}'
-    yield f'        Description: {route.description if route.description else "-"}'
-    yield f'Direction: {"inbound" if trip.direction else "outbound"}'
-    yield f'Service:   {trip.service}'
-    yield f'Shape:     {trip.shape if trip.shape else "-"}'
-    yield f'Headsign:  {trip.headsign if trip.headsign else "-"}'
-    yield f'Name:      {trip.name if trip.name else "-"}'
-    yield f'Block:     {trip.block if trip.block else "-"}'
+    yield f'{base.TERM_MAGENTA}GTFS Trip ID {base.TERM_BOLD}{trip.id}{base.TERM_END}'
+    yield ''
+    yield f'Agency:        {base.TERM_BOLD}{base.TERM_YELLOW}{agency.name}{base.TERM_END}'
+    yield f'Route:         {base.TERM_BOLD}{base.TERM_YELLOW}{route.id}{base.TERM_END}'
+    yield f'  Short name:  {base.TERM_BOLD}{base.TERM_YELLOW}{route.short_name}{base.TERM_END}'
+    yield f'  Long name:   {base.TERM_BOLD}{base.TERM_YELLOW}{route.long_name}{base.TERM_END}'
+    yield (f'  Description: {base.TERM_BOLD}'
+           f'{route.description if route.description else dm.NULL_TEXT}{base.TERM_END}')
+    yield (f'Direction:     {base.TERM_BOLD}{base.TERM_YELLOW}'
+           f'{"inbound" if trip.direction else "outbound"}{base.TERM_END}')
+    yield f'Service:       {base.TERM_BOLD}{base.TERM_YELLOW}{trip.service}{base.TERM_END}{base.TERM_END}'
+    yield f'Shape:         {base.TERM_BOLD}{trip.shape if trip.shape else dm.NULL_TEXT}{base.TERM_END}'
+    yield f'Headsign:      {base.TERM_BOLD}{trip.headsign if trip.headsign else dm.NULL_TEXT}{base.TERM_END}'
+    yield f'Name:          {base.TERM_BOLD}{trip.name if trip.name else dm.NULL_TEXT}{base.TERM_END}'
+    yield f'Block:         {base.TERM_BOLD}{trip.block if trip.block else dm.NULL_TEXT}{base.TERM_END}'
     yield ''
     table = prettytable.PrettyTable(
-        ['#', 'Arrival', 'Departure', 'Stop ID', 'Code', 'Name', 'Description'])
-    for seq in sorted(trip.stops.keys()):
+        [f'{base.TERM_BOLD}{base.TERM_CYAN}#{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Stop ID{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Name{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Arrival{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Departure{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Code{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Description{base.TERM_END}'])
+    for seq in range(1, len(trip.stops) + 1):
       stop: dm.Stop = trip.stops[seq]
       stop_code, stop_name, stop_description = self.StopName(stop.stop)
       table.add_row([
-          seq,
-          SecondsToHMS(stop.scheduled.arrival),
-          SecondsToHMS(stop.scheduled.departure),
-          stop.stop,
-          stop_code,
-          stop_name,
-          stop_description if stop_description else '-',
+          f'{base.TERM_BOLD}{base.TERM_CYAN}{seq}{base.TERM_END}',
+          f'{base.TERM_BOLD}{stop.stop}{base.TERM_END}',
+          f'{base.TERM_BOLD}{base.TERM_YELLOW}{stop_name if stop_name else dm.NULL_TEXT}{base.TERM_END}',
+          f'{base.TERM_BOLD}{SecondsToHMS(stop.scheduled.arrival)}{base.TERM_END}',
+          f'{base.TERM_BOLD}{SecondsToHMS(stop.scheduled.departure)}{base.TERM_END}',
+          f'{base.TERM_BOLD}{stop_code}{base.TERM_END}',
+          f'{base.TERM_BOLD}{stop_description if stop_description else dm.NULL_TEXT}{base.TERM_END}',
       ])
     yield from table.get_string().splitlines()  # type:ignore
 
@@ -952,15 +961,7 @@ def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-na
   #     help='If "True" will not save database (default: False)')
   args: argparse.Namespace = parser.parse_args(argv)
   command = args.command.lower().strip() if args.command else ''
-  # start
-  print(f'{base.TERM_BLUE}{base.TERM_BOLD}***********************************************')
-  print(f'**                 {base.TERM_LIGHT_RED}GTFS DB{base.TERM_BLUE}                   **')
-  print('**   balparda@github.com (Daniel Balparda)   **')
-  print(f'***********************************************{base.TERM_END}')
-  # open DB
   database = GTFS(DEFAULT_DATA_DIR)
-  # execute the command
-  print()
   # look at main command
   match command:
     case 'read':
@@ -973,15 +974,16 @@ def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-na
     case 'print':
       # look at sub-command for print
       print_command = args.print_command.lower().strip() if args.print_command else ''
+      print()
       match print_command:
         case 'trip':
           for line in database.PrettyPrintTrip(args.id):
             print(line)
         case _:
           raise NotImplementedError()
+      print()
     case _:
       raise NotImplementedError()
-  print()
   return 0
 
 

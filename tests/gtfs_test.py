@@ -157,7 +157,7 @@ def test_GTFS_load_and_parse_from_net(
   assert route and route.id == '4452_86289'
   with pytest.raises(gtfs.Error):
     list(db.PrettyPrintTrip('none'))
-  assert '\n'.join(db.PrettyPrintTrip('4452_2655')) == gtfs_data.TRIP_4452_2655
+  assert gtfs_data.STRIP_ANSI('\n'.join(db.PrettyPrintTrip('4452_2655'))) == gtfs_data.TRIP_4452_2655
   # check corner cases for handlers
   # feed_info.txt
   loc = gtfs._TableLocation(

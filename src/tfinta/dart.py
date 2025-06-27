@@ -191,24 +191,34 @@ class DART:
     """Generate a pretty version of a DART day's schedule."""
     if not day:
       raise Error('empty day')
-    yield 'DART Schedule'
+    yield f'{base.TERM_BOLD}{base.TERM_MAGENTA}DART Schedule{base.TERM_END}'
     yield ''
-    yield f'Day:      {day} ({dm.DAY_NAME[day.weekday()]})'
+    yield (f'Day:      {base.TERM_BOLD}{base.TERM_YELLOW}{day}{base.TERM_END} '
+           f'{base.TERM_BOLD}({dm.DAY_NAME[day.weekday()]}){base.TERM_END}')
     day_services: set[int] = self.ServicesForDay(day)
-    yield f'Services: {", ".join(str(s) for s in sorted(day_services))}'
+    yield (f'Services: {base.TERM_BOLD}{base.TERM_YELLOW}'
+           f'{", ".join(str(s) for s in sorted(day_services))}{base.TERM_END}')
     yield ''
     table = prettytable.PrettyTable(
-        ['N/S', 'Start', 'End', 'Depart Time', 'Train', 'Service/Trip Codes/[*Alt.Times]'])
+        [f'{base.TERM_BOLD}{base.TERM_CYAN}N/S{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Train{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Start{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}End{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Depart Time{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Service/Trip Codes/{base.TERM_END}'
+         f'{base.TERM_RED}[\u2605Alt.Times]{base.TERM_END}'])  # ★
     for _, track, schedule, name, trips_in_train in self.WalkTrains(
         filter_services=day_services):
+      trip_codes: str = ', '.join(
+          f'{s}/{t.id}{"" if sc == schedule else f"/{base.TERM_RED}[\u2605]{base.TERM_END}{base.TERM_BOLD}"}'
+          for s, sc, t in sorted(trips_in_train))
       table.add_row([  # type: ignore
-          dm.DART_DIRECTION(track),
-          track.stops[0].name,
-          track.stops[-1].name,
-          gtfs.SecondsToHMS(schedule.times[0].departure),
-          name,
-          ', '.join(f'{s}/{t.id}{"" if sc == schedule else "/[*]"}'
-                    for s, sc, t in sorted(trips_in_train)),
+          f'{base.TERM_BOLD}{dm.DART_DIRECTION(track)}{base.TERM_END}',
+          f'{base.TERM_BOLD}{base.TERM_YELLOW}{name}{base.TERM_END}',
+          f'{base.TERM_BOLD}{track.stops[0].name}{base.TERM_END}',
+          f'{base.TERM_BOLD}{track.stops[-1].name}{base.TERM_END}',
+          f'{base.TERM_BOLD}{base.TERM_YELLOW}{gtfs.SecondsToHMS(schedule.times[0].departure)}{base.TERM_END}',
+          f'{base.TERM_BOLD}{trip_codes}{base.TERM_END}',
       ])
     yield from table.get_string().splitlines()  # type:ignore
 
@@ -218,17 +228,26 @@ class DART:
     if not day or not stop_id:
       raise Error('empty stop/day')
     stop_name: str = self._gtfs.StopNameTranslator(stop_id)
-    yield f'DART Schedule for Station {stop_name} - {stop_id}'
+    yield (f'{base.TERM_MAGENTA}DART Schedule for Station {base.TERM_BOLD}{stop_name} '
+           f'- {stop_id}{base.TERM_END}')
     yield ''
-    yield f'Day:          {day} ({dm.DAY_NAME[day.weekday()]})'
+    yield (f'Day:          {base.TERM_BOLD}{base.TERM_YELLOW}{day}{base.TERM_END} '
+           f'{base.TERM_BOLD}({dm.DAY_NAME[day.weekday()]}){base.TERM_END}')
     day_services: set[int] = self.ServicesForDay(day)
-    yield f'Services:     {", ".join(str(s) for s in sorted(day_services))}'
+    yield (f'Services:     {base.TERM_BOLD}{base.TERM_YELLOW}'
+           f'{", ".join(str(s) for s in sorted(day_services))}{base.TERM_END}')
     day_dart_schedule = self.StationSchedule(stop_id, day)
     destinations: set[str] = {self._gtfs.StopNameTranslator(k[0]) for k in day_dart_schedule}
-    yield f'Destinations: {", ".join(sorted(destinations))}'
+    yield f'Destinations: {base.TERM_BOLD}{base.TERM_YELLOW}{", ".join(sorted(destinations))}{base.TERM_END}'
     yield ''
     table = prettytable.PrettyTable(
-        ['Train', 'Destination', 'Arrival', 'Departure', 'Service/Trip Codes/[*Alt.Times]'])
+        [f'{base.TERM_BOLD}{base.TERM_CYAN}N/S{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Train{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Destination{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Arrival{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Departure{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Service/Trip Codes/{base.TERM_END}'
+         f'{base.TERM_RED}[\u2605Alt.Times]{base.TERM_END}'])  # ★
     last_arrival: int = 0
     last_departure: int = 0
     for dest, time in sorted(day_dart_schedule.keys(), key=lambda k: (k[1], k[0])):
@@ -236,15 +255,101 @@ class DART:
       if time.arrival < last_arrival or time.departure < last_departure:
         # make sure both arrival and departures are strictly moving forward
         raise Error(f'time moved backwards in schedule @ {dest} / {time}')
+      trip_codes: str = ', '.join(
+          f'{s}/{t.id}{"" if sc == schedule else f"/{base.TERM_RED}[\u2605]{base.TERM_END}{base.TERM_BOLD}"}'
+          for s, sc, t in sorted(trips_in_train))
       table.add_row([  # type: ignore
-          name,
-          schedule.stops[-1].name,
-          gtfs.SecondsToHMS(time.arrival),
-          gtfs.SecondsToHMS(time.departure),
-          ', '.join(f'{s}/{t.id}{"" if sc == schedule else "/[*]"}'
-                    for s, sc, t in sorted(trips_in_train)),
+          f'{base.TERM_BOLD}{dm.DART_DIRECTION(trips_in_train[0][2])}{base.TERM_END}',
+          f'{base.TERM_BOLD}{base.TERM_YELLOW}{name}{base.TERM_END}',
+          f'{base.TERM_BOLD}{base.TERM_YELLOW}{schedule.stops[-1].name}{base.TERM_END}',
+          f'{base.TERM_BOLD}{gtfs.SecondsToHMS(time.arrival)}{base.TERM_END}',
+          f'{base.TERM_BOLD}{base.TERM_YELLOW}{gtfs.SecondsToHMS(time.departure)}{base.TERM_END}',
+          f'{base.TERM_BOLD}{trip_codes}{base.TERM_END}',
       ])
       last_arrival, last_departure = time.arrival, time.departure
+    yield from table.get_string().splitlines()  # type:ignore
+
+  def PrettyPrintTrip(self, trip_name: str) -> Generator[str, None, None]:  # pylint: disable=too-many-locals
+    """Generate a pretty version of a train (physical) trip, may be 2 Trips."""
+    trip_name = trip_name.strip().upper()
+    if not trip_name:
+      raise Error('empty trip name/code')
+    # get the trips for this name
+    trains: dict[dm.Schedule, dict[int, list[dm.Trip]]] = {}
+    trip: dm.Trip
+    for _, _, _, name, trips_in_train in self.WalkTrains():
+      if name.upper() != trip_name:
+        continue
+      for service, schedule, trip in trips_in_train:
+        trains.setdefault(schedule, {}).setdefault(service, []).append(trip)
+    if not trains:
+      raise Error(f'trip name/code {trip_name!r} was not found')
+    trips: list[dm.Trip] = [trip for schedule in sorted(trains.keys())
+                            for service in sorted(trains[schedule].keys())
+                            for trip in trains[schedule][service]]
+    yield f'{base.TERM_MAGENTA}DART Trip {base.TERM_BOLD}{trip_name}{base.TERM_END}'
+    yield ''
+    # check for unexpected things that should not happen
+    n_stops: int = len(trips[0].stops)
+    for trip in trips[1:]:
+      if (trips[0].route != trip.route or
+          trips[0].agency != trip.agency or
+          trips[0].direction != trip.direction or
+          trips[0].headsign != trip.headsign or
+          trips[0].name != trip.name):
+        raise Error(
+            f'route/agency/direction/headsign/name should be consistent: {trips[0]} versus {trip}')
+      if n_stops != (n_trip := len(trip.stops)):
+        raise Error(f'All trips should be the same size: {n_stops} versus {n_trip}')
+    # print the static stuff
+    agency, route, _ = self._gtfs.FindTrip(trips[0].id)
+    if not agency or not route:
+      raise Error(f'trip id {trips[0].id!r} was not found')
+    yield f'Agency:        {base.TERM_BOLD}{base.TERM_YELLOW}{agency.name}{base.TERM_END}'
+    yield f'Route:         {base.TERM_BOLD}{base.TERM_YELLOW}{route.id}{base.TERM_END}'
+    yield f'  Short name:  {base.TERM_BOLD}{base.TERM_YELLOW}{route.short_name}{base.TERM_END}'
+    yield f'  Long name:   {base.TERM_BOLD}{base.TERM_YELLOW}{route.long_name}{base.TERM_END}'
+    yield (f'  Description: {base.TERM_BOLD}'
+           f'{route.description if route.description else dm.NULL_TEXT}{base.TERM_END}')
+    yield (f'Direction:     {base.TERM_BOLD}{base.TERM_YELLOW}'
+           f'{"inbound" if trips[0].direction else "outbound"}{base.TERM_END}')
+    yield (f'Headsign:      {base.TERM_BOLD}{trips[0].headsign if trips[0].headsign else dm.NULL_TEXT}'
+           f'{base.TERM_END}')
+    yield ''
+    table = prettytable.PrettyTable(
+        [f'{base.TERM_BOLD}{base.TERM_CYAN}Trip ID{base.TERM_END}'] +
+        [f'{base.TERM_BOLD}{base.TERM_MAGENTA}{t.id}{base.TERM_END}' for t in trips])
+    # add the properties that are variable
+    table.add_row(
+        [f'{base.TERM_BOLD}{base.TERM_CYAN}Service{base.TERM_END}'] +
+        [f'{base.TERM_BOLD}{base.TERM_YELLOW}{trip.service}{base.TERM_END}' for trip in trips])
+    table.add_row(
+        [f'{base.TERM_BOLD}{base.TERM_CYAN}Shape{base.TERM_END}'] +
+        [(f'{base.TERM_BOLD}{trip.shape}{base.TERM_END}' if trip.shape else dm.NULL_TEXT)
+         for trip in trips])
+    table.add_row(
+        [f'{base.TERM_BOLD}{base.TERM_CYAN}Block{base.TERM_END}'] +
+        [(f'{base.TERM_BOLD}{dm.LIMITED_TEXT(trip.block, 10)}{base.TERM_END}'
+          if trip.block else dm.NULL_TEXT) for trip in trips])
+    table.add_row(
+        [f'{base.TERM_BOLD}{base.TERM_CYAN}#{base.TERM_END}'] +
+        [f'{base.TERM_BOLD}{base.TERM_CYAN}Stop{base.TERM_END}\n'
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Dropoff{base.TERM_END}\n'
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Pickup{base.TERM_END}'] * len(trips))
+    # add the stops
+    for seq in range(1, n_stops + 1):
+      table_row: list[str] = [f'{base.TERM_BOLD}{base.TERM_CYAN}{seq}{base.TERM_END}']
+      for trip in trips:
+        stop: dm.Stop = trip.stops[seq]
+        table_row.append(
+            f'{base.TERM_BOLD}{base.TERM_YELLOW}'
+            f'{dm.LIMITED_TEXT(self._gtfs.StopNameTranslator(stop.stop), 10)}{base.TERM_END}\n'
+            f'{base.TERM_BOLD}{gtfs.SecondsToHMS(stop.scheduled.arrival)}'
+            f'{dm.STOP_TYPE_STR[stop.dropoff]}{base.TERM_END}\n'
+            f'{base.TERM_BOLD}{gtfs.SecondsToHMS(stop.scheduled.departure)}'
+            f'{dm.STOP_TYPE_STR[stop.pickup]}{base.TERM_END}')
+      table.add_row(table_row)
+    table.hrules = prettytable.HRuleStyle.ALL
     yield from table.get_string().splitlines()  # type:ignore
 
 
@@ -266,9 +371,9 @@ def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-na
   print_parser: argparse.ArgumentParser = command_arg_subparsers.add_parser(
       'print', help='Print DB')
   print_arg_subparsers = print_parser.add_subparsers(dest='print_command')
-  trip_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser(
+  trips_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser(
       'trips', help='Print Trips')
-  trip_parser.add_argument(
+  trips_parser.add_argument(
       '-d', '--day', type=str, default='',
       help='day to consider in "YYYYMMDD" format (default: TODAY/NOW)')
   station_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser(
@@ -279,21 +384,18 @@ def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-na
   station_parser.add_argument(
       '-d', '--day', type=str, default='',
       help='day to consider in "YYYYMMDD" format (default: TODAY/NOW)')
+  trip_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser(
+      'trip', help='Print DART Trip')
+  trip_parser.add_argument(
+      '-c', '--code', type=str, default='', help='DART train code, like "E108" for example')
   # ALL commands
   # parser.add_argument(
   #     '-r', '--readonly', type=bool, default=False,
   #     help='If "True" will not save database (default: False)')
   args: argparse.Namespace = parser.parse_args(argv)
   command = args.command.lower().strip() if args.command else ''
-  # start
-  print(f'{base.TERM_BLUE}{base.TERM_BOLD}***********************************************')
-  print(f'**                 {base.TERM_LIGHT_RED}DART DB{base.TERM_BLUE}                   **')
-  print('**   balparda@github.com (Daniel Balparda)   **')
-  print(f'***********************************************{base.TERM_END}')
-  # open DB
   database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
-  # execute the command
-  print()
+  # look at main command
   match command:
     case 'read':
       database.LoadData(
@@ -304,6 +406,7 @@ def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-na
       # look at sub-command for print
       print_command = args.print_command.lower().strip() if args.print_command else ''
       dart = DART(database)
+      print()
       match print_command:
         case 'trips':
           # trips for a day
@@ -316,11 +419,15 @@ def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-na
               database.StopIDFromNameFragmentOrID(args.station),
               dm.DATE_OBJ(args.day) if args.day else datetime.date.today()):
             print(line)
+        case 'trip':
+          # DART trip
+          for line in dart.PrettyPrintTrip(args.code):
+            print(line)
         case _:
           raise NotImplementedError()
+      print()
     case _:
       raise NotImplementedError()
-  print()
   return 0
 
 

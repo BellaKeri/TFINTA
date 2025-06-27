@@ -17,6 +17,8 @@ import functools
 from typing import Any, Callable, Optional, TypedDict
 import zoneinfo
 
+from balparda_baselib import base
+
 __author__ = 'BellaKeri@github.com , balparda@github.com'
 __version__ = (1, 1)
 
@@ -174,6 +176,14 @@ class StopPointType(enum.Enum):
   NOT_AVAILABLE = 1  # No pickup/drop-off available
   AGENCY_ONLY = 2    # Must phone agency to arrange pickup/drop-off
   DRIVER_ONLY = 3    # Must coordinate with driver to arrange pickup/drop-off
+
+
+STOP_TYPE_STR: dict[StopPointType, str] = {
+    StopPointType.REGULAR: f'{base.TERM_GREEN}\u2713{base.TERM_END}',       # ✓
+    StopPointType.NOT_AVAILABLE: f'{base.TERM_RED}\u2717{base.TERM_END}',   # ✗
+    StopPointType.AGENCY_ONLY: f'{base.TERM_YELLOW}\u260E{base.TERM_END}',  # ☎
+    StopPointType.DRIVER_ONLY: f'{base.TERM_YELLOW}\u2708{base.TERM_END}'   # ✈
+}
 
 
 @functools.total_ordering
@@ -580,7 +590,11 @@ class Schedule(Track):
 # useful
 
 DART_DIRECTION: Callable[[Trip | TrackEndpoints | Track], str] = (
-    lambda t: 'S' if t.direction else 'N')
+    lambda t: f'{base.TERM_LIGHT_BLUE}S{base.TERM_END}' if t.direction else
+    f'{base.TERM_LIGHT_RED}N{base.TERM_END}')
+
+NULL_TEXT: str = f'{base.TERM_BLUE}\u2205{base.TERM_END}'  # ∅
+LIMITED_TEXT: Callable[[Optional[str], int], str] = lambda s, w: NULL_TEXT if s is None else (s if len(s) <= w else f'{s[:(w - 1)]}…')
 
 CondensedTrips = dict[TrackEndpoints, dict[Track, dict[str, dict[int, dict[Schedule, list[Trip]]]]]]
 
