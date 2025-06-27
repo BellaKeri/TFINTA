@@ -22,7 +22,7 @@ import os.path
 import sys
 import time
 import types
-from typing import Any, Callable, Generator, IO, Optional
+from typing import Any, Callable, Generator, IO
 from typing import get_args as GetTypeArgs
 from typing import get_type_hints as GetTypeHints
 import urllib.request
@@ -90,7 +90,7 @@ _GTFSRowHandler = Callable[
     [_TableLocation, int, dict[str, None | str | int | float | bool]], None]
 
 
-def HMSToSeconds(time_str: str) -> int:
+def HMSToSeconds(time_str: str, /) -> int:
   """Accepts 'H:MM:SS' or 'HH:MM:SS' and returns total seconds since 00:00:00.
 
   Supports hours ≥ 0 with no upper bound. Very flexible, will even accept 'H:M:S' for example.
@@ -111,7 +111,7 @@ def HMSToSeconds(time_str: str) -> int:
   return h * 3600 + m * 60 + s
 
 
-def SecondsToHMS(sec: int) -> str:
+def SecondsToHMS(sec: int, /) -> str:
   """Seconds from midnight to 'HH:MM:SS' representation. Supports any positive integer."""
   if sec < 0:
     raise ValueError(f'no negative time allowed, got {sec}')
@@ -123,7 +123,7 @@ def SecondsToHMS(sec: int) -> str:
 class GTFS:
   """GTFS database."""
 
-  def __init__(self, db_dir_path: str) -> None:
+  def __init__(self, db_dir_path: str, /) -> None:
     """Constructor.
 
     Args:
@@ -183,7 +183,7 @@ class GTFS:
             raise Error(f'incorrect type {file_name}/{field}: {field_args!r}')
           fields[field] = (field_type, False)
 
-  def Save(self, force: bool = False) -> None:
+  def Save(self, /, *, force: bool = False) -> None:
     """Save DB to file.
 
     Args:
@@ -198,7 +198,7 @@ class GTFS:
       logging.info('Saved DB to %r (%s)', self._db_path, tm_save.readable)
 
   @functools.lru_cache(maxsize=_MEDIUM_CACHE)  # remember to update self._InvalidateCaches()
-  def FindRoute(self, route_id: str) -> Optional[dm.Agency]:
+  def FindRoute(self, route_id: str, /) -> dm.Agency | None:
     """Find route by finding its Agency."""
     for agency in self._db.agencies.values():
       if route_id in agency.routes:
@@ -206,8 +206,7 @@ class GTFS:
     return None
 
   @functools.lru_cache(maxsize=_LARGE_CACHE)  # remember to update self._InvalidateCaches()
-  def FindTrip(self, trip_id: str) -> tuple[
-      Optional[dm.Agency], Optional[dm.Route], Optional[dm.Trip]]:
+  def FindTrip(self, trip_id: str, /) -> tuple[dm.Agency | None, dm.Route | None, dm.Trip | None]:
     """Find route by finding its Agency & Route. Return (agency, route, trip)."""
     for agency in self._db.agencies.values():
       for route in agency.routes.values():
@@ -216,7 +215,7 @@ class GTFS:
     return (None, None, None)
 
   @functools.lru_cache(maxsize=_SMALL_CACHE)  # remember to update self._InvalidateCaches()
-  def StopName(self, stop_id: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
+  def StopName(self, stop_id: str, /) -> tuple[str | None, str | None, str | None]:
     """Gets (code, name, description) for a Stop object of `id`."""
     if stop_id not in self._db.stops:
       return (None, None, None)
@@ -224,15 +223,15 @@ class GTFS:
     return (stop.code, stop.name, stop.description)
 
   @functools.lru_cache(maxsize=_SMALL_CACHE)  # remember to update self._InvalidateCaches()
-  def StopNameTranslator(self, stop_id: str) -> str:
+  def StopNameTranslator(self, stop_id: str, /) -> str:
     """Translates a stop ID into a name. If not found raises."""
-    name: Optional[str] = self.StopName(stop_id)[1]
+    name: str | None = self.StopName(stop_id)[1]
     if not name:
       raise Error(f'Invalid stop code found: {stop_id}')
     return name
 
   @functools.lru_cache(maxsize=_SMALL_CACHE)  # remember to update self._InvalidateCaches()
-  def StopIDFromNameFragmentOrID(self, stop_name_or_id: str) -> str:
+  def StopIDFromNameFragmentOrID(self, stop_name_or_id: str, /) -> str:
     """Searches for `stop_id` based on either an ID (verifies exists) or stop name.
 
     If searching by name, will search for a case-insensitive partial match that is UNIQUE.
@@ -284,7 +283,7 @@ class GTFS:
     ):
       method.cache_clear()
 
-  def ServicesForDay(self, day: datetime.date) -> set[int]:
+  def ServicesForDay(self, day: datetime.date, /) -> set[int]:
     """Return set[int] of services active (available/running/operating) on this day."""
     weekday: int = day.weekday()
     services: set[int] = set()
@@ -293,15 +292,15 @@ class GTFS:
       if calendar.days.start <= day <= calendar.days.end:
         # day is in range for this service; check day of week and the exceptions
         weekday_service: bool = calendar.week[weekday]
-        service_exception: Optional[bool] = calendar.exceptions.get(day)
+        service_exception: bool | None = calendar.exceptions.get(day)
         has_service: bool = service_exception if service_exception is not None else weekday_service
         if has_service:
           services.add(service)
     return services
 
   def FindAgencyRoute(
-      self, agency_name: str, route_type: dm.RouteType, short_name: str,
-      long_name: Optional[str] = None) -> tuple[Optional[dm.Agency], Optional[dm.Route]]:
+      self, agency_name: str, route_type: dm.RouteType, short_name: str, /, *,
+      long_name: str | None = None) -> tuple[dm.Agency | None, dm.Route | None]:
     """Find a route in an agency, by name.
 
     Args:
@@ -332,10 +331,10 @@ class GTFS:
           return (agency, route)
     return (agency, None)
 
-  def LoadData(
-      self, operator: str, link: str, freshness: int = _DEFAULT_DAYS_FRESHNESS,
+  def LoadData(  # pylint: disable=too-many-arguments
+      self, operator: str, link: str, /, *, freshness: int = _DEFAULT_DAYS_FRESHNESS,
       allow_unknown_file: bool = True, allow_unknown_field: bool = False,
-      force_replace: bool = False, override: Optional[str] = None) -> None:
+      force_replace: bool = False, override: str | None = None) -> None:
     """Downloads and parses GTFS data.
 
     Args:
@@ -376,7 +375,7 @@ class GTFS:
   def _LoadCSVSources(self) -> None:
     """Loads GTFS official sources from CSV."""
     # get the file and parse it
-    new_files: dict[str, dict[str, Optional[dm.FileMetadata]]] = {}
+    new_files: dict[str, dict[str, dm.FileMetadata | None]] = {}
     with urllib.request.urlopen(dm.OFFICIAL_GTFS_CSV) as gtfs_csv:
       text_csv = io.TextIOWrapper(gtfs_csv, encoding='utf-8')
       for i, row in enumerate(csv.reader(text_csv)):
@@ -415,10 +414,10 @@ class GTFS:
       self.Save()
       self._InvalidateCaches()
 
-  def _LoadGTFSSource(
-      self, operator: str, link: str,
+  def _LoadGTFSSource(  # pylint: disable=too-many-arguments,too-many-locals
+      self, operator: str, link: str, /, *,
       allow_unknown_file: bool = True, allow_unknown_field: bool = False,
-      force_replace: bool = False, override: Optional[str] = None) -> None:
+      force_replace: bool = False, override: str | None = None) -> None:
     """Loads a single GTFS ZIP file and parses all inner data files.
 
     Args:
@@ -437,7 +436,7 @@ class GTFS:
     operator, link = operator.strip(), link.strip()
     if not operator or operator not in self._db.files.files:
       raise Error(f'invalid operator {operator!r}')
-    operator_files: dict[str, Optional[dm.FileMetadata]] = self._db.files.files[operator]
+    operator_files: dict[str, dm.FileMetadata | None] = self._db.files.files[operator]
     if not link or link not in operator_files:
       raise Error(f'invalid URL {link!r}')
     # load ZIP from URL
@@ -496,8 +495,8 @@ class GTFS:
         raise ParseError(f'Missing required files: {operator} {missing_files!r}')
       self._changed = True
 
-  def _LoadGTFSFile(
-      self, location: _TableLocation, file_data: bytes,
+  def _LoadGTFSFile(  # pylint: disable=too-many-branches,too-many-locals
+      self, location: _TableLocation, file_data: bytes, /, *,
       allow_unknown_file: bool, allow_unknown_field: bool) -> None:
     """Loads a single txt (actually CSV) file and parses all fields, sending rows to handlers.
 
@@ -529,7 +528,7 @@ class GTFS:
     for i, row in enumerate(csv.DictReader(
         io.TextIOWrapper(io.BytesIO(file_data), encoding='utf-8'))):
       parsed_row: dict[str, None | str | int | float | bool] = {}
-      field_value: Optional[str]
+      field_value: str | None
       # process field-by-field
       for field_name, field_value in row.items():
         # strip and nullify the empty value
@@ -593,7 +592,7 @@ class GTFS:
   #   """
 
   def _HandleFeedInfoRow(
-      self, location: _TableLocation, count: int, row: dm.ExpectedFeedInfoCSVRowType) -> None:
+      self, location: _TableLocation, count: int, row: dm.ExpectedFeedInfoCSVRowType, /) -> None:
     """Handler: "feed_info.txt" Information on the GTFS ZIP file being processed.
 
     (no primary key)
@@ -618,7 +617,7 @@ class GTFS:
       raise RowError(f'incompatible start/end dates in {location}: {row}')
     # check against current version (and log)
     tm: float = time.time()
-    current_data: Optional[dm.FileMetadata] = self._db.files.files[location.operator][location.link]
+    current_data: dm.FileMetadata | None = self._db.files.files[location.operator][location.link]
     if current_data is None:
       logging.info(
           'Loading version %r @ %s for %s/%s',
@@ -647,7 +646,7 @@ class GTFS:
 
   def _HandleAgencyRow(
       self, unused_location: _TableLocation,
-      unused_count: int, row: dm.ExpectedAgencyCSVRowType) -> None:
+      unused_count: int, row: dm.ExpectedAgencyCSVRowType, /) -> None:
     """Handler: "agency.txt" Transit agencies.
 
     pk: agency_id
@@ -666,7 +665,7 @@ class GTFS:
         zone=zoneinfo.ZoneInfo(row['agency_timezone']), routes={})
 
   def _HandleCalendarRow(
-      self, location: _TableLocation, count: int, row: dm.ExpectedCalendarCSVRowType) -> None:
+      self, location: _TableLocation, count: int, row: dm.ExpectedCalendarCSVRowType, /) -> None:
     """Handler: "calendar.txt" Service dates specified using a weekly schedule & start/end dates.
 
     pk: service_id
@@ -693,7 +692,7 @@ class GTFS:
 
   def _HandleCalendarDatesRow(
       self, unused_location: _TableLocation, unused_count: int,
-      row: dm.ExpectedCalendarDatesCSVRowType) -> None:
+      row: dm.ExpectedCalendarDatesCSVRowType, /) -> None:
     """Handler: "calendar_dates.txt" Exceptions for the services defined in the calendar table.
 
     pk: (calendar/service_id, date) / ref: calendar/service_id
@@ -711,7 +710,7 @@ class GTFS:
 
   def _HandleRoutesRow(
       self, unused_location: _TableLocation, unused_count: int,
-      row: dm.ExpectedRoutesCSVRowType) -> None:
+      row: dm.ExpectedRoutesCSVRowType, /) -> None:
     """Handler: "routes.txt" Routes: group of trips that are displayed to riders as a single service.
 
     pk: route_id / ref: agency/agency_id
@@ -731,7 +730,7 @@ class GTFS:
         color=row['route_color'], text_color=row['route_text_color'], trips={})
 
   def _HandleShapesRow(
-      self, location: _TableLocation, count: int, row: dm.ExpectedShapesCSVRowType) -> None:
+      self, location: _TableLocation, count: int, row: dm.ExpectedShapesCSVRowType, /) -> None:
     """Handler: "shapes.txt" Rules for mapping vehicle travel paths (aka. route alignments).
 
     pk: (shape_id, shape_pt_sequence)
@@ -758,7 +757,7 @@ class GTFS:
         distance=row['shape_dist_traveled'])
 
   def _HandleTripsRow(
-      self, location: _TableLocation, count: int, row: dm.ExpectedTripsCSVRowType) -> None:
+      self, location: _TableLocation, count: int, row: dm.ExpectedTripsCSVRowType, /) -> None:
     """Handler: "trips.txt" Trips for each route.
 
     A trip is a sequence of two or more stops that occur during a specific time period.
@@ -773,7 +772,7 @@ class GTFS:
       RowError: error parsing this record
     """
     # check
-    agency: Optional[dm.Agency] = self.FindRoute(row['route_id'])
+    agency: dm.Agency | None = self.FindRoute(row['route_id'])
     if agency is None:
       raise RowError(f'agency in row was not found @{count} / {location}: {row}')
     # update
@@ -784,7 +783,7 @@ class GTFS:
         direction=row['direction_id'], stops={})
 
   def _HandleStopsRow(
-      self, location: _TableLocation, count: int, row: dm.ExpectedStopsCSVRowType) -> None:
+      self, location: _TableLocation, count: int, row: dm.ExpectedStopsCSVRowType, /) -> None:
     """Handler: "stops.txt" Stops where vehicles pick up or drop-off riders.
 
     Also defines stations and station entrances.
@@ -814,7 +813,7 @@ class GTFS:
         url=row['stop_url'], location=location_type)
 
   def _HandleStopTimesRow(
-      self, location: _TableLocation, count: int, row: dm.ExpectedStopTimesCSVRowType) -> None:
+      self, location: _TableLocation, count: int, row: dm.ExpectedStopTimesCSVRowType, /) -> None:
     """Handler: "stop_times.txt" Times that a vehicle arrives/departs from stops for each trip.
 
     pk: (trips/trip_id, stop_sequence) / ref: stops/stop_id
@@ -858,7 +857,7 @@ class GTFS:
   # GTFS PRETTY PRINTS
   ##################################################################################################
 
-  def PrettyPrintTrip(self, trip_id: str) -> Generator[str, None, None]:
+  def PrettyPrintTrip(self, trip_id: str, /) -> Generator[str, None, None]:
     """Generate a pretty version of a Trip."""
     agency, route, trip = self.FindTrip(trip_id)
     if not agency or not route or not trip:
@@ -902,7 +901,7 @@ class GTFS:
     yield from table.get_string().splitlines()  # type:ignore
 
 
-def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
+def _UnzipFiles(in_file: IO[bytes], /) -> Generator[tuple[str, bytes], None, None]:
   """Unzips `in_file` bytes buffer. Manages multiple files, preserving case-sensitive _LOAD_ORDER.
 
   Args:
@@ -925,7 +924,7 @@ def _UnzipFiles(in_file: IO[bytes]) -> Generator[tuple[str, bytes], None, None]:
         yield (file_name, file_data.read())
 
 
-def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-name
+def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name
   """Main entry point."""
   # parse the input arguments, add subparser for `command`
   parser: argparse.ArgumentParser = argparse.ArgumentParser()

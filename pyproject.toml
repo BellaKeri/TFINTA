@@ -26,8 +26,8 @@ classifiers = [  # see: https://pypi.org/classifiers/
   "Topic :: Utilities"
 ]
 dependencies = [
-  "prettytable>=3.16",
-  "balparda_baselib>=1.9"
+  "prettytable (>=3.16,<4.0)",
+  "balparda-baselib (>=1.9,<2.0)"
 ]
 
 [project.urls]

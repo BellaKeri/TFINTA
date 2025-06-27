@@ -6,12 +6,11 @@
 """Running Trains Loader."""
 
 # import logging
-import pdb
+# import pdb
 import urllib.request
 import xml.dom.minidom
 import dataclasses
 import sys
-from typing import Optional
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
 __version__: tuple[int, int] = (1, 3)  # v1.3 - 2025/06/27
@@ -39,15 +38,15 @@ def LoadTrains() -> str:
   return urllib.request.urlopen(ALL_RUNNING_TRAINS_URL).read()
 
 
-def ConvertToXML(xml_data_trains: str) -> XMLType:
+def ConvertToXML(xml_data_trains: str, /) -> XMLType:
   return xml.dom.minidom.parseString(xml_data_trains)
 
 
-def GetTrains(xml_trains_obj: XMLType) -> list[XMLElement]:
+def GetTrains(xml_trains_obj: XMLType, /) -> list[XMLElement]:
   return list(xml_trains_obj.getElementsByTagName('objTrainPositions'))
 
 
-def TrainsData(trains_data : list[XMLElement]) -> list[tuple[str, str, str]]:
+def TrainsData(trains_data : list[XMLElement], /) -> list[tuple[str, str, str]]:
   trains_information: list[tuple[str, str, str]] = []
   for data_type in trains_data:
     code = data_type.getElementsByTagName('TrainCode')[0].firstChild.nodeValue
@@ -60,7 +59,7 @@ def TrainsData(trains_data : list[XMLElement]) -> list[tuple[str, str, str]]:
   return sorted(trains_information)
 
 
-def TrainsDict(trains_data: list[XMLElement]) -> dict[int, Trains]:
+def TrainsDict(trains_data: list[XMLElement], /) -> dict[int, Trains]:
   dict_trains_information: dict[int, Trains] = {}
   for data_type in trains_data:
     status = data_type.getElementsByTagName('TrainStatus')[0].firstChild.nodeValue
@@ -76,7 +75,7 @@ def TrainsDict(trains_data: list[XMLElement]) -> dict[int, Trains]:
   return dict_trains_information
 
 
-def main(unused_argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-name
+def main(unused_argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name
   """Main entry point."""
   xml_data = LoadTrains()
   xml_trains_obj = ConvertToXML(xml_data)

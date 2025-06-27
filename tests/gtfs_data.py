@@ -29,7 +29,7 @@ OPERATOR_CSV_PATH: str = os.path.join(_DATA_DIR, 'GTFS Operator Files - 20250621
 ZIP_DIR_1: str = os.path.join(_DATA_DIR, 'zip_1')
 
 
-def ZipDirBytes(src_dir: pathlib.Path) -> bytes:
+def ZipDirBytes(src_dir: pathlib.Path, /) -> bytes:
   """Create an in-memory ZIP from every *.txt file under `src_dir` (non-recursive)."""
   buf = io.BytesIO()
   with zipfile.ZipFile(buf, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
@@ -43,7 +43,7 @@ class FakeHTTPStream(io.BytesIO):
   (context-manager & read() method).  Accepts *bytes* at construction.
   """
 
-  def __init__(self, payload: bytes) -> None:
+  def __init__(self, payload: bytes, /) -> None:
     super().__init__(payload)
 
   def __enter__(self) -> Self:
@@ -59,7 +59,7 @@ class FakeHTTPFile(FakeHTTPStream):
   (context-manager & read() method).  Accepts *a file path* at construction.
   """
 
-  def __init__(self, payload_path: str) -> None:
+  def __init__(self, payload_path: str, /) -> None:
     with open(payload_path, 'rb') as payload:
       super().__init__(payload.read())
 

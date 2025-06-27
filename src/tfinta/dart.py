@@ -10,7 +10,7 @@ import datetime
 import logging
 # import pdb
 import sys
-from typing import Generator, Optional, TypeVar
+from typing import Generator, TypeVar
 
 from balparda_baselib import base
 import prettytable
@@ -34,7 +34,7 @@ _KEY = TypeVar('_KEY')
 _VALUE = TypeVar('_VALUE')
 
 
-def SortedItems(d: dict[_KEY, _VALUE]) -> Generator[tuple[_KEY, _VALUE], None, None]:
+def SortedItems(d: dict[_KEY, _VALUE], /) -> Generator[tuple[_KEY, _VALUE], None, None]:
   """Behaves like dict.items() but gets (key, value) pairs sorted by keys."""
   # migrate to def SortedItems[K: Any, V: Any](d: dict[K, V]) -> Generator[tuple[K, V], None, None]
   # as soon as pylance can process PEP 695 syntax
@@ -45,7 +45,7 @@ def SortedItems(d: dict[_KEY, _VALUE]) -> Generator[tuple[_KEY, _VALUE], None, N
 class DART:
   """Dublin DART."""
 
-  def __init__(self, gtfs_obj: gtfs.GTFS) -> None:
+  def __init__(self, gtfs_obj: gtfs.GTFS, /) -> None:
     """Constructor."""
     # get DB
     if not gtfs_obj:
@@ -83,7 +83,7 @@ class DART:
           f'DART route has {total_trips} trips, but only {collected_trips} in structure '
           f'and {self._dart_services_count}')
 
-  def ScheduleFromTrip(self, trip: dm.Trip) -> tuple[dm.Track, dm.Schedule]:
+  def ScheduleFromTrip(self, trip: dm.Trip, /) -> tuple[dm.Track, dm.Schedule]:
     """Builds a schedule object from this particular trip."""
     stops: tuple[dm.TrackStop] = tuple(dm.TrackStop(  # type:ignore
         stop=trip.stops[i].stop,
@@ -110,11 +110,11 @@ class DART:
     """Set of all DART services."""
     return {t.service for t in self._dart_route.trips.values()}
 
-  def ServicesForDay(self, day: datetime.date) -> set[int]:
+  def ServicesForDay(self, day: datetime.date, /) -> set[int]:
     """Set of DART services for a single day."""
     return self._gtfs.ServicesForDay(day).intersection(self.Services())
 
-  def WalkTrips(self, filter_services: Optional[set[int]] = None) -> Generator[tuple[
+  def WalkTrips(self, /, *, filter_services: set[int] | None = None) -> Generator[tuple[
       dm.TrackEndpoints, dm.Track, str, int, dm.Schedule, dm.Trip], None, None]:
     """Iterates over all DART trips in a sensible order."""
     for endpoint, track_map in SortedItems(self._dart_trips):  # pylint: disable=too-many-nested-blocks
@@ -126,7 +126,7 @@ class DART:
                 for trip in trip_list:
                   yield (endpoint, track, name, service, schedule, trip)
 
-  def WalkTrains(self, filter_services: Optional[set[int]] = None) -> Generator[tuple[
+  def WalkTrains(self, /, *, filter_services: set[int] | None = None) -> Generator[tuple[
       dm.TrackEndpoints, dm.Track, dm.Schedule, str,
       list[tuple[int, dm.Schedule, dm.Trip]]], None, None]:
     """Iterates over actual physical DART trains in a sensible order.
@@ -143,7 +143,7 @@ class DART:
     """
     # go over the trips (self.WalkTrips) and bucket by trip.name, which is a physical DART train
     key: tuple[dm.TrackEndpoints, dm.Track, str]
-    previous_key: Optional[tuple[dm.TrackEndpoints, dm.Track, str]] = None
+    previous_key: tuple[dm.TrackEndpoints, dm.Track, str] | None = None
     trips_in_train: list[tuple[int, dm.Schedule, dm.Trip]] = []
     schedules_in_train: set[dm.Schedule] = set()
     for endpoint, track, name, service, schedule, trip in self.WalkTrips(
@@ -168,7 +168,7 @@ class DART:
           previous_key[0], previous_key[1],
           min(schedules_in_train), previous_key[2], sorted(trips_in_train))
 
-  def StationSchedule(self, stop_id: str, day: datetime.date) -> dict[
+  def StationSchedule(self, stop_id: str, day: datetime.date, /) -> dict[
       tuple[str, dm.ScheduleStop], tuple[str, dm.Schedule, list[tuple[int, dm.Schedule, dm.Trip]]]]:
     """Data for trains in a `stop` for a specific `day`."""
     day_services: set[int] = self.ServicesForDay(day)
@@ -187,7 +187,7 @@ class DART:
   # DART PRETTY PRINTS
   ##################################################################################################
 
-  def PrettyDaySchedule(self, day: datetime.date) -> Generator[str, None, None]:
+  def PrettyDaySchedule(self, day: datetime.date, /) -> Generator[str, None, None]:
     """Generate a pretty version of a DART day's schedule."""
     if not day:
       raise Error('empty day')
@@ -222,7 +222,7 @@ class DART:
       ])
     yield from table.get_string().splitlines()  # type:ignore
 
-  def PrettyStationSchedule(self, stop_id: str, day: datetime.date) -> Generator[str, None, None]:
+  def PrettyStationSchedule(self, stop_id: str, day: datetime.date, /) -> Generator[str, None, None]:
     """Generate a pretty version of a DART station (stop) day's schedule."""
     stop_id = stop_id.strip()
     if not day or not stop_id:
@@ -269,7 +269,7 @@ class DART:
       last_arrival, last_departure = time.arrival, time.departure
     yield from table.get_string().splitlines()  # type:ignore
 
-  def PrettyPrintTrip(self, trip_name: str) -> Generator[str, None, None]:  # pylint: disable=too-many-locals
+  def PrettyPrintTrip(self, trip_name: str, /) -> Generator[str, None, None]:  # pylint: disable=too-many-locals
     """Generate a pretty version of a train (physical) trip, may be 2 Trips."""
     trip_name = trip_name.strip().upper()
     if not trip_name:
@@ -353,7 +353,7 @@ class DART:
     yield from table.get_string().splitlines()  # type:ignore
 
 
-def main(argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-name,too-many-locals
+def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,too-many-locals
   """Main entry point."""
   # parse the input arguments, add subparser for `command`
   parser: argparse.ArgumentParser = argparse.ArgumentParser()

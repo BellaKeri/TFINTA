@@ -1,4 +1,4 @@
-balparda-baselib==1.9 ; python_full_version >= "3.12.11"
+balparda-baselib==1.10 ; python_full_version >= "3.12.11"
 cffi==1.17.1 ; python_full_version >= "3.12.11" and platform_python_implementation != "PyPy"
 cryptography==45.0.4 ; python_full_version >= "3.12.11"
 pillow==11.2.1 ; python_full_version >= "3.12.11"

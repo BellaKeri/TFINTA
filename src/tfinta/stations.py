@@ -7,9 +7,8 @@
 
 import dataclasses
 # import logging
-import pdb
+# import pdb
 import sys
-from typing import Optional
 import urllib.request
 import xml.dom.minidom
 
@@ -27,14 +26,14 @@ XMLElement = xml.dom.minidom.Element
 class Station:
   """Stations data."""
   station_des: str
-  station_alias: Optional[str]
+  station_alias: str | None
   station_lat: float
   station_long: float
   station_code: str
   station_id: int
 
 
-def Sum(a: int, b: int) -> int:
+def Sum(a: int, b: int, /) -> int:
   # TODO: remove (just for learning)
   g: int = a + b
   return g
@@ -46,16 +45,16 @@ def LoadStations() -> str:
   # equivale a: return urllib.request.urlopen(ALL_STATIONS_URL).read()
 
 
-def ConvertToXML(xml_data: str) -> XMLType:
+def ConvertToXML(xml_data: str, /) -> XMLType:
   return xml.dom.minidom.parseString(xml_data)
 
 
-def GetStations(xml_obj: XMLType) -> list[XMLElement]:
+def GetStations(xml_obj: XMLType, /) -> list[XMLElement]:
   return list(xml_obj.getElementsByTagName('objStation'))
 
 
-def StationData(stations: list[XMLElement]) -> list[tuple[str, str, Optional[str], int]]:
-  names: list[tuple[str, str, Optional[str], int]] = []
+def StationData(stations: list[XMLElement], /) -> list[tuple[str, str, str | None, int]]:
+  names: list[tuple[str, str, str | None, int]] = []
   for station in stations:
     desc = station.getElementsByTagName('StationDesc')[0].firstChild.nodeValue
     alias = station.getElementsByTagName('StationAlias')[0].firstChild
@@ -69,7 +68,7 @@ def StationData(stations: list[XMLElement]) -> list[tuple[str, str, Optional[str
   return sorted(names)
 
 
-def StationDict(stations: list[XMLElement]) -> dict[int, Station]:
+def StationDict(stations: list[XMLElement], /) -> dict[int, Station]:
   dict_names: dict[int, Station] = {}
   for station in stations:
     desc = station.getElementsByTagName('StationDesc')[0].firstChild.nodeValue
@@ -85,7 +84,7 @@ def StationDict(stations: list[XMLElement]) -> dict[int, Station]:
   return dict_names
 
 
-def main(unused_argv: Optional[list[str]] = None) -> int:  # pylint: disable=invalid-name
+def main(unused_argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name
   """Main entry point."""
   xml_data = LoadStations()
   xml_obj = ConvertToXML(xml_data)

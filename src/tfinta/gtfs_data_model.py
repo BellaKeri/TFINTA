@@ -14,7 +14,7 @@ import datetime
 import enum
 import functools
 # import pdb
-from typing import Any, Callable, Optional, TypedDict
+from typing import Any, Callable, TypedDict
 import zoneinfo
 
 from balparda_baselib import base
@@ -103,7 +103,7 @@ class FileMetadata:
   language: str    # feed_info.txt/feed_lang                     (required)
   days: DaysRange  # feed_info.txt/feed_start_date+feed_end_date (required)
   version: str     # feed_info.txt/feed_version                  (required)
-  email: Optional[str] = None  # feed_info.txt/feed_contact_email
+  email: str | None = None  # feed_info.txt/feed_contact_email
 
 
 class ExpectedFeedInfoCSVRowType(TypedDict):
@@ -114,7 +114,7 @@ class ExpectedFeedInfoCSVRowType(TypedDict):
   feed_start_date: str
   feed_end_date: str
   feed_version: str
-  feed_contact_email: Optional[str]
+  feed_contact_email: str | None
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
@@ -139,14 +139,14 @@ class LocationType(enum.Enum):
 class BaseStop:  # stops.txt
   """Stop where vehicles pick up or drop-off riders."""
   id: str                # (PK) stops.txt/stop_id (required)
-  parent: Optional[str] = None  # stops.txt/parent_station -> stops.txt/stop_id (required)
+  parent: str | None = None  # stops.txt/parent_station -> stops.txt/stop_id (required)
   code: str              # stops.txt/stop_code    (required)
   name: str              # stops.txt/stop_name    (required)
   point: Point           # stops.txt/stop_lat+stop_lon - WGS84 latitude & longitude
   location: LocationType = LocationType.STOP  # stops.txt/location_type
-  zone: Optional[str] = None         # stops.txt/zone_id
-  description: Optional[str] = None  # stops.txt/stop_desc
-  url: Optional[str] = None          # stops.txt/stop_url
+  zone: str | None = None         # stops.txt/zone_id
+  description: str | None = None  # stops.txt/stop_desc
+  url: str | None = None          # stops.txt/stop_url
 
   def __lt__(self, other: Any) -> Any:
     """Less than. Makes sortable (b/c base class already defines __eq__)."""
@@ -158,15 +158,15 @@ class BaseStop:  # stops.txt
 class ExpectedStopsCSVRowType(TypedDict):
   """stops.txt"""
   stop_id: str
-  parent_station: Optional[str]
+  parent_station: str | None
   stop_code: str
   stop_name: str
   stop_lat: float
   stop_lon: float
-  zone_id: Optional[str]
-  stop_desc: Optional[str]
-  stop_url: Optional[str]
-  location_type: Optional[int]
+  zone_id: str | None
+  stop_desc: str | None
+  stop_url: str | None
+  location_type: int | None
 
 
 class StopPointType(enum.Enum):
@@ -214,8 +214,8 @@ class Stop:  # stop_times.txt
   stop: str  # stop_times.txt/stop_id                 (required) -> stops.txt/stop_id
   agency: int     # <<INFERRED>> -> agency.txt/agency_id
   route: str      # <<INFERRED>> -> routes.txt/route_id
-  scheduled: ScheduleStop  # stop_times.txt/arrival_time+departure_time+timepoint - arrival & departure
-  headsign: Optional[str] = None  # stop_times.txt/stop_headsign
+  scheduled: ScheduleStop      # stop_times.txt/arrival_time+departure_time+timepoint - arrival & departure
+  headsign: str | None = None  # stop_times.txt/stop_headsign
   pickup: StopPointType = StopPointType.REGULAR   # stop_times.txt/pickup_type
   dropoff: StopPointType = StopPointType.REGULAR  # stop_times.txt/drop_off_type
 
@@ -228,10 +228,10 @@ class ExpectedStopTimesCSVRowType(TypedDict):
   arrival_time: str
   departure_time: str
   timepoint: bool
-  stop_headsign: Optional[str]
-  pickup_type: Optional[int]
-  drop_off_type: Optional[int]
-  dropoff_type: Optional[int]  # legacy spelling, here for backwards compatibility
+  stop_headsign: str | None
+  pickup_type: int | None
+  drop_off_type: int | None
+  dropoff_type: int | None  # legacy spelling, here for backwards compatibility
 
 
 @functools.total_ordering  # limited sorting by ID only!!
@@ -243,12 +243,12 @@ class Trip:
   agency: int      # <<INFERRED>> -> agency.txt/agency_id
   service: int     # trips.txt/service_id       (required) -> calendar.txt/service_id
   direction: bool  # trips.txt/direction_id     (required)
-  shape: Optional[str] = None     # trips.txt/shape_id -> shapes.txt/shape_id
-  block: Optional[str] = None     # trips.txt/block_id
-  headsign: Optional[str] = None  # trips.txt/trip_headsign
-  name: Optional[str] = None      # trips.txt/trip_short_name
+  shape: str | None = None     # trips.txt/shape_id -> shapes.txt/shape_id
+  block: str | None = None     # trips.txt/block_id
+  headsign: str | None = None  # trips.txt/trip_headsign
+  name: str | None = None      # trips.txt/trip_short_name
   # A trip_short_name value, if provided, should uniquely identify a trip within a service day
-  stops: dict[int, Stop]          # {stop_times.txt/stop_sequence: Stop}
+  stops: dict[int, Stop]       # {stop_times.txt/stop_sequence: Stop}
 
   def __lt__(self, other: Any) -> Any:
     """Less than. Makes sortable (b/c base class already defines __eq__)."""
@@ -263,10 +263,10 @@ class ExpectedTripsCSVRowType(TypedDict):
   route_id: str
   service_id: int
   direction_id: bool
-  shape_id: Optional[str]
-  trip_headsign: Optional[str]
-  block_id: Optional[str]
-  trip_short_name: Optional[str]
+  shape_id: str | None
+  trip_headsign: str | None
+  block_id: str | None
+  trip_short_name: str | None
 
 
 class RouteType(enum.Enum):
@@ -387,11 +387,11 @@ class Route:
   short_name: str        # routes.txt/route_short_name (required)
   long_name: str         # routes.txt/route_long_name  (required)
   route_type: RouteType  # routes.txt/route_type       (required)
-  description: Optional[str] = None  # routes.txt/route_desc
-  url: Optional[str] = None          # routes.txt/route_url
-  color: Optional[str] = None        # routes.txt/route_color: encoded as a six-digit hexadecimal number (https://htmlcolorcodes.com)
-  text_color: Optional[str] = None   # routes.txt/route_text_color: encoded as a six-digit hexadecimal number
-  trips: dict[str, Trip]             # {trips.txt/trip_id: Trip}
+  description: str | None = None  # routes.txt/route_desc
+  url: str | None = None          # routes.txt/route_url
+  color: str | None = None        # routes.txt/route_color: encoded as a six-digit hexadecimal number (https://htmlcolorcodes.com)
+  text_color: str | None = None   # routes.txt/route_text_color: encoded as a six-digit hexadecimal number
+  trips: dict[str, Trip]          # {trips.txt/trip_id: Trip}
 
 
 class ExpectedRoutesCSVRowType(TypedDict):
@@ -401,10 +401,10 @@ class ExpectedRoutesCSVRowType(TypedDict):
   route_short_name: str
   route_long_name: str
   route_type: int
-  route_desc: Optional[str]
-  route_url: Optional[str]
-  route_color: Optional[str]
-  route_text_color: Optional[str]
+  route_desc: str | None
+  route_url: str | None
+  route_color: str | None
+  route_text_color: str | None
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
@@ -485,7 +485,7 @@ class Shape:
 class OfficialFiles:
   """Official GTFS files."""
   tm: float  # timestamp of last pull of the official CSV
-  files: dict[str, dict[str, Optional[FileMetadata]]]  # {provider: {url: FileMetadata}}
+  files: dict[str, dict[str, FileMetadata | None]]  # {provider: {url: FileMetadata}}
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=False)  # mutable b/c of dict
@@ -540,10 +540,10 @@ class AgnosticEndpoints:
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class TrackStop:
   """A track stop."""
-  stop: str                       # stop_times.txt/stop_id (required) -> stops.txt/stop_id
-  name: str                       # stops.txt/stop_name    (required)
+  stop: str                    # stop_times.txt/stop_id (required) -> stops.txt/stop_id
+  name: str                    # stops.txt/stop_name    (required)
   # even though the name is redundant, if we don't add it here it becomes hard to sort (for example)
-  headsign: Optional[str] = None  # stop_times.txt/stop_headsign
+  headsign: str | None = None  # stop_times.txt/stop_headsign
   pickup: StopPointType = StopPointType.REGULAR   # stop_times.txt/pickup_type
   dropoff: StopPointType = StopPointType.REGULAR  # stop_times.txt/drop_off_type
 
@@ -594,12 +594,13 @@ DART_DIRECTION: Callable[[Trip | TrackEndpoints | Track], str] = (
     f'{base.TERM_LIGHT_RED}N{base.TERM_END}')
 
 NULL_TEXT: str = f'{base.TERM_BLUE}\u2205{base.TERM_END}'  # ∅
-LIMITED_TEXT: Callable[[Optional[str], int], str] = lambda s, w: NULL_TEXT if s is None else (s if len(s) <= w else f'{s[:(w - 1)]}…')
+LIMITED_TEXT: Callable[[str | None, int], str] = (
+    lambda s, w: NULL_TEXT if s is None else (s if len(s) <= w else f'{s[:(w - 1)]}\u2026'))  # …
 
 CondensedTrips = dict[TrackEndpoints, dict[Track, dict[str, dict[int, dict[Schedule, list[Trip]]]]]]
 
 
-def EndpointsFromTrack(track: Track) -> tuple[AgnosticEndpoints, TrackEndpoints]:
+def EndpointsFromTrack(track: Track, /) -> tuple[AgnosticEndpoints, TrackEndpoints]:
   """Builds track endpoints from a track."""
   endpoints = TrackEndpoints(
       start=track.stops[0].stop, end=track.stops[-1].stop, direction=track.direction)
