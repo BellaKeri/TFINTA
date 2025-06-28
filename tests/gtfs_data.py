@@ -4,6 +4,7 @@
 # Apache-2.0 license
 """GTFS unittest data."""
 
+import collections
 import datetime
 import io
 import os.path
@@ -1140,27 +1141,253 @@ TIMES_2: tuple[dm.ScheduleStop] = (  # type:ignore
     dm.ScheduleStop(arrival=70800, departure=70800),
 )
 
-DART_TRIPS_ZIP_1: dm.CondensedTrips = {
-    dm.TrackEndpoints(start='8350IR0122', end='8250IR0021', direction=False): {
-        dm.Track(direction=False, stops=STOPS_1): {
-            'E818': {
-                83: {
-                    dm.Schedule(direction=False, stops=STOPS_1, times=TIMES_1): [
-                        ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4452_2655'],
-                    ],
-                },
-                84: {
-                    dm.Schedule(direction=False, stops=STOPS_1, times=TIMES_1): [
-                        ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4452_2662'],
-                    ],
-                    dm.Schedule(direction=False, stops=STOPS_1, times=TIMES_2): [
-                        ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4669_4802'],
-                    ],
-                },
-            },
-        },
-    },
-}
+DART_TRIPS_ZIP_1 = collections.OrderedDict({
+    'E666': [
+        (
+            83,
+            dm.Schedule(
+                direction=False,
+                stops=(  # type: ignore
+                    dm.TrackStop(
+                        stop='8350IR0122',
+                        name='Greystones',
+                        headsign='Malahide',
+                        pickup=dm.StopPointType.REGULAR,
+                        dropoff=dm.StopPointType.NOT_AVAILABLE,
+                    ),
+                    dm.TrackStop(
+                        stop='8350IR0123',
+                        name='Bray (Daly)',
+                    ),
+                ),
+                times=(  # type: ignore
+                    dm.ScheduleStop(
+                        arrival=76680,
+                        departure=76680,
+                    ),
+                    dm.ScheduleStop(
+                        arrival=77280,
+                        departure=77460,
+                    ),
+                ),
+            ),
+            ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4669_4999'],
+        ),
+        (
+            83,
+            dm.Schedule(
+                direction=False,
+                stops=(  # type: ignore
+                    dm.TrackStop(
+                        stop='8350IR0122',
+                        name='Greystones',
+                        headsign='Malahide',
+                        pickup=dm.StopPointType.REGULAR,
+                        dropoff=dm.StopPointType.NOT_AVAILABLE,
+                    ),
+                    dm.TrackStop(
+                        stop='8350IR0123',
+                        name='Bray (Daly)',
+                    ),
+                    dm.TrackStop(
+                        stop='8250IR0022',
+                        name='Shankill',
+                    ),
+                    dm.TrackStop(
+                        stop='8250IR0021',
+                        name='Killiney',
+                    ),
+                ),
+                times=(  # type: ignore
+                    dm.ScheduleStop(
+                        arrival=76680,
+                        departure=76680,
+                    ),
+                    dm.ScheduleStop(
+                        arrival=77280,
+                        departure=77460,
+                    ),
+                    dm.ScheduleStop(
+                        arrival=77700,
+                        departure=77760,
+                    ),
+                    dm.ScheduleStop(
+                        arrival=77880,
+                        departure=77880,
+                    ),
+                ),
+            ),
+            ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4452_2666'],
+        ),
+        (
+            84,
+            dm.Schedule(
+                direction=True,
+                stops=(  # type: ignore
+                    dm.TrackStop(
+                        stop='8250IR0022',
+                        name='Shankill',
+                    ),
+                    dm.TrackStop(
+                        stop='8250IR0021',
+                        name='Killiney',
+                    ),
+                ),
+                times=(  # type: ignore
+                    dm.ScheduleStop(
+                        arrival=77700,
+                        departure=77760,
+                    ),
+                    dm.ScheduleStop(
+                        arrival=77880,
+                        departure=77880,
+                    ),
+                ),
+            ),
+            ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4669_4666'],
+        ),
+    ],
+    'E818': [
+        (
+            83,
+            dm.Schedule(
+                direction=False,
+                stops=(  # type: ignore
+                    dm.TrackStop(
+                        stop='8350IR0122',
+                        name='Greystones',
+                        headsign='Malahide',
+                        pickup=dm.StopPointType.REGULAR,
+                        dropoff=dm.StopPointType.NOT_AVAILABLE,
+                    ),
+                    dm.TrackStop(
+                        stop='8350IR0123',
+                        name='Bray (Daly)',
+                    ),
+                    dm.TrackStop(
+                        stop='8250IR0022',
+                        name='Shankill',
+                    ),
+                    dm.TrackStop(
+                        stop='8250IR0021',
+                        name='Killiney',
+                    ),
+                ),
+                times=(  # type: ignore
+                    dm.ScheduleStop(
+                        arrival=69480,
+                        departure=69480,
+                    ),
+                    dm.ScheduleStop(
+                        arrival=70080,
+                        departure=70260,
+                    ),
+                    dm.ScheduleStop(
+                        arrival=70500,
+                        departure=70560,
+                    ),
+                    dm.ScheduleStop(
+                        arrival=70680,
+                        departure=70680,
+                    ),
+                ),
+            ),
+            ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4452_2655'],
+        ),
+        (
+            84,
+            dm.Schedule(
+                direction=False,
+                stops=(  # type: ignore
+                    dm.TrackStop(
+                        stop='8350IR0122',
+                        name='Greystones',
+                        headsign='Malahide',
+                        pickup=dm.StopPointType.REGULAR,
+                        dropoff=dm.StopPointType.NOT_AVAILABLE,
+                    ),
+                    dm.TrackStop(
+                        stop='8350IR0123',
+                        name='Bray (Daly)',
+                    ),
+                    dm.TrackStop(
+                        stop='8250IR0022',
+                        name='Shankill',
+                    ),
+                    dm.TrackStop(
+                        stop='8250IR0021',
+                        name='Killiney',
+                    ),
+                ),
+                times=(  # type: ignore
+                    dm.ScheduleStop(
+                        arrival=69480,
+                        departure=69480,
+                    ),
+                    dm.ScheduleStop(
+                        arrival=70080,
+                        departure=70260,
+                    ),
+                    dm.ScheduleStop(
+                        arrival=70500,
+                        departure=70560,
+                    ),
+                    dm.ScheduleStop(
+                        arrival=70680,
+                        departure=70680,
+                    ),
+                ),
+            ),
+            ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4452_2662'],
+        ),
+        (
+            84,
+            dm.Schedule(
+                direction=False,
+                stops=(  # type: ignore
+                    dm.TrackStop(
+                        stop='8350IR0122',
+                        name='Greystones',
+                        headsign='Malahide',
+                        pickup=dm.StopPointType.REGULAR,
+                        dropoff=dm.StopPointType.NOT_AVAILABLE,
+                    ),
+                    dm.TrackStop(
+                        stop='8350IR0123',
+                        name='Bray (Daly)',
+                    ),
+                    dm.TrackStop(
+                        stop='8250IR0022',
+                        name='Shankill',
+                    ),
+                    dm.TrackStop(
+                        stop='8250IR0021',
+                        name='Killiney',
+                    ),
+                ),
+                times=(  # type: ignore
+                    dm.ScheduleStop(
+                        arrival=69480,
+                        departure=69480,
+                    ),
+                    dm.ScheduleStop(
+                        arrival=70080,
+                        departure=70260,
+                    ),
+                    dm.ScheduleStop(
+                        arrival=70500,
+                        departure=70560,
+                    ),
+                    dm.ScheduleStop(
+                        arrival=70800,
+                        departure=70800,
+                    ),
+                ),
+            ),
+            ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4669_4802'],
+        ),
+    ],
+})
 
 TRIPS_SCHEDULE_2025_08_04: str = """\
 DART Schedule
@@ -1190,7 +1417,7 @@ Destinations: Killiney
 +-----+-------+-------------+----------+-----------+---------------------------------+\
 """
 
-TRIP_E818: str = """\
+TRIP_E666: str = """\
 DART Trip E666
 
 Agency:        Iarnród Éireann / Irish Rail
@@ -1216,22 +1443,24 @@ Headsign:      Malahide
 |         |   Pickup   |   Pickup   |   Pickup   |
 +---------+------------+------------+------------+
 |    1    | Greystones | Greystones |            |
-|         | 19:18:00✗  | 19:18:00✗  |     ✗      |
+|         | 21:18:00✗  | 21:18:00✗  |     ✗      |
 |         | 21:18:00✓  | 21:18:00✓  |            |
 +---------+------------+------------+------------+
 |    2    | Bray (Dal… | Bray (Dal… |            |
-|         | 19:28:00✓  | 19:28:00✓  |     ✗      |
+|         | 21:28:00✓  | 21:28:00✓  |     ✗      |
 |         | 21:31:00✓  | 21:31:00✓  |            |
 +---------+------------+------------+------------+
 |    3    |            |  Shankill  |  Shankill  |
-|         |     ✗      | 19:35:00✓  | 19:35:00✓  |
+|         |     ✗      | 21:35:00✓  | 21:35:00✓  |
 |         |            | 21:36:00✓  | 21:36:00✓  |
 +---------+------------+------------+------------+
 |    4    |            |  Killiney  |  Killiney  |
-|         |     ✗      | 19:38:00✓  | 19:38:00✓  |
+|         |     ✗      | 21:38:00✓  | 21:38:00✓  |
 |         |            | 21:38:00✓  | 21:38:00✓  |
 +---------+------------+------------+------------+
+"""
 
+TRIP_E818: str = """\
 DART Trip E818
 
 Agency:        Iarnród Éireann / Irish Rail

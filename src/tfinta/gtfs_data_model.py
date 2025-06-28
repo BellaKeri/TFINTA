@@ -85,10 +85,10 @@ class DaysRange:
   start: datetime.date
   end: datetime.date
 
-  def __lt__(self, other: Any) -> Any:
+  def __lt__(self, other: Any) -> bool:
     """Less than. Makes sortable (b/c base class already defines __eq__)."""
     if not isinstance(other, DaysRange):
-      return NotImplemented
+      raise TypeError(f'invalid DaysRange type comparison {self!r} versus {other!r}')
     if self.start != other.start:
       return self.start < other.start
     return self.end < other.end
@@ -148,10 +148,10 @@ class BaseStop:  # stops.txt
   description: str | None = None  # stops.txt/stop_desc
   url: str | None = None          # stops.txt/stop_url
 
-  def __lt__(self, other: Any) -> Any:
+  def __lt__(self, other: Any) -> bool:
     """Less than. Makes sortable (b/c base class already defines __eq__)."""
     if not isinstance(other, BaseStop):
-      return NotImplemented
+      raise TypeError(f'invalid BaseStop type comparison {self!r} versus {other!r}')
     return self.name < other.name
 
 
@@ -194,13 +194,12 @@ class ScheduleStop:
   departure: int          # stop_times.txt/departure_time - seconds from midnight, to represent 'HH:MM:SS' (required)
   timepoint: bool = True  # stop_times.txt/timepoint (required) - False==Times are considered approximate; True==Times are considered exact
 
-  def __lt__(self, other: Any) -> Any:
+  def __lt__(self, other: Any) -> bool:
     """Less than. Makes sortable (b/c base class already defines __eq__)."""
     if not isinstance(other, ScheduleStop):
-      return NotImplemented
+      raise TypeError(f'invalid ScheduleStop type comparison: {self!r} versus {other!r}')
     if self.timepoint != other.timepoint:
-      # for now we disallow comparing with mixed precisions!
-      return NotImplemented
+      raise TypeError(f'invalid mixed timepoint ScheduleStop comparison: {self!r} versus {other!r}')
     if self.departure != other.departure:
       return self.departure < other.departure
     return self.arrival < other.arrival
@@ -250,10 +249,10 @@ class Trip:
   # A trip_short_name value, if provided, should uniquely identify a trip within a service day
   stops: dict[int, Stop]       # {stop_times.txt/stop_sequence: Stop}
 
-  def __lt__(self, other: Any) -> Any:
+  def __lt__(self, other: Any) -> bool:
     """Less than. Makes sortable (b/c base class already defines __eq__)."""
     if not isinstance(other, Trip):
-      return NotImplemented
+      raise TypeError(f'invalid Trip type comparison {self!r} versus {other!r}')
     return self.id < other.id  # we will sort only by ID for now!!
 
 
@@ -506,38 +505,6 @@ class GTFSData:
 
 @functools.total_ordering
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class TrackEndpoints:
-  """A track start and end stops."""
-  start: str       # stop_times.txt/stop_id (required) -> stops.txt/stop_id
-  end: str         # stop_times.txt/stop_id (required) -> stops.txt/stop_id
-  direction: bool  # trips.txt/direction_id (required)
-
-  def __lt__(self, other: Any) -> Any:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, TrackEndpoints):
-      return NotImplemented
-    if self.direction != other.direction:
-      return self.direction < other.direction
-    if self.start != other.start:
-      return self.start < other.start
-    return self.end < other.end
-
-
-@functools.total_ordering
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class AgnosticEndpoints:
-  """A track extremities (start & stop) but in a fixed (sorted) order."""
-  ends: tuple[str, str]  # SORTED!! stop_times.txt/stop_id (required) -> stops.txt/stop_id
-
-  def __lt__(self, other: Any) -> Any:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, AgnosticEndpoints):
-      return NotImplemented
-    return self.ends < other.ends
-
-
-@functools.total_ordering
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class TrackStop:
   """A track stop."""
   stop: str                    # stop_times.txt/stop_id (required) -> stops.txt/stop_id
@@ -547,49 +514,37 @@ class TrackStop:
   pickup: StopPointType = StopPointType.REGULAR   # stop_times.txt/pickup_type
   dropoff: StopPointType = StopPointType.REGULAR  # stop_times.txt/drop_off_type
 
-  def __lt__(self, other: Any) -> Any:
+  def __lt__(self, other: Any) -> bool:
     """Less than. Makes sortable (b/c base class already defines __eq__)."""
     if not isinstance(other, TrackStop):
-      return NotImplemented
+      raise TypeError(f'invalid TrackStop type comparison {self!r} versus {other!r}')
     return self.name < other.name
 
 
 @functools.total_ordering
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class Track:
-  """Collection of stops. A directional shape on the train tracks, basically."""
-  direction: bool          # trips.txt/direction_id (required)
-  stops: tuple[TrackStop]  # (tuple so it is hashable!)
-
-  def __lt__(self, other: Any) -> Any:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, Track):
-      return NotImplemented
-    if self.direction != other.direction:
-      return self.direction < other.direction
-    return self.stops < other.stops
-
-
-@functools.total_ordering
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class Schedule(Track):
+class Schedule:
   """A track scheduled (timed) route. A track + timetable, basically. Sortable."""
+  direction: bool             # trips.txt/direction_id (required)
+  stops: tuple[TrackStop]     # (tuple so it is hashable!)
   times: tuple[ScheduleStop]  # (tuple so it is hashable!)
 
-  def __lt__(self, other: Any) -> Any:
+  def __lt__(self, other: Any) -> bool:
     """Less than. Makes sortable (b/c base class already defines __eq__)."""
     if not isinstance(other, Schedule):
-      return NotImplemented
+      raise TypeError(f'invalid Schedule type comparison {self!r} versus {other!r}')
     if self.direction != other.direction:
       return self.direction < other.direction
-    if self.stops != other.stops:
-      return self.stops < other.stops
-    return self.times < other.times
+    if self.stops[0] != other.stops[0]:
+      return self.stops[0] < other.stops[0]
+    if self.stops[-1] != other.stops[-1]:
+      return self.stops[-1] < other.stops[-1]
+    return self.times[0] < other.times[0]
 
 
 # useful
 
-DART_DIRECTION: Callable[[Trip | TrackEndpoints | Track], str] = (
+DART_DIRECTION: Callable[[Trip | Schedule], str] = (
     lambda t: f'{base.TERM_LIGHT_BLUE}S{base.TERM_END}' if t.direction else
     f'{base.TERM_LIGHT_RED}N{base.TERM_END}')
 
@@ -600,15 +555,3 @@ NULL_STOP = Stop(
 NULL_TEXT: str = f'{base.TERM_BLUE}\u2205{base.TERM_END}'  # ∅
 LIMITED_TEXT: Callable[[str | None, int], str] = (
     lambda s, w: NULL_TEXT if s is None else (s if len(s) <= w else f'{s[:(w - 1)]}\u2026'))  # …
-
-CondensedTrips = dict[TrackEndpoints, dict[Track, dict[str, dict[int, dict[Schedule, list[Trip]]]]]]
-
-
-def EndpointsFromTrack(track: Track, /) -> tuple[AgnosticEndpoints, TrackEndpoints]:
-  """Builds track endpoints from a track."""
-  endpoints = TrackEndpoints(
-      start=track.stops[0].stop, end=track.stops[-1].stop, direction=track.direction)
-  ordered: tuple[str, str] = (
-      (endpoints.start, endpoints.end) if endpoints.end >= endpoints.start else
-      (endpoints.end, endpoints.start))
-  return (AgnosticEndpoints(ends=ordered), endpoints)

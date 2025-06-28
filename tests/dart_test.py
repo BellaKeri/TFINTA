@@ -68,7 +68,8 @@ def test_DART(gtfs_object: gtfs.GTFS) -> None:  # pylint: disable=redefined-oute
   with pytest.raises(gtfs.Error):
     list(db.PrettyPrintTrip(' \t'))
   assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintTrip('E818'))) == gtfs_data.TRIP_E818
-  assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintAllDatabase())) == gtfs_data.TRIP_E818 + '\n'
+  assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintAllDatabase())) == (
+      gtfs_data.TRIP_E666 + '\n' + gtfs_data.TRIP_E818 + '\n')
 
 
 @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)

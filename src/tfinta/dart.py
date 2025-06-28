@@ -61,31 +61,26 @@ class DART:
       raise gtfs.Error('Database does not have the DART route: maybe run `read` command?')
     self._dart_agency: dm.Agency = dart_agency
     self._dart_route: dm.Route = dart_route
-    # group dart trips by track then by schedule then by service
-    self._dart_trips: dm.CondensedTrips = {}
-    self._dart_services_count: dict[int, int] = {}  # {service: count(trips)}
+    # group DART trips by name
+    trains: dict[str, list[tuple[int, dm.Schedule, dm.Trip]]] = {}
     for trip in self._dart_route.trips.values():
-      track, schedule = self.ScheduleFromTrip(trip)
-      endpoints: dm.TrackEndpoints = dm.EndpointsFromTrack(track)[1]
       if not trip.name:
-        raise Error(f'empty trip name: {trip}')
-      self._dart_trips.setdefault(endpoints, {}).setdefault(
-          track, {}).setdefault(trip.name, {}).setdefault(trip.service, {}).setdefault(
-              schedule, []).append(trip)
-      self._dart_services_count[trip.service] = self._dart_services_count.get(trip.service, 0) + 1
-    # count them: we can't have lost any, or we need to investigate!
-    if (total_trips := len(self._dart_route.trips)) != (collected_trips := sum(
-        len(trips)
-        for tracks in self._dart_trips.values()
-        for names in tracks.values()
-        for services in names.values()
-        for schedules in services.values()
-        for trips in schedules.values())) or total_trips != sum(self._dart_services_count.values()):
-      raise Error(
-          f'DART route has {total_trips} trips, but only {collected_trips} in structure '
-          f'and {self._dart_services_count}')
+        raise Error(f'empty trip name: {trip.id}')
+      schedule: dm.Schedule = self.ScheduleFromTrip(trip)
+      if (n_stops := len(schedule.stops)) < 2 or len(schedule.times) < 2:
+        raise Error(f'trip {trip.id} has fewer than 2 stops: {n_stops}')
+      trains.setdefault(trip.name, []).append((trip.service, schedule, trip))
+    # get train code names and find an ordering
+    trip_names: list[tuple[dm.Schedule, str]] = list(
+        (min(s for _, s, _ in tr), n) for n, tr in trains.items())
+    trip_names.sort()
+    # create ordered dict to preserve sorted train codes
+    self._dart_trips: collections.OrderedDict[
+        str, list[tuple[int, dm.Schedule, dm.Trip]]] = collections.OrderedDict()
+    for _, name in trip_names:
+      self._dart_trips[name] = sorted(trains[name], key=lambda t: (t[1], t[0]))  # also sort the values!
 
-  def ScheduleFromTrip(self, trip: dm.Trip, /) -> tuple[dm.Track, dm.Schedule]:
+  def ScheduleFromTrip(self, trip: dm.Trip, /) -> dm.Schedule:
     """Builds a schedule object from this particular trip."""
     stops: tuple[dm.TrackStop] = tuple(dm.TrackStop(  # type:ignore
         stop=trip.stops[i].stop,
@@ -94,19 +89,12 @@ class DART:
         pickup=trip.stops[i].pickup,
         dropoff=trip.stops[i].dropoff,
     ) for i in range(1, len(trip.stops) + 1))  # this way guarantees we hit every int (seq)
-    return (
-        dm.Track(
-            direction=trip.direction,
-            stops=stops,
-        ),
-        dm.Schedule(
-            direction=trip.direction,
-            stops=stops,
-            times=tuple(  # type:ignore
-                # this way guarantees we hit every int (seq)
-                trip.stops[i].scheduled for i in range(1, len(trip.stops) + 1)),
-        ),
-    )
+    return dm.Schedule(
+        direction=trip.direction,
+        stops=stops,
+        times=tuple(  # type:ignore
+            # this way guarantees we hit every int (seq)
+            trip.stops[i].scheduled for i in range(1, len(trip.stops) + 1)))
 
   def Services(self) -> set[int]:
     """Set of all DART services."""
@@ -115,18 +103,6 @@ class DART:
   def ServicesForDay(self, day: datetime.date, /) -> set[int]:
     """Set of DART services for a single day."""
     return self._gtfs.ServicesForDay(day).intersection(self.Services())
-
-  def WalkTrips(self, /, *, filter_services: set[int] | None = None) -> Generator[tuple[
-      dm.TrackEndpoints, dm.Track, str, int, dm.Schedule, dm.Trip], None, None]:
-    """Iterates over all DART trips in a sensible order."""
-    for endpoint, track_map in SortedItems(self._dart_trips):  # pylint: disable=too-many-nested-blocks
-      for track, name_map in SortedItems(track_map):
-        for name, service_map in SortedItems(name_map):
-          for service, schedule_map in SortedItems(service_map):
-            if not filter_services or service in filter_services:
-              for schedule, trip_list in SortedItems(schedule_map):
-                for trip in trip_list:
-                  yield (endpoint, track, name, service, schedule, trip)
 
   def WalkTrains(self, /, *, filter_services: set[int] | None = None) -> Generator[tuple[
       dm.Schedule, str, list[tuple[int, dm.Schedule, dm.Trip]]], None, None]:
@@ -142,22 +118,29 @@ class DART:
         or they may start diverged and converge; this is why the "canonical" Schedule will be
         the "min()" of the schedules, i.e. the first to depart, the "smaller" in time
     """
-    # go over the trips (self.WalkTrips) and bucket by trip.name, which is a physical DART train
-    trains: collections.OrderedDict[
-        str, list[tuple[int, dm.Schedule, dm.Trip]]] = collections.OrderedDict()
-    for _, _, name, service, schedule, trip in self.WalkTrips(filter_services=filter_services):
-      trains.setdefault(name, []).append((service, schedule, trip))
-    # yield by name (train) preserving collection order
-    for name, trips in trains.items():
-      yield (min(s for _, s, _ in trips), name, sorted(trips))
+    # collect the trains that are actually running today
+    filtered_trains: list[tuple[dm.Schedule, str, list[tuple[int, dm.Schedule, dm.Trip]]]] = []
+    for name, trips in self._dart_trips.items():
+      filtered_trips: list[tuple[int, dm.Schedule, dm.Trip]] = [
+          t for t in trips if (filter_services is None or t[0] in filter_services)]
+      if not filtered_trips:
+        continue  # this train code has no trip today
+      filtered_trains.append(
+          (min(s for _, s, _ in filtered_trips), name,
+           sorted(filtered_trips, key=lambda t: (t[1], t[0]))))
+    yield from sorted(filtered_trains, key=lambda t: (  # re-sort by:
+        t[0].direction,           # North/South
+        t[0].stops[0].name,       # start stop
+        t[0].stops[-1].name,      # destination stop
+        t[0].times[0].departure,  # HH:MM:SS as seconds
+        t[1],                     # tie-break with the train code (E800, ...)
+    ))
 
   def StationSchedule(self, stop_id: str, day: datetime.date, /) -> dict[
       tuple[str, dm.ScheduleStop], tuple[str, dm.Schedule, list[tuple[int, dm.Schedule, dm.Trip]]]]:
     """Data for trains in a `stop` for a specific `day`."""
-    day_services: set[int] = self.ServicesForDay(day)
     station: dict[tuple[str, dm.ScheduleStop], tuple[str, dm.Schedule, list[tuple[int, dm.Schedule, dm.Trip]]]] = {}
-    for schedule, name, trips_in_train in self.WalkTrains(
-        filter_services=day_services):
+    for schedule, name, trips_in_train in self.WalkTrains(filter_services=self.ServicesForDay(day)):
       for i, stop in enumerate(schedule.stops):
         if stop.stop == stop_id:
           new_key: tuple[str, dm.ScheduleStop] = (schedule.stops[-1].stop, schedule.times[i])
@@ -190,11 +173,10 @@ class DART:
          f'{base.TERM_BOLD}{base.TERM_CYAN}Depart Time{base.TERM_END}',
          f'{base.TERM_BOLD}{base.TERM_CYAN}Service/Trip Codes/{base.TERM_END}'
          f'{base.TERM_RED}[\u2605Alt.Times]{base.TERM_END}'])  # ★
-    for schedule, name, trips_in_train in self.WalkTrains(
-        filter_services=day_services):
+    for schedule, name, trips_in_train in self.WalkTrains(filter_services=day_services):
       trip_codes: str = ', '.join(
           f'{s}/{t.id}{"" if sc == schedule else f"/{base.TERM_RED}[\u2605]{base.TERM_END}{base.TERM_BOLD}"}'
-          for s, sc, t in sorted(trips_in_train))
+          for s, sc, t in trips_in_train)
       table.add_row([  # type: ignore
           f'{base.TERM_BOLD}{dm.DART_DIRECTION(schedule)}{base.TERM_END}',
           f'{base.TERM_BOLD}{base.TERM_YELLOW}{name}{base.TERM_END}',
@@ -205,7 +187,7 @@ class DART:
       ])
     yield from table.get_string().splitlines()  # type:ignore
 
-  def PrettyStationSchedule(self, stop_id: str, day: datetime.date, /) -> Generator[str, None, None]:
+  def PrettyStationSchedule(self, stop_id: str, day: datetime.date, /) -> Generator[str, None, None]:  # pylint: disable=too-many-locals
     """Generate a pretty version of a DART station (stop) day's schedule."""
     stop_id = stop_id.strip()
     if not day or not stop_id:
@@ -219,7 +201,8 @@ class DART:
     day_services: set[int] = self.ServicesForDay(day)
     yield (f'Services:     {base.TERM_BOLD}{base.TERM_YELLOW}'
            f'{", ".join(str(s) for s in sorted(day_services))}{base.TERM_END}')
-    day_dart_schedule = self.StationSchedule(stop_id, day)
+    day_dart_schedule: dict[tuple[str, dm.ScheduleStop], tuple[str, dm.Schedule, list[
+        tuple[int, dm.Schedule, dm.Trip]]]] = self.StationSchedule(stop_id, day)
     destinations: set[str] = {self._gtfs.StopNameTranslator(k[0]) for k in day_dart_schedule}
     yield f'Destinations: {base.TERM_BOLD}{base.TERM_YELLOW}{", ".join(sorted(destinations))}{base.TERM_END}'
     yield ''
@@ -252,29 +235,22 @@ class DART:
       last_arrival, last_departure = time.arrival, time.departure
     yield from table.get_string().splitlines()  # type:ignore
 
-  def PrettyPrintTrip(self, trip_name: str, /) -> Generator[str, None, None]:  # pylint: disable=too-many-locals
+  def PrettyPrintTrip(self, trip_name: str, /) -> Generator[str, None, None]:  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
     """Generate a pretty version of a train (physical) trip, may be 2 Trips."""
-    trip_name = trip_name.strip().upper()
-    if not trip_name:
-      raise Error('empty trip name/code')
     # get the trips for this name
-    trains: dict[dm.Schedule, dict[int, list[dm.Trip]]] = {}
+    trip_name = trip_name.strip()
+    trains: list[tuple[int, dm.Schedule, dm.Trip]] = self._dart_trips.get(trip_name, [])
+    trips: list[dm.Trip] = [t for _, _, t in trains]
+    if not trip_name or not trains or not trips:
+      raise Error(f'invalid trip name/code {trip_name!r}')
+    # gather the start/end stops for the longest trip
     trip: dm.Trip
     n_stops: int = 0
     min_stop: str | None = None
     max_stop: str | None = None
-    for _, name, trips_in_train in self.WalkTrains():
-      if name.upper() != trip_name:
-        continue
-      for service, schedule, trip in trips_in_train:
-        trains.setdefault(schedule, {}).setdefault(service, []).append(trip)
-        if (len_trip := len(trip.stops)) > n_stops:
-          n_stops, min_stop, max_stop = len_trip, trip.stops[1].stop, trip.stops[len_trip].stop
-    if not trains or not min_stop or not max_stop:
-      raise Error(f'trip name/code {trip_name!r} was not found')
-    trips: list[dm.Trip] = [trip for schedule in sorted(trains.keys())
-                            for service in sorted(trains[schedule].keys())
-                            for trip in trains[schedule][service]]
+    for _, _, trip in trains:
+      if (len_trip := len(trip.stops)) > n_stops:
+        n_stops, min_stop, max_stop = len_trip, trip.stops[1].stop, trip.stops[len_trip].stop
     yield f'{base.TERM_MAGENTA}DART Trip {base.TERM_BOLD}{trip_name}{base.TERM_END}'
     yield ''
     # check for unexpected things that should not happen and pad trips that are shorter
