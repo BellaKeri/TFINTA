@@ -62,6 +62,13 @@ LOAD_ORDER: list[str] = [
     'stop_times.txt',  # pk: (trips/trip_id, stop_sequence) / ref: stops/stop_id
 ]
 
+NULL_TEXT: str = f'{base.TERM_BLUE}\u2205{base.TERM_END}'  # ∅
+LIMITED_TEXT: Callable[[str | None, int], str] = (
+    lambda s, w: NULL_TEXT if s is None else (s if len(s) <= w else f'{s[:(w - 1)]}\u2026'))  # …
+PRETTY_BOOL: Callable[[bool | None], str] = lambda b: (  # ✓ and ✗
+    f'{base.TERM_GREEN}\u2713{base.TERM_END}' if b else
+    f'{base.TERM_RED}\u2717{base.TERM_END}')
+
 DAY_NAME: dict[int, str] = {
     0: 'Monday',
     1: 'Tuesday',
@@ -71,6 +78,9 @@ DAY_NAME: dict[int, str] = {
     5: 'Saturday',
     6: 'Sunday',
 }
+SHORT_DAY_NAME: Callable[[int], str] = lambda i: DAY_NAME[i][:3]
+PRETTY_DATE: Callable[[datetime.date | None], str] = lambda d: (
+    NULL_TEXT if d is None else f'{d.isoformat()}\u00B7{SHORT_DAY_NAME(d.weekday())}')  # ·
 
 
 ####################################################################################################
@@ -122,6 +132,19 @@ class Point:
   """A point (location) on Earth. Latitude and longitude in decimal degrees (WGS84)."""
   latitude: float   # latitude;   -90.0 <= lat <= 90.0  (required)
   longitude: float  # longitude; -180.0 <= lat <= 180.0 (required)
+
+  def ToDMS(self) -> tuple[str, str]:
+    """Return latitude and longitude as DMS with Unicode symbols and N/S, E/W."""
+
+    def _conv(deg_float: float, pos: str, neg: str, /) -> str:
+      d = abs(deg_float)
+      degrees = int(d)
+      minutes = int((d - degrees) * 60.0)
+      seconds = (d - degrees - minutes / 60.0) * 3600.0
+      hemisphere = pos if deg_float >= 0 else neg
+      return f'{degrees}°{minutes}′{seconds:.2f}″{hemisphere}'
+
+    return (_conv(self.latitude, 'N', 'S'), _conv(self.longitude, 'E', 'W'))
 
 
 class LocationType(enum.Enum):
@@ -551,7 +574,3 @@ DART_DIRECTION: Callable[[Trip | Schedule], str] = (
 NULL_STOP = Stop(
     id='', seq=0, stop='', agency=0, route='', scheduled=ScheduleStop(arrival=0, departure=0),
     pickup=StopPointType.NOT_AVAILABLE, dropoff=StopPointType.NOT_AVAILABLE)
-
-NULL_TEXT: str = f'{base.TERM_BLUE}\u2205{base.TERM_END}'  # ∅
-LIMITED_TEXT: Callable[[str | None, int], str] = (
-    lambda s, w: NULL_TEXT if s is None else (s if len(s) <= w else f'{s[:(w - 1)]}\u2026'))  # …

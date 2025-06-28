@@ -8,7 +8,7 @@ stop_id,stop_code,stop_name,stop_desc,stop_lat,stop_lon,zone_id,stop_url,locatio
 8360IR0010,0,Sixmilebridge,,52.738061,-8.785265,,,,
 8400IR0127,0,Limerick (Colbert),,52.658909,-8.624813,,,,
 8350IR0122,0,Greystones,,53.144026,-6.061128,,,,
-8350IR0123,0,Bray (Daly),,53.203712,-6.100194,,,,
+8350IR0123,0,Bray (Daly),,53.203712,-6.100194,,,,8350IR0122
 8250IR0022,0,Shankill,,53.236522,-6.117228,,,,
 8250IR0021,0,Killiney,,53.25571,-6.113167,,,,
 8250IR0014,0,Dalkey,,53.275854,-6.103358,,,,

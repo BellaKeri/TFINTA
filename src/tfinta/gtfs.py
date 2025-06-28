@@ -857,6 +857,181 @@ class GTFS:
   # GTFS PRETTY PRINTS
   ##################################################################################################
 
+  def PrettyPrintBasics(self) -> Generator[str, None, None]:
+    """Generate a pretty version of basic DB data: Versions, agencies routes."""
+    n_items: int = len(self._db.agencies)
+    for i, agency_id in enumerate(sorted(self._db.agencies)):
+      agency: dm.Agency = self._db.agencies[agency_id]
+      yield f'{base.TERM_MAGENTA}Agency {base.TERM_BOLD}{agency.name} ({agency.id}){base.TERM_END}'
+      yield f'  {agency.url} ({agency.zone})'
+      yield ''
+      table = prettytable.PrettyTable(
+          [f'{base.TERM_BOLD}{base.TERM_CYAN}Route{base.TERM_END}',
+           f'{base.TERM_BOLD}{base.TERM_CYAN}Name{base.TERM_END}',
+           f'{base.TERM_BOLD}{base.TERM_CYAN}Long Name{base.TERM_END}',
+           f'{base.TERM_BOLD}{base.TERM_CYAN}Type{base.TERM_END}',
+           f'{base.TERM_BOLD}{base.TERM_CYAN}Desc.{base.TERM_END}',
+           f'{base.TERM_BOLD}{base.TERM_CYAN}URL{base.TERM_END}',
+           f'{base.TERM_BOLD}{base.TERM_CYAN}Color{base.TERM_END}',
+           f'{base.TERM_BOLD}{base.TERM_CYAN}Text{base.TERM_END}',
+           f'{base.TERM_BOLD}{base.TERM_CYAN}# Trips{base.TERM_END}'])
+      for route_id in sorted(agency.routes):
+        route: dm.Route = agency.routes[route_id]
+        table.add_row([
+            f'{base.TERM_BOLD}{base.TERM_CYAN}{route.id}{base.TERM_END}',
+            f'{base.TERM_BOLD}{base.TERM_YELLOW}{route.short_name}{base.TERM_END}',
+            f'{base.TERM_BOLD}{base.TERM_YELLOW}{route.long_name}{base.TERM_END}',
+            f'{base.TERM_BOLD}{route.route_type.name}{base.TERM_END}',
+            f'{base.TERM_BOLD}{route.description if route.description else dm.NULL_TEXT}{base.TERM_END}',
+            f'{base.TERM_BOLD}{route.url if route.url else dm.NULL_TEXT}{base.TERM_END}',
+            f'{base.TERM_BOLD}{route.color if route.color else dm.NULL_TEXT}{base.TERM_END}',
+            f'{base.TERM_BOLD}{route.text_color if route.text_color else dm.NULL_TEXT}{base.TERM_END}',
+            f'{base.TERM_BOLD}{len(route.trips)}{base.TERM_END}',
+        ])
+      yield from table.get_string().splitlines()  # type:ignore
+      if i < n_items - 1:
+        yield ''
+        yield '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+        yield ''
+    yield ''
+    yield (f'{base.TERM_MAGENTA}{base.TERM_BOLD}Files @ '
+           f'{base.STD_TIME_STRING(self._db.files.tm)}{base.TERM_END}')
+    yield ''
+    table = prettytable.PrettyTable(
+        [f'{base.TERM_BOLD}{base.TERM_CYAN}Agency{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}URLs / Data{base.TERM_END}'])
+    for agency_name in sorted(self._db.files.files):
+      urls = self._db.files.files[agency_name]
+      for url in sorted(urls):
+        meta: dm.FileMetadata | None = urls[url]
+        table.add_row([
+            f'{base.TERM_BOLD}{base.TERM_CYAN}{agency_name}{base.TERM_END}',
+            f'{base.TERM_BOLD}{url}{base.TERM_END}',
+        ])
+        if meta:
+          table.add_row([
+              '',
+              f'Version: {base.TERM_BOLD}{base.TERM_YELLOW}{meta.version}{base.TERM_END}\n'
+              f'Last load: {base.TERM_BOLD}{base.TERM_YELLOW}{base.STD_TIME_STRING(meta.tm)}{base.TERM_END}\n'
+              f'Publisher: {base.TERM_BOLD}{meta.publisher if meta.publisher else dm.NULL_TEXT}{base.TERM_END}\n'
+              f'URL: {base.TERM_BOLD}{meta.url if meta.url else dm.NULL_TEXT}{base.TERM_END}\n'
+              f'Language: {base.TERM_BOLD}{meta.language if meta.language else dm.NULL_TEXT}{base.TERM_END}\n'
+              f'Days range: {base.TERM_BOLD}{base.TERM_YELLOW}{dm.PRETTY_DATE(meta.days.start)} - {dm.PRETTY_DATE(meta.days.end)}{base.TERM_END}\n'
+              f'Mail: {base.TERM_BOLD}{meta.email if meta.email else dm.NULL_TEXT}{base.TERM_END}',
+          ])
+    yield from table.get_string().splitlines()  # type:ignore
+
+  def PrettyPrintCalendar(
+      self, /, *, filter_to: set[int] | None = None) -> Generator[str, None, None]:
+    """Generate a pretty version of calendar data."""
+    table = prettytable.PrettyTable(
+        [f'{base.TERM_BOLD}{base.TERM_CYAN}Service{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Start{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}End{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Mon{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Tue{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Wed{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Thu{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Fri{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Sat{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Sun{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Exceptions{base.TERM_END}'])
+    has_data = False
+    for service in sorted(self._db.calendar):
+      if filter_to is not None and service not in filter_to:
+        continue
+      has_data = True
+      calendar: dm.CalendarService = self._db.calendar[service]
+      table.add_row([
+          f'{base.TERM_BOLD}{base.TERM_CYAN}{calendar.id}{base.TERM_END}',
+          f'{base.TERM_BOLD}{base.TERM_YELLOW}{dm.PRETTY_DATE(calendar.days.start)}{base.TERM_END}',
+          f'{base.TERM_BOLD}{dm.PRETTY_DATE(
+              calendar.days.end if calendar.days.end != calendar.days.start
+              else None)}{base.TERM_END}',
+          f'{base.TERM_BOLD}{dm.PRETTY_BOOL(calendar.week[0])}{base.TERM_END}',
+          f'{base.TERM_BOLD}{dm.PRETTY_BOOL(calendar.week[1])}{base.TERM_END}',
+          f'{base.TERM_BOLD}{dm.PRETTY_BOOL(calendar.week[2])}{base.TERM_END}',
+          f'{base.TERM_BOLD}{dm.PRETTY_BOOL(calendar.week[3])}{base.TERM_END}',
+          f'{base.TERM_BOLD}{dm.PRETTY_BOOL(calendar.week[4])}{base.TERM_END}',
+          f'{base.TERM_BOLD}{dm.PRETTY_BOOL(calendar.week[5])}{base.TERM_END}',
+          f'{base.TERM_BOLD}{dm.PRETTY_BOOL(calendar.week[6])}{base.TERM_END}',
+          '\n'.join(
+              f'{base.TERM_BOLD}{dm.PRETTY_DATE(d)} '
+              f'{dm.PRETTY_BOOL(calendar.exceptions[d])}{base.TERM_END}'
+              for d in sorted(calendar.exceptions)) if calendar.exceptions else dm.NULL_TEXT,
+      ])
+    if not has_data:
+      raise Error('No calendar data found')
+    yield from table.get_string().splitlines()  # type:ignore
+
+  def PrettyPrintStops(
+      self, /, *, filter_to: set[str] | None = None) -> Generator[str, None, None]:
+    """Generate a pretty version of the stops."""
+    table = prettytable.PrettyTable(
+        [f'{base.TERM_BOLD}{base.TERM_CYAN}Stop{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Code{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Name{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Type{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Location °{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Location{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Zone{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Desc.{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}URL{base.TERM_END}'])
+    has_data = False
+    for _, stop_id in sorted((s.name, s.id) for s in self._db.stops.values()):
+      if filter_to is not None and stop_id not in filter_to:
+        continue
+      has_data = True
+      stop: dm.BaseStop = self._db.stops[stop_id]
+      parent_code = ('' if stop.parent is None else
+                     f'\n{base.TERM_BOLD}{base.TERM_RED}  \u2514\u2500 {stop.parent}{base.TERM_END}')  # └─
+      parent_name = ('' if stop.parent is None else
+                     f'\n{base.TERM_BOLD}{base.TERM_RED}  \u2514\u2500 '  # └─
+                     f'{self._db.stops[stop.parent].name}{base.TERM_END}')
+      lat, lon = stop.point.ToDMS()
+      table.add_row([
+          f'{base.TERM_BOLD}{base.TERM_CYAN}{stop.id}{base.TERM_END}{parent_code}',
+          f'{base.TERM_BOLD}{stop.code if stop.code and stop.code != '0'
+                             else dm.NULL_TEXT}{base.TERM_END}',
+          f'{base.TERM_BOLD}{base.TERM_YELLOW}{stop.name}{base.TERM_END}{parent_name}',
+          f'{base.TERM_BOLD}{stop.location.name}{base.TERM_END}',
+          f'{base.TERM_BOLD}{base.TERM_YELLOW}{lat}{base.TERM_END}\n'
+          f'{base.TERM_BOLD}{base.TERM_YELLOW}{lon}{base.TERM_END}',
+          f'{base.TERM_BOLD}{stop.point.latitude}{base.TERM_END}\n'
+          f'{base.TERM_BOLD}{stop.point.longitude}{base.TERM_END}',
+          f'{base.TERM_BOLD}{stop.zone if stop.zone else dm.NULL_TEXT}{base.TERM_END}',
+          f'{base.TERM_BOLD}{stop.description if stop.zone else dm.NULL_TEXT}{base.TERM_END}',
+          f'{base.TERM_BOLD}{stop.url if stop.url else dm.NULL_TEXT}{base.TERM_END}',
+      ])
+    if not has_data:
+      raise Error('No stop data found')
+    yield from table.get_string().splitlines()  # type:ignore
+
+  def PrettyPrintShape(self, shape_id: str, /) -> Generator[str, None, None]:
+    """Generate a pretty version of a shape."""
+    shape: dm.Shape | None = self._db.shapes.get(shape_id.strip(), None)
+    if not shape_id.strip() or not shape:
+      raise Error(f'shape id {shape_id!r} was not found')
+    yield f'{base.TERM_MAGENTA}GTFS Shape ID {base.TERM_BOLD}{shape.id}{base.TERM_END}'
+    yield ''
+    table = prettytable.PrettyTable(
+        [f'{base.TERM_BOLD}{base.TERM_CYAN}#{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Distance{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Location °{base.TERM_END}',
+         f'{base.TERM_BOLD}{base.TERM_CYAN}Location{base.TERM_END}'])
+    for seq in range(1, len(shape.points) + 1):
+      point: dm.ShapePoint = shape.points[seq]
+      lat, lon = point.point.ToDMS()
+      table.add_row([
+          f'{base.TERM_BOLD}{base.TERM_CYAN}{seq}{base.TERM_END}',
+          f'{base.TERM_BOLD}{point.distance}{base.TERM_END}',
+          f'{base.TERM_BOLD}{base.TERM_YELLOW}{lat}{base.TERM_END}\n'
+          f'{base.TERM_BOLD}{base.TERM_YELLOW}{lon}{base.TERM_END}',
+          f'{base.TERM_BOLD}{point.point.latitude}{base.TERM_END}\n'
+          f'{base.TERM_BOLD}{point.point.longitude}{base.TERM_END}',
+      ])
+    yield from table.get_string().splitlines()  # type:ignore
+
   def PrettyPrintTrip(self, trip_id: str, /) -> Generator[str, None, None]:
     """Generate a pretty version of a Trip."""
     agency, route, trip = self.FindTrip(trip_id)
@@ -902,10 +1077,36 @@ class GTFS:
 
   def PrettyPrintAllDatabase(self) -> Generator[str, None, None]:
     """Print everything in the database."""
+    yield '██ ✿ BASIC DATA ✿ █████████████████████████████████████████████████████████████████'
+    yield ''
+    yield from self.PrettyPrintBasics()
+    yield ''
+    yield '██ ✿ CALENDAR ✿ ███████████████████████████████████████████████████████████████████'
+    yield ''
+    yield from self.PrettyPrintCalendar()
+    yield ''
+    yield '██ ✿ STOPS ✿ ██████████████████████████████████████████████████████████████████████'
+    yield ''
+    yield from self.PrettyPrintStops()
+    yield ''
+    yield '██ ✿ SHAPES ✿ █████████████████████████████████████████████████████████████████████'
+    yield ''
+    n_shapes: int = len(self._db.shapes)
+    for i, shape_id in enumerate(sorted(self._db.shapes)):
+      yield from self.PrettyPrintShape(shape_id)
+      if i < n_shapes - 1:
+        yield ''
+        yield '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+        yield ''
+    yield ''
+    yield '██ ✿ TRIPS ✿ ██████████████████████████████████████████████████████████████████████'
+    yield ''
     for agency in sorted(self._db.agencies.keys()):
       for route in sorted(self._db.agencies[agency].routes.keys()):
         for trip in sorted(t.id for t in self._db.agencies[agency].routes[route].trips.values()):
           yield from self.PrettyPrintTrip(trip)
+          yield ''
+          yield '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
           yield ''
 
 
@@ -959,11 +1160,15 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name
   print_parser: argparse.ArgumentParser = command_arg_subparsers.add_parser(
       'print', help='Print DB')
   print_arg_subparsers = print_parser.add_subparsers(dest='print_command')
-  trip_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser(
-      'trip', help='Print Trip')
+  print_arg_subparsers.add_parser('basics', help='Print Basic Data')
+  print_arg_subparsers.add_parser('calendars', help='Print Calendars/Services')
+  print_arg_subparsers.add_parser('stops', help='Print Stops')
+  shape_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser(
+      'shape', help='Print Shape')
+  shape_parser.add_argument('-i', '--id', type=str, default='', help='Shape ID (default: "")')
+  trip_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser('trip', help='Print Trip')
   trip_parser.add_argument('-i', '--id', type=str, default='', help='Trip ID (default: "")')
-  _: argparse.ArgumentParser = print_arg_subparsers.add_parser(
-      'all', help='Print All Data')
+  print_arg_subparsers.add_parser('all', help='Print All Data')
   # ALL commands
   # parser.add_argument(
   #     '-r', '--readonly', type=bool, default=False,
@@ -985,6 +1190,18 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name
       print_command = args.print_command.lower().strip() if args.print_command else ''
       print()
       match print_command:
+        case 'basics':
+          for line in database.PrettyPrintBasics():
+            print(line)
+        case 'calendars':
+          for line in database.PrettyPrintCalendar():
+            print(line)
+        case 'stops':
+          for line in database.PrettyPrintStops():
+            print(line)
+        case 'shape':
+          for line in database.PrettyPrintShape(args.id):
+            print(line)
         case 'trip':
           for line in database.PrettyPrintTrip(args.id):
             print(line)

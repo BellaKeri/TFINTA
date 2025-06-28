@@ -153,6 +153,17 @@ class DART:
   # DART PRETTY PRINTS
   ##################################################################################################
 
+  def PrettyPrintCalendar(self) -> Generator[str, None, None]:
+    """Generate a pretty version of calendar data."""
+    yield from self._gtfs.PrettyPrintCalendar(filter_to=self.Services())
+
+  def PrettyPrintStops(self) -> Generator[str, None, None]:
+    """Generate a pretty version of the stops."""
+    all_stops: set[str] = {stop.stop for _, _, trips in self.WalkTrains()
+                           for _, _, trip in trips
+                           for stop in trip.stops.values()}
+    yield from self._gtfs.PrettyPrintStops(filter_to=all_stops)
+
   def PrettyDaySchedule(self, day: datetime.date, /) -> Generator[str, None, None]:
     """Generate a pretty version of a DART day's schedule."""
     if not day:
@@ -267,11 +278,11 @@ class DART:
         n_missing: int = n_stops - n_trip
         new_trip: dm.Trip = copy.deepcopy(trip)
         if trip.stops[1].stop == min_stop:
-          # stops are aligned with beginning of longest trips
+          # stops are aligned with beginning of longest trips, example 'E947'
           for _ in range(n_missing):
             new_trip.stops[max(new_trip.stops) + 1] = dm.NULL_STOP
         elif trip.stops[len(trip.stops)].stop == max_stop:
-          # stops are aligned with end of longest trips
+          # stops are aligned with end of longest trips, example 'E400'/'E720'
           for i in sorted(new_trip.stops, reverse=True):
             new_trip.stops[i + n_missing] = new_trip.stops[i]
             del new_trip.stops[i]
@@ -307,6 +318,7 @@ class DART:
         [f'{base.TERM_BOLD}{base.TERM_CYAN}Service{base.TERM_END}'] +
         [f'{base.TERM_BOLD}{base.TERM_YELLOW}{trip.service}{base.TERM_END}' for trip in trips])
     table.add_row(
+        # direction can vary, example 'E725'
         [f'{base.TERM_BOLD}{base.TERM_CYAN}N/S{base.TERM_END}'] +
         [f'{base.TERM_BOLD}{dm.DART_DIRECTION(trip)}{base.TERM_END}' for trip in trips])
     table.add_row(
@@ -343,8 +355,20 @@ class DART:
 
   def PrettyPrintAllDatabase(self) -> Generator[str, None, None]:
     """Print everything in the database."""
+    yield '██ ✿ CALENDAR ✿ ███████████████████████████████████████████████████████████████████'
+    yield ''
+    yield from self.PrettyPrintCalendar()
+    yield ''
+    yield '██ ✿ STOPS ✿ ██████████████████████████████████████████████████████████████████████'
+    yield ''
+    yield from self.PrettyPrintStops()
+    yield ''
+    yield '██ ✿ TRIPS ✿ ██████████████████████████████████████████████████████████████████████'
+    yield ''
     for _, name, _ in self.WalkTrains():
       yield from self.PrettyPrintTrip(name)
+      yield ''
+      yield '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
       yield ''
 
 
@@ -366,6 +390,8 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
   print_parser: argparse.ArgumentParser = command_arg_subparsers.add_parser(
       'print', help='Print DB')
   print_arg_subparsers = print_parser.add_subparsers(dest='print_command')
+  print_arg_subparsers.add_parser('calendars', help='Print Calendars/Services')
+  print_arg_subparsers.add_parser('stops', help='Print Stops')
   trips_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser(
       'trips', help='Print Trips')
   trips_parser.add_argument(
@@ -405,6 +431,12 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
       dart = DART(database)
       print()
       match print_command:
+        case 'calendars':
+          for line in dart.PrettyPrintCalendar():
+            print(line)
+        case 'stops':
+          for line in dart.PrettyPrintStops():
+            print(line)
         case 'trips':
           # trips for a day
           for line in dart.PrettyDaySchedule(

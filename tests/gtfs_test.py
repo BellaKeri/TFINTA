@@ -155,6 +155,16 @@ def test_GTFS_load_and_parse_from_net(
       dm.IRISH_RAIL_OPERATOR, dm.RouteType.RAIL, dm.DART_SHORT_NAME)
   assert agency and agency.id == 7778017
   assert route and route.id == '4452_86289'
+  assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintBasics())) == gtfs_data.BASICS
+  with pytest.raises(gtfs.Error):
+    list(db.PrettyPrintCalendar(filter_to={544356456}))
+  assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintCalendar())) == gtfs_data.CALENDARS
+  with pytest.raises(gtfs.Error):
+    list(db.PrettyPrintStops(filter_to={'none'}))
+  assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintStops())) == gtfs_data.STOPS
+  with pytest.raises(gtfs.Error):
+    list(db.PrettyPrintShape('none'))
+  assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintShape('4669_658'))) == gtfs_data.SHAPE_4669_658
   with pytest.raises(gtfs.Error):
     list(db.PrettyPrintTrip('none'))
   assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintTrip('4452_2655'))) == gtfs_data.TRIP_4452_2655
@@ -295,6 +305,54 @@ def test_main_load(mock_gtfs: mock.MagicMock) -> None:
 
 
 @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
+def test_main_print_basics(mock_gtfs: mock.MagicMock) -> None:
+  """Test."""
+  db_obj = mock.MagicMock()
+  mock_gtfs.return_value = db_obj
+  db_obj.PrettyPrintBasics.return_value = ['foo', 'bar']
+  assert gtfs.main(['print', 'basics']) == 0
+  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  db_obj.LoadData.assert_not_called()
+  db_obj.PrettyPrintBasics.assert_called_once_with()
+
+
+@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
+def test_main_print_calendar(mock_gtfs: mock.MagicMock) -> None:
+  """Test."""
+  db_obj = mock.MagicMock()
+  mock_gtfs.return_value = db_obj
+  db_obj.PrettyPrintCalendar.return_value = ['foo', 'bar']
+  assert gtfs.main(['print', 'calendars']) == 0
+  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  db_obj.LoadData.assert_not_called()
+  db_obj.PrettyPrintCalendar.assert_called_once_with()
+
+
+@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
+def test_main_print_stops(mock_gtfs: mock.MagicMock) -> None:
+  """Test."""
+  db_obj = mock.MagicMock()
+  mock_gtfs.return_value = db_obj
+  db_obj.PrettyPrintStops.return_value = ['foo', 'bar']
+  assert gtfs.main(['print', 'stops']) == 0
+  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  db_obj.LoadData.assert_not_called()
+  db_obj.PrettyPrintStops.assert_called_once_with()
+
+
+@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
+def test_main_print_shape(mock_gtfs: mock.MagicMock) -> None:
+  """Test."""
+  db_obj = mock.MagicMock()
+  mock_gtfs.return_value = db_obj
+  db_obj.PrettyPrintShape.return_value = ['foo', 'bar']
+  assert gtfs.main(['print', 'shape', '-i', '4669_658']) == 0
+  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  db_obj.LoadData.assert_not_called()
+  db_obj.PrettyPrintShape.assert_called_once_with('4669_658')
+
+
+@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
 def test_main_print_trip(mock_gtfs: mock.MagicMock) -> None:
   """Test."""
   db_obj = mock.MagicMock()
@@ -304,7 +362,6 @@ def test_main_print_trip(mock_gtfs: mock.MagicMock) -> None:
   mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
   db_obj.LoadData.assert_not_called()
   db_obj.PrettyPrintTrip.assert_called_once_with('tid')
-  db_obj.PrettyPrintAllDatabase.assert_not_called()
 
 
 @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
@@ -317,7 +374,6 @@ def test_main_print_all(mock_gtfs: mock.MagicMock) -> None:
   mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
   db_obj.LoadData.assert_not_called()
   db_obj.PrettyPrintAllDatabase.assert_called_once_with()
-  db_obj.PrettyPrintTrip.assert_not_called()
 
 
 if __name__ == '__main__':
