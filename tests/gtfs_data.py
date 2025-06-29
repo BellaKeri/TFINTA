@@ -17,7 +17,6 @@ import zoneinfo
 from src.tfinta import gtfs_data_model as dm
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 3)
 
 
 # test dir

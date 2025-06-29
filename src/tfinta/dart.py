@@ -412,10 +412,12 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
   _: argparse.ArgumentParser = print_arg_subparsers.add_parser(
       'all', help='Print All Data')
   # ALL commands
-  # parser.add_argument(
-  #     '-r', '--readonly', type=bool, default=False,
-  #     help='If "True" will not save database (default: False)')
+  parser.add_argument(
+      '-v', '--verbose', action='count', default=0,
+      help='Increase verbosity (use -v, -vv, -vvv, -vvvv for ERR/WARN/INFO/DEBUG output)')
   args: argparse.Namespace = parser.parse_args(argv)
+  levels = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
+  logging.basicConfig(level=levels[min(args.verbose, len(levels) - 1)], format=base.LOG_FORMAT)
   command = args.command.lower().strip() if args.command else ''
   database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
   # look at main command
@@ -464,5 +466,4 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
 
 
 if __name__ == '__main__':
-  logging.basicConfig(level=logging.INFO, format=base.LOG_FORMAT)  # set this as default
   sys.exit(main())

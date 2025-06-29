@@ -59,6 +59,7 @@ tomli = "^2.2.1"
 [tool.poetry.scripts]
 dart = "tfinta.dart:main"
 gtfs = "tfinta.gtfs:main"
+realtime = "tfinta.realtime:main"
 stations = "tfinta.stations:main"
 trains = "tfinta.trains:main"
 

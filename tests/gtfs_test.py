@@ -22,7 +22,6 @@ from . import gtfs_data
 
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 3)
 
 
 @pytest.mark.parametrize('hms', [

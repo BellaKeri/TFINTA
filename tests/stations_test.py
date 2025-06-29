@@ -16,7 +16,6 @@ import pytest
 from src.tfinta import stations
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 3)
 
 
 def test_Soma() -> None:
