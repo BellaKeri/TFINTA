@@ -34,8 +34,8 @@ def gtfs_object() -> Generator[gtfs.GTFS, None, None]:
         mock.patch('src.tfinta.gtfs.os.path.isdir', autospec=True) as is_dir,
         mock.patch('src.tfinta.gtfs.os.mkdir', autospec=True),
         mock.patch('src.tfinta.gtfs.os.path.exists', autospec=True) as exists,
-        mock.patch('balparda_baselib.base.BinSerialize', autospec=True),
-        mock.patch('balparda_baselib.base.BinDeSerialize', autospec=True)):
+        mock.patch('src.tfinta.tfinta_base.BinSerialize', autospec=True),
+        mock.patch('src.tfinta.tfinta_base.BinDeSerialize', autospec=True)):
     time.return_value = gtfs_data.ZIP_DB_1_TM
     is_dir.return_value = False
     exists.return_value = False
@@ -57,16 +57,17 @@ def test_DART(gtfs_object: gtfs.GTFS) -> None:  # pylint: disable=redefined-oute
   print(db._dart_trips)
   assert db._dart_trips == gtfs_data.DART_TRIPS_ZIP_1
   with pytest.raises(gtfs.Error):
-    list(db.PrettyDaySchedule(None))  # type: ignore
-  assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyDaySchedule(datetime.date(2025, 8, 4)))) == (
-      gtfs_data.TRIPS_SCHEDULE_2025_08_04)
+    list(db.PrettyDaySchedule(day=None))  # type: ignore
+  assert gtfs.base.STRIP_ANSI('\n'.join(
+      db.PrettyDaySchedule(day=datetime.date(2025, 8, 4)))) == gtfs_data.TRIPS_SCHEDULE_2025_08_04
   with pytest.raises(gtfs.Error):
-    list(db.PrettyStationSchedule(' \t', datetime.date(2025, 8, 4)))
+    list(db.PrettyStationSchedule(stop_id=' \t', day=datetime.date(2025, 8, 4)))
   assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyStationSchedule(
-      '8350IR0123', datetime.date(2025, 8, 4)))) == gtfs_data.STATION_SCHEDULE_2025_08_04
+      stop_id='8350IR0123', day=datetime.date(2025, 8, 4)))) == gtfs_data.STATION_SCHEDULE_2025_08_04
   with pytest.raises(gtfs.Error):
-    list(db.PrettyPrintTrip(' \t'))
-  assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintTrip('E818'))) == gtfs_data.TRIP_E818
+    list(db.PrettyPrintTrip(trip_name=' \t'))
+  assert gtfs.base.STRIP_ANSI('\n'.join(
+      db.PrettyPrintTrip(trip_name='E818'))) == gtfs_data.TRIP_E818
   assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintAllDatabase())) == gtfs_data.ALL_DATA
 
 
@@ -128,7 +129,7 @@ def test_main_print_trips(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) 
   mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
   db_obj.LoadData.assert_not_called()
   mock_dart.assert_called_once_with(db_obj)
-  dart_obj.PrettyDaySchedule.assert_called_once_with(datetime.date(2025, 8, 4))
+  dart_obj.PrettyDaySchedule.assert_called_once_with(day=datetime.date(2025, 8, 4))
 
 
 @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
@@ -145,7 +146,8 @@ def test_main_print_station(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock
   db_obj.LoadData.assert_not_called()
   db_obj.StopIDFromNameFragmentOrID.assert_called_once_with('daly')
   mock_dart.assert_called_once_with(db_obj)
-  dart_obj.PrettyStationSchedule.assert_called_once_with('bray', datetime.date(2025, 8, 4))
+  dart_obj.PrettyStationSchedule.assert_called_once_with(
+      stop_id='bray', day=datetime.date(2025, 8, 4))
 
 
 @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
@@ -160,7 +162,7 @@ def test_main_print_trip(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -
   mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
   db_obj.LoadData.assert_not_called()
   mock_dart.assert_called_once_with(db_obj)
-  dart_obj.PrettyPrintTrip.assert_called_once_with('E108')
+  dart_obj.PrettyPrintTrip.assert_called_once_with(trip_name='E108')
 
 
 @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)

@@ -14,6 +14,7 @@ from typing import Any, Self
 import zipfile
 import zoneinfo
 
+from src.tfinta import tfinta_base as base
 from src.tfinta import gtfs_data_model as dm
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
@@ -87,7 +88,7 @@ ZIP_DB_1 = dm.GTFSData(
                     publisher='National Transport Authority',
                     url='https://www.nationaltransport.ie/',
                     language='en',
-                    days=dm.DaysRange(
+                    days=base.DaysRange(
                         start=datetime.date(2025, 5, 30),
                         end=datetime.date(2026, 5, 30),
                     ),
@@ -108,7 +109,7 @@ ZIP_DB_1 = dm.GTFSData(
             parent=None,
             code='0',
             name='Dalkey',
-            point=dm.Point(
+            point=base.Point(
                 latitude=53.275854,
                 longitude=-6.103358,
             ),
@@ -118,7 +119,7 @@ ZIP_DB_1 = dm.GTFSData(
             parent=None,
             code='0',
             name='Killiney',
-            point=dm.Point(
+            point=base.Point(
                 latitude=53.25571,
                 longitude=-6.113167,
             ),
@@ -128,7 +129,7 @@ ZIP_DB_1 = dm.GTFSData(
             parent=None,
             code='0',
             name='Shankill',
-            point=dm.Point(
+            point=base.Point(
                 latitude=53.236522,
                 longitude=-6.117228,
             ),
@@ -138,7 +139,7 @@ ZIP_DB_1 = dm.GTFSData(
             parent=None,
             code='0',
             name='Greystones',
-            point=dm.Point(
+            point=base.Point(
                 latitude=53.144026,
                 longitude=-6.061128,
             ),
@@ -148,7 +149,7 @@ ZIP_DB_1 = dm.GTFSData(
             parent='8350IR0122',
             code='0',
             name='Bray (Daly)',
-            point=dm.Point(
+            point=base.Point(
                 latitude=53.203712,
                 longitude=-6.100194,
             ),
@@ -158,7 +159,7 @@ ZIP_DB_1 = dm.GTFSData(
             parent=None,
             code='0',
             name='Ennis',
-            point=dm.Point(
+            point=base.Point(
                 latitude=52.839215,
                 longitude=-8.97545,
             ),
@@ -168,7 +169,7 @@ ZIP_DB_1 = dm.GTFSData(
             parent=None,
             code='0',
             name='Sixmilebridge',
-            point=dm.Point(
+            point=base.Point(
                 latitude=52.738061,
                 longitude=-8.785265,
             ),
@@ -178,7 +179,7 @@ ZIP_DB_1 = dm.GTFSData(
             parent=None,
             code='0',
             name='Limerick (Colbert)',
-            point=dm.Point(
+            point=base.Point(
                 latitude=52.658909,
                 longitude=-8.624813,
             ),
@@ -188,7 +189,7 @@ ZIP_DB_1 = dm.GTFSData(
             parent=None,
             code='0',
             name='Galway (Ceannt)',
-            point=dm.Point(
+            point=base.Point(
                 latitude=53.273766,
                 longitude=-9.047075,
             ),
@@ -198,7 +199,7 @@ ZIP_DB_1 = dm.GTFSData(
             parent=None,
             code='0',
             name='Ardrahan',
-            point=dm.Point(
+            point=base.Point(
                 latitude=53.157044,
                 longitude=-8.814752,
             ),
@@ -208,7 +209,7 @@ ZIP_DB_1 = dm.GTFSData(
             parent=None,
             code='0',
             name='Athenry',
-            point=dm.Point(
+            point=base.Point(
                 latitude=53.30153,
                 longitude=-8.748547,
             ),
@@ -218,7 +219,7 @@ ZIP_DB_1 = dm.GTFSData(
             parent=None,
             code='0',
             name='Craughwell',
-            point=dm.Point(
+            point=base.Point(
                 latitude=53.225817,
                 longitude=-8.73576,
             ),
@@ -228,7 +229,7 @@ ZIP_DB_1 = dm.GTFSData(
             parent=None,
             code='0',
             name='Oranmore',
-            point=dm.Point(
+            point=base.Point(
                 latitude=53.27558,
                 longitude=-8.946804,
             ),
@@ -238,7 +239,7 @@ ZIP_DB_1 = dm.GTFSData(
         83: dm.CalendarService(
             id=83,
             week=(False, False, False, False, False, False, True),
-            days=dm.DaysRange(
+            days=base.DaysRange(
                 start=datetime.date(2025, 6, 1),
                 end=datetime.date(2025, 12, 7),
             ),
@@ -247,7 +248,7 @@ ZIP_DB_1 = dm.GTFSData(
         84: dm.CalendarService(
             id=84,
             week=(False, False, False, False, False, False, False),
-            days=dm.DaysRange(
+            days=base.DaysRange(
                 start=datetime.date(2025, 8, 4),
                 end=datetime.date(2025, 8, 4),
             ),
@@ -258,7 +259,7 @@ ZIP_DB_1 = dm.GTFSData(
         87: dm.CalendarService(
             id=87,
             week=(True, True, True, True, True, True, False),
-            days=dm.DaysRange(
+            days=base.DaysRange(
                 start=datetime.date(2025, 5, 29),
                 end=datetime.date(2025, 12, 13),
             ),
@@ -276,7 +277,7 @@ ZIP_DB_1 = dm.GTFSData(
                 1: dm.ShapePoint(
                     id='4452_42',
                     seq=1,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=53.1441008463399,
                         longitude=-6.06088487517706,
                     ),
@@ -285,7 +286,7 @@ ZIP_DB_1 = dm.GTFSData(
                 2: dm.ShapePoint(
                     id='4452_42',
                     seq=2,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=53.1441497,
                         longitude=-6.0608973,
                     ),
@@ -294,7 +295,7 @@ ZIP_DB_1 = dm.GTFSData(
                 3: dm.ShapePoint(
                     id='4452_42',
                     seq=3,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=53.1443514,
                         longitude=-6.0610831,
                     ),
@@ -303,7 +304,7 @@ ZIP_DB_1 = dm.GTFSData(
                 4: dm.ShapePoint(
                     id='4452_42',
                     seq=4,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=53.1446195,
                         longitude=-6.0613355,
                     ),
@@ -312,7 +313,7 @@ ZIP_DB_1 = dm.GTFSData(
                 5: dm.ShapePoint(
                     id='4452_42',
                     seq=5,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=53.1448083,
                         longitude=-6.0615225,
                     ),
@@ -321,7 +322,7 @@ ZIP_DB_1 = dm.GTFSData(
                 6: dm.ShapePoint(
                     id='4452_42',
                     seq=6,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=53.1450306,
                         longitude=-6.061775,
                     ),
@@ -330,7 +331,7 @@ ZIP_DB_1 = dm.GTFSData(
                 7: dm.ShapePoint(
                     id='4452_42',
                     seq=7,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=53.1451908304815,
                         longitude=-6.06195374788812,
                     ),
@@ -344,7 +345,7 @@ ZIP_DB_1 = dm.GTFSData(
                 1: dm.ShapePoint(
                     id='4669_657',
                     seq=1,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=52.8392692317831,
                         longitude=-8.97518166525509,
                     ),
@@ -353,7 +354,7 @@ ZIP_DB_1 = dm.GTFSData(
                 2: dm.ShapePoint(
                     id='4669_657',
                     seq=2,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=52.8392347714337,
                         longitude=-8.97516263086331,
                     ),
@@ -362,7 +363,7 @@ ZIP_DB_1 = dm.GTFSData(
                 3: dm.ShapePoint(
                     id='4669_657',
                     seq=3,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=52.8379474,
                         longitude=-8.9744517,
                     ),
@@ -371,7 +372,7 @@ ZIP_DB_1 = dm.GTFSData(
                 4: dm.ShapePoint(
                     id='4669_657',
                     seq=4,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=52.8375,
                         longitude=-8.9742651,
                     ),
@@ -380,7 +381,7 @@ ZIP_DB_1 = dm.GTFSData(
                 5: dm.ShapePoint(
                     id='4669_657',
                     seq=5,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=52.8371903,
                         longitude=-8.9740986,
                     ),
@@ -394,7 +395,7 @@ ZIP_DB_1 = dm.GTFSData(
                 1: dm.ShapePoint(
                     id='4669_658',
                     seq=1,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=53.273610484269,
                         longitude=-9.04721964060696,
                     ),
@@ -403,7 +404,7 @@ ZIP_DB_1 = dm.GTFSData(
                 2: dm.ShapePoint(
                     id='4669_658',
                     seq=2,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=53.2735839,
                         longitude=-9.0471444,
                     ),
@@ -412,7 +413,7 @@ ZIP_DB_1 = dm.GTFSData(
                 3: dm.ShapePoint(
                     id='4669_658',
                     seq=3,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=53.2732581,
                         longitude=-9.0461686,
                     ),
@@ -421,7 +422,7 @@ ZIP_DB_1 = dm.GTFSData(
                 4: dm.ShapePoint(
                     id='4669_658',
                     seq=4,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=53.2730648,
                         longitude=-9.0456231,
                     ),
@@ -430,7 +431,7 @@ ZIP_DB_1 = dm.GTFSData(
                 5: dm.ShapePoint(
                     id='4669_658',
                     seq=5,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=53.2727663,
                         longitude=-9.0447944,
                     ),
@@ -444,7 +445,7 @@ ZIP_DB_1 = dm.GTFSData(
                 1: dm.ShapePoint(
                     id='4669_68',
                     seq=1,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=53.1441008463398,
                         longitude=-6.06088487517706,
                     ),
@@ -453,7 +454,7 @@ ZIP_DB_1 = dm.GTFSData(
                 2: dm.ShapePoint(
                     id='4669_68',
                     seq=2,
-                    point=dm.Point(
+                    point=base.Point(
                         latitude=53.1441497,
                         longitude=-6.0608973,
                     ),

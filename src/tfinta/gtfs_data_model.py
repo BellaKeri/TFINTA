@@ -17,7 +17,7 @@ import functools
 from typing import Any, Callable, TypedDict
 import zoneinfo
 
-from balparda_baselib import base
+from . import tfinta_base as base
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
 __version__: tuple[int, int] = (1, 4)  # v1.4 - 2025/06/28
@@ -39,12 +39,6 @@ KNOWN_OPERATORS: set[str] = {
 DART_SHORT_NAME = 'DART'
 DART_LONG_NAME = 'Bray - Howth'
 
-# data parsing utils
-_DT_OBJ: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(s, '%Y%m%d')
-# _UTC_DATE: Callable[[str], float] = lambda s: _DT_OBJ(s).replace(
-#     tzinfo=datetime.timezone.utc).timestamp()
-DATE_OBJ: Callable[[str], datetime.date] = lambda s: _DT_OBJ(s).date()
-
 # Files
 REQUIRED_FILES: set[str] = {
     'feed_info.txt',  # required because it has the date ranges and the version info
@@ -62,46 +56,10 @@ LOAD_ORDER: list[str] = [
     'stop_times.txt',  # pk: (trips/trip_id, stop_sequence) / ref: stops/stop_id
 ]
 
-NULL_TEXT: str = f'{base.TERM_BLUE}\u2205{base.TERM_END}'  # ∅
-LIMITED_TEXT: Callable[[str | None, int], str] = (
-    lambda s, w: NULL_TEXT if s is None else (s if len(s) <= w else f'{s[:(w - 1)]}\u2026'))  # …
-PRETTY_BOOL: Callable[[bool | None], str] = lambda b: (  # ✓ and ✗
-    f'{base.TERM_GREEN}\u2713{base.TERM_END}' if b else
-    f'{base.TERM_RED}\u2717{base.TERM_END}')
-
-DAY_NAME: dict[int, str] = {
-    0: 'Monday',
-    1: 'Tuesday',
-    2: 'Wednesday',
-    3: 'Thursday',
-    4: 'Friday',
-    5: 'Saturday',
-    6: 'Sunday',
-}
-SHORT_DAY_NAME: Callable[[int], str] = lambda i: DAY_NAME[i][:3]
-PRETTY_DATE: Callable[[datetime.date | None], str] = lambda d: (
-    NULL_TEXT if d is None else f'{d.isoformat()}\u00B7{SHORT_DAY_NAME(d.weekday())}')  # ·
-
 
 ####################################################################################################
 # BASIC GTFS DATA MODEL: Used to parse and store GTFS data
 ####################################################################################################
-
-
-@functools.total_ordering
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class DaysRange:
-  """Range of calendar days (supposes start <= end, but doesn't check). Sortable."""
-  start: datetime.date
-  end: datetime.date
-
-  def __lt__(self, other: Any) -> bool:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, DaysRange):
-      raise TypeError(f'invalid DaysRange type comparison {self!r} versus {other!r}')
-    if self.start != other.start:
-      return self.start < other.start
-    return self.end < other.end
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
@@ -111,8 +69,8 @@ class FileMetadata:
   publisher: str   # feed_info.txt/feed_publisher_name           (required)
   url: str         # feed_info.txt/feed_publisher_url            (required)
   language: str    # feed_info.txt/feed_lang                     (required)
-  days: DaysRange  # feed_info.txt/feed_start_date+feed_end_date (required)
-  version: str     # feed_info.txt/feed_version                  (required)
+  days: base.DaysRange      # feed_info.txt/feed_start_date+feed_end_date (required)
+  version: str              # feed_info.txt/feed_version                  (required)
   email: str | None = None  # feed_info.txt/feed_contact_email
 
 
@@ -125,26 +83,6 @@ class ExpectedFeedInfoCSVRowType(TypedDict):
   feed_end_date: str
   feed_version: str
   feed_contact_email: str | None
-
-
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class Point:
-  """A point (location) on Earth. Latitude and longitude in decimal degrees (WGS84)."""
-  latitude: float   # latitude;   -90.0 <= lat <= 90.0  (required)
-  longitude: float  # longitude; -180.0 <= lat <= 180.0 (required)
-
-  def ToDMS(self) -> tuple[str, str]:
-    """Return latitude and longitude as DMS with Unicode symbols and N/S, E/W."""
-
-    def _conv(deg_float: float, pos: str, neg: str, /) -> str:
-      d = abs(deg_float)
-      degrees = int(d)
-      minutes = int((d - degrees) * 60.0)
-      seconds = (d - degrees - minutes / 60.0) * 3600.0
-      hemisphere = pos if deg_float >= 0 else neg
-      return f'{degrees}°{minutes}′{seconds:.2f}″{hemisphere}'
-
-    return (_conv(self.latitude, 'N', 'S'), _conv(self.longitude, 'E', 'W'))
 
 
 class LocationType(enum.Enum):
@@ -162,14 +100,14 @@ class LocationType(enum.Enum):
 class BaseStop:  # stops.txt
   """Stop where vehicles pick up or drop-off riders."""
   id: str                # (PK) stops.txt/stop_id (required)
-  parent: str | None = None  # stops.txt/parent_station -> stops.txt/stop_id (required)
   code: str              # stops.txt/stop_code    (required)
   name: str              # stops.txt/stop_name    (required)
-  point: Point           # stops.txt/stop_lat+stop_lon - WGS84 latitude & longitude
+  point: base.Point      # stops.txt/stop_lat+stop_lon - WGS84 latitude & longitude
   location: LocationType = LocationType.STOP  # stops.txt/location_type
   zone: str | None = None         # stops.txt/zone_id
   description: str | None = None  # stops.txt/stop_desc
   url: str | None = None          # stops.txt/stop_url
+  parent: str | None = None  # stops.txt/parent_station -> stops.txt/stop_id
 
   def __lt__(self, other: Any) -> bool:
     """Less than. Makes sortable (b/c base class already defines __eq__)."""
@@ -202,10 +140,10 @@ class StopPointType(enum.Enum):
 
 
 STOP_TYPE_STR: dict[StopPointType, str] = {
-    StopPointType.REGULAR: f'{base.TERM_GREEN}\u2713{base.TERM_END}',       # ✓
-    StopPointType.NOT_AVAILABLE: f'{base.TERM_RED}\u2717{base.TERM_END}',   # ✗
-    StopPointType.AGENCY_ONLY: f'{base.TERM_YELLOW}\u260E{base.TERM_END}',  # ☎
-    StopPointType.DRIVER_ONLY: f'{base.TERM_YELLOW}\u2708{base.TERM_END}'   # ✈
+    StopPointType.REGULAR: f'{base.GREEN}\u2713{base.NULL}',       # ✓
+    StopPointType.NOT_AVAILABLE: f'{base.RED}\u2717{base.NULL}',   # ✗
+    StopPointType.AGENCY_ONLY: f'{base.YELLOW}\u260E{base.NULL}',  # ☎
+    StopPointType.DRIVER_ONLY: f'{base.YELLOW}\u2708{base.NULL}'   # ✈
 }
 
 
@@ -265,12 +203,12 @@ class Trip:
   agency: int      # <<INFERRED>> -> agency.txt/agency_id
   service: int     # trips.txt/service_id       (required) -> calendar.txt/service_id
   direction: bool  # trips.txt/direction_id     (required)
+  # A trip_short_name value, if provided, should uniquely identify a trip within a service day
+  stops: dict[int, Stop]       # {stop_times.txt/stop_sequence: Stop}
   shape: str | None = None     # trips.txt/shape_id -> shapes.txt/shape_id
   block: str | None = None     # trips.txt/block_id
   headsign: str | None = None  # trips.txt/trip_headsign
   name: str | None = None      # trips.txt/trip_short_name
-  # A trip_short_name value, if provided, should uniquely identify a trip within a service day
-  stops: dict[int, Stop]       # {stop_times.txt/stop_sequence: Stop}
 
   def __lt__(self, other: Any) -> bool:
     """Less than. Makes sortable (b/c base class already defines __eq__)."""
@@ -409,11 +347,11 @@ class Route:
   short_name: str        # routes.txt/route_short_name (required)
   long_name: str         # routes.txt/route_long_name  (required)
   route_type: RouteType  # routes.txt/route_type       (required)
+  trips: dict[str, Trip]          # {trips.txt/trip_id: Trip}
   description: str | None = None  # routes.txt/route_desc
   url: str | None = None          # routes.txt/route_url
   color: str | None = None        # routes.txt/route_color: encoded as a six-digit hexadecimal number (https://htmlcolorcodes.com)
   text_color: str | None = None   # routes.txt/route_text_color: encoded as a six-digit hexadecimal number
-  trips: dict[str, Trip]          # {trips.txt/trip_id: Trip}
 
 
 class ExpectedRoutesCSVRowType(TypedDict):
@@ -452,7 +390,7 @@ class CalendarService:
   """Service dates specified using a weekly schedule & start/end dates. Includes the exceptions."""
   id: int  # (PK) calendar.txt/service_id (required)
   week: tuple[bool, bool, bool, bool, bool, bool, bool]  # calendar.txt/monday...sunday (required)
-  days: DaysRange                        # calendar.txt/start_date+end_date             (required)
+  days: base.DaysRange                   # calendar.txt/start_date+end_date             (required)
   exceptions: dict[datetime.date, bool]  # {calendar_dates.txt/date: has_service?}
   # where `has_service` comes from calendar_dates.txt/exception_type
 
@@ -478,13 +416,24 @@ class ExpectedCalendarDatesCSVRowType(TypedDict):
   exception_type: str  # cannot be bool: field is '1'==added service;'2'==removed service
 
 
+@functools.total_ordering
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class ShapePoint:
   """Point in a shape, a place in the real world."""
-  id: str          # (PK) shapes.txt/shape_id          (required) -> shapes.txt/shape_id
-  seq: int         # (PK) shapes.txt/shape_pt_sequence (required)
-  point: Point     # shapes.txt/shape_pt_lat+shape_pt_lon - WGS84 latitude & longitude
-  distance: float  # shapes.txt/shape_dist_traveled    (required)
+  id: str            # (PK) shapes.txt/shape_id          (required) -> shapes.txt/shape_id
+  seq: int           # (PK) shapes.txt/shape_pt_sequence (required)
+  point: base.Point  # shapes.txt/shape_pt_lat+shape_pt_lon - WGS84 latitude & longitude
+  distance: float    # shapes.txt/shape_dist_traveled    (required)
+
+  def __post_init__(self) -> None:
+    if self.distance < 0.0:
+      raise base.Error(f'invalid distance: {self}')
+
+  def __lt__(self, other: Any) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__)."""
+    if not isinstance(other, ShapePoint):
+      raise TypeError(f'invalid ShapePoint type comparison {self!r} versus {other!r}')
+    return self.seq < other.seq  # we will sort only by ID for now!!
 
 
 class ExpectedShapesCSVRowType(TypedDict):
@@ -568,8 +517,7 @@ class Schedule:
 # useful
 
 DART_DIRECTION: Callable[[Trip | Schedule], str] = (
-    lambda t: f'{base.TERM_LIGHT_BLUE}S{base.TERM_END}' if t.direction else
-    f'{base.TERM_LIGHT_RED}N{base.TERM_END}')
+    lambda t: f'{base.LIGHT_BLUE}S{base.NULL}' if t.direction else f'{base.LIGHT_RED}N{base.NULL}')
 
 NULL_STOP = Stop(
     id='', seq=0, stop='', agency=0, route='', scheduled=ScheduleStop(arrival=0, departure=0),

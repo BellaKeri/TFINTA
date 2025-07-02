@@ -24,55 +24,10 @@ from . import gtfs_data
 __author__ = 'BellaKeri@github.com , balparda@github.com'
 
 
-@pytest.mark.parametrize('hms', [
-    '01', '01:01', '01:01:aa', '00:-1:00', '00:00:-1', '00:60:00', '00:00:60',
-])
-def test_HMSToSeconds_fail(hms: str) -> None:
-  """Test."""
-  with pytest.raises(ValueError):
-    gtfs.HMSToSeconds(hms)
-
-
-@pytest.mark.parametrize('hms, sec', [
-    ('00:00:00', 0),
-    ('00:00:01', 1),
-    ('00:00:10', 10),
-    ('00:01:00', 60),
-    ('00:10:00', 600),
-    ('01:00:00', 3600),
-    ('10:00:00', 36000),
-    ('23:59:59', 86399),
-    ('24:00:00', 86400),
-    ('24:01:01', 86461),
-    ('240:33:11', 865991),
-    ('666:33:11', 2399591),
-])
-def test_HMSToSeconds(hms: str, sec: int) -> None:
-  """Test."""
-  assert gtfs.HMSToSeconds(hms) == sec
-
-
-@pytest.mark.parametrize('sec, hms', [
-    (0, '00:00:00'),
-    (1, '00:00:01'),
-    (60, '00:01:00'),
-    (3600, '01:00:00'),
-    (86399, '23:59:59'),
-    (86400, '24:00:00'),
-    (2399591, '666:33:11'),
-])
-def test_SecondsToHMS(sec: int, hms: str) -> None:
-  """Test."""
-  assert gtfs.SecondsToHMS(sec) == hms
-  if sec:
-    with pytest.raises(ValueError):
-      gtfs.SecondsToHMS(-sec)  # if not zero, negative values should always fail
-
-
 @mock.patch('src.tfinta.gtfs.time.time', autospec=True)
 @mock.patch('src.tfinta.gtfs.urllib.request.urlopen', autospec=True)
-@mock.patch('balparda_baselib.base.BinSerialize', autospec=True)
-@mock.patch('balparda_baselib.base.BinDeSerialize', autospec=True)
+@mock.patch('src.tfinta.tfinta_base.BinSerialize', autospec=True)
+@mock.patch('src.tfinta.tfinta_base.BinDeSerialize', autospec=True)
 def test_GTFS_load_and_parse_from_net(
     deserialize: mock.MagicMock,
     serialize: mock.MagicMock,
@@ -162,11 +117,13 @@ def test_GTFS_load_and_parse_from_net(
     list(db.PrettyPrintStops(filter_to={'none'}))
   assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintStops())) == gtfs_data.STOPS
   with pytest.raises(gtfs.Error):
-    list(db.PrettyPrintShape('none'))
-  assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintShape('4669_658'))) == gtfs_data.SHAPE_4669_658
+    list(db.PrettyPrintShape(shape_id='none'))
+  assert gtfs.base.STRIP_ANSI('\n'.join(
+      db.PrettyPrintShape(shape_id='4669_658'))) == gtfs_data.SHAPE_4669_658
   with pytest.raises(gtfs.Error):
-    list(db.PrettyPrintTrip('none'))
-  assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintTrip('4452_2655'))) == gtfs_data.TRIP_4452_2655
+    list(db.PrettyPrintTrip(trip_id='none'))
+  assert gtfs.base.STRIP_ANSI('\n'.join(
+      db.PrettyPrintTrip(trip_id='4452_2655'))) == gtfs_data.TRIP_4452_2655
   assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintAllDatabase())) == gtfs_data.ALL_TRIPS
   # check corner cases for handlers
   # feed_info.txt
@@ -185,14 +142,14 @@ def test_GTFS_load_and_parse_from_net(
       feed_contact_email=None)
   with pytest.raises(gtfs.RowError, match='1 row'):
     db._HandleFeedInfoRow(loc, 1, info_row)
-  with pytest.raises(gtfs.RowError, match='start/end dates'):
+  with pytest.raises(gtfs.base.Error, match='invalid dates'):
     db._HandleFeedInfoRow(loc, 0, info_row)
   info_row['feed_end_date'] = '20260530'  # the original
   with pytest.raises(gtfs.ParseIdenticalVersionError):
     db._HandleFeedInfoRow(loc, 0, info_row)
   # agency.txt - no raise to test
   # calendar.txt
-  with pytest.raises(gtfs.RowError, match='inconsistent row'):
+  with pytest.raises(gtfs.base.Error, match='invalid dates'):
     db._HandleCalendarRow(loc, 1, dm.ExpectedCalendarCSVRowType(
         service_id=2, monday=True, tuesday=True, wednesday=True, thursday=True,
         friday=True, saturday=True, sunday=True,
@@ -203,22 +160,8 @@ def test_GTFS_load_and_parse_from_net(
   shape = dm.ExpectedShapesCSVRowType(
       shape_id='foo', shape_pt_sequence=2,
       shape_pt_lat=10.0, shape_pt_lon=10.0,
-      shape_dist_traveled=-4.0)  # starts with only invalid distance
-  with pytest.raises(gtfs.RowError, match='invalid row'):
-    db._HandleShapesRow(loc, 1, shape)
-  shape['shape_dist_traveled'] = 4.0  # fix distance
-  shape['shape_pt_lat'] = 100.0       # latitude too big
-  with pytest.raises(gtfs.RowError, match='invalid row'):
-    db._HandleShapesRow(loc, 1, shape)
-  shape['shape_pt_lat'] = -100.0  # still too big
-  with pytest.raises(gtfs.RowError, match='invalid row'):
-    db._HandleShapesRow(loc, 1, shape)
-  shape['shape_pt_lat'] = 10.0   # fix latitude
-  shape['shape_pt_lon'] = 185.0  # longitude too big
-  with pytest.raises(gtfs.RowError, match='invalid row'):
-    db._HandleShapesRow(loc, 1, shape)
-  shape['shape_pt_lon'] = -185.0  # still too big
-  with pytest.raises(gtfs.RowError, match='invalid row'):
+      shape_dist_traveled=-4.0)
+  with pytest.raises(gtfs.base.Error, match='invalid distance'):
     db._HandleShapesRow(loc, 1, shape)
   # trips.txt
   with pytest.raises(gtfs.RowError, match='agency in row was not found'):
@@ -233,20 +176,6 @@ def test_GTFS_load_and_parse_from_net(
       stop_lat=10.0, stop_lon=10.0,
       zone_id=None, stop_desc=None, stop_url=None, location_type=None)
   with pytest.raises(gtfs.RowError, match='parent_station in row was not found'):
-    db._HandleStopsRow(loc, 1, stop)
-  stop['parent_station'] = None  # fix parent
-  stop['stop_lat'] = 100.0  # latitude too big
-  with pytest.raises(gtfs.RowError, match='invalid latitude/longitude'):
-    db._HandleStopsRow(loc, 1, stop)
-  stop['stop_lat'] = -100.0  # still too big
-  with pytest.raises(gtfs.RowError, match='invalid latitude/longitude'):
-    db._HandleStopsRow(loc, 1, stop)
-  stop['stop_lat'] = 100.0  # fix latitude
-  stop['stop_lon'] = 185.0  # longitude too big
-  with pytest.raises(gtfs.RowError, match='invalid latitude/longitude'):
-    db._HandleStopsRow(loc, 1, stop)
-  stop['stop_lon'] = -185.0  # still too big
-  with pytest.raises(gtfs.RowError, match='invalid latitude/longitude'):
     db._HandleStopsRow(loc, 1, stop)
   # stop_times.txt
   stop_time = dm.ExpectedStopTimesCSVRowType(
@@ -265,8 +194,8 @@ def test_GTFS_load_and_parse_from_net(
     db._HandleStopTimesRow(loc, 1, stop_time)
 
 
-@mock.patch('balparda_baselib.base.BinSerialize', autospec=True)
-@mock.patch('balparda_baselib.base.BinDeSerialize', autospec=True)
+@mock.patch('src.tfinta.tfinta_base.BinSerialize', autospec=True)
+@mock.patch('src.tfinta.tfinta_base.BinDeSerialize', autospec=True)
 def test_GTFS_load_existing(deserialize: mock.MagicMock, serialize: mock.MagicMock) -> None:
   """Test."""
   # mock
@@ -348,7 +277,7 @@ def test_main_print_shape(mock_gtfs: mock.MagicMock) -> None:
   assert gtfs.main(['print', 'shape', '-i', '4669_658']) == 0
   mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
   db_obj.LoadData.assert_not_called()
-  db_obj.PrettyPrintShape.assert_called_once_with('4669_658')
+  db_obj.PrettyPrintShape.assert_called_once_with(shape_id='4669_658')
 
 
 @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
@@ -360,7 +289,7 @@ def test_main_print_trip(mock_gtfs: mock.MagicMock) -> None:
   assert gtfs.main(['print', 'trip', '-i', 'tid']) == 0
   mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
   db_obj.LoadData.assert_not_called()
-  db_obj.PrettyPrintTrip.assert_called_once_with('tid')
+  db_obj.PrettyPrintTrip.assert_called_once_with(trip_id='tid')
 
 
 @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
