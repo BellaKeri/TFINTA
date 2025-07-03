@@ -80,7 +80,7 @@ class _FakeDate(datetime.date):
 # @mock.patch('src.tfinta.realtime.datetime.date', autospec=True)
 @mock.patch('src.tfinta.realtime.time.time', autospec=True)
 @mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
-def test_RealtimeRail_StationsCall(
+def test_RealtimeRail_StationsCall(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     mock_open: mock.MagicMock, mock_time: mock.MagicMock,
     call_names: list[tuple[str, realtime._PossibleRPCArgs]],
     call_obj: Callable[..., Generator[str, None, None]],
@@ -98,6 +98,52 @@ def test_RealtimeRail_StationsCall(
   assert base.STRIP_ANSI(return_str) == expected_str
   assert mock_open.call_args_list == [
       mock.call(realtime.RealtimeRail._RPC_CALLS[c](**p), timeout=10.0) for c, p in call_names]
+
+
+@mock.patch('src.tfinta.realtime.RealtimeRail', autospec=True)
+def test_main_print_stations(mock_realtime: mock.MagicMock) -> None:
+  """Test."""
+  db_obj = mock.MagicMock()
+  mock_realtime.return_value = db_obj
+  db_obj.PrettyPrintStations.return_value = ['foo', 'bar']
+  assert realtime.main(['print', 'stations']) == 0
+  mock_realtime.assert_called_once_with()
+  db_obj.PrettyPrintStations.assert_called_once_with()
+
+
+@mock.patch('src.tfinta.realtime.RealtimeRail', autospec=True)
+def test_main_print_running(mock_realtime: mock.MagicMock) -> None:
+  """Test."""
+  db_obj = mock.MagicMock()
+  mock_realtime.return_value = db_obj
+  db_obj.PrettyPrintRunning.return_value = ['foo', 'bar']
+  assert realtime.main(['print', 'running']) == 0
+  mock_realtime.assert_called_once_with()
+  db_obj.PrettyPrintRunning.assert_called_once_with()
+
+
+@mock.patch('src.tfinta.realtime.RealtimeRail', autospec=True)
+def test_main_print_station(mock_realtime: mock.MagicMock) -> None:
+  """Test."""
+  db_obj = mock.MagicMock()
+  mock_realtime.return_value = db_obj
+  db_obj.StationCodeFromNameFragmentOrCode.return_value = 'MHIDE'
+  db_obj.PrettyPrintStation.return_value = ['foo', 'bar']
+  assert realtime.main(['print', 'station', '-c', 'malahide']) == 0
+  mock_realtime.assert_called_once_with()
+  db_obj.StationCodeFromNameFragmentOrCode.assert_called_once_with('malahide')
+  db_obj.PrettyPrintStation.assert_called_once_with(station_code='MHIDE')
+
+
+@mock.patch('src.tfinta.realtime.RealtimeRail', autospec=True)
+def test_main_print_train(mock_realtime: mock.MagicMock) -> None:
+  """Test."""
+  db_obj = mock.MagicMock()
+  mock_realtime.return_value = db_obj
+  db_obj.PrettyPrintTrain.return_value = ['foo', 'bar']
+  assert realtime.main(['print', 'train', '-c', 'E108', '-d', '20250701']) == 0
+  mock_realtime.assert_called_once_with()
+  db_obj.PrettyPrintTrain.assert_called_once_with(train_code='E108', day=datetime.date(2025, 7, 1))
 
 
 if __name__ == '__main__':
