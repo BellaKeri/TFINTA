@@ -361,7 +361,6 @@ class RealtimeRail:
     Raises:
       RowError: error parsing this record
     """
-    # TODO: check train code?
     day: datetime.date = base.DATE_OBJ_REALTIME(row['TrainDate'])
     if day != datetime.date.today():
       raise Error(f'unexpected date {day}, not today @ running/{params!r}')
@@ -385,7 +384,6 @@ class RealtimeRail:
     Raises:
       RowError: error parsing this record
     """
-    # TODO: check train code?
     day: datetime.date = base.DATE_OBJ_REALTIME(row['Traindate'])
     if day != datetime.date.today():
       raise Error(f'unexpected date {day}, not today @ station/{params!r}')
