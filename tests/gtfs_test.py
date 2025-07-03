@@ -193,7 +193,7 @@ def test_GTFS_load_and_parse_from_net(  # pylint: disable=too-many-locals,too-ma
       trip_id='4669_10288', stop_sequence=10, stop_id='8360IR0003',
       arrival_time='10:00:00', departure_time='09:00:00',  # departure before arrival!
       timepoint=True, stop_headsign=None, pickup_type=None, drop_off_type=None, dropoff_type=None)
-  with pytest.raises(gtfs.RowError, match='invalid row'):
+  with pytest.raises(gtfs.base.Error, match='arrival <= departure'):
     db._HandleStopTimesRow(loc, 1, stop_time)
   stop_time['departure_time'] = '10:00:10'  # valid
   stop_time['stop_id'] = 'foo'              # invalid

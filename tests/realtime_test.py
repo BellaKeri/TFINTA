@@ -77,7 +77,6 @@ class _FakeDate(datetime.date):
         realtime_data.TRAIN_OBJ, realtime_data.TRAIN_STR,
     ),
 ])
-# @mock.patch('src.tfinta.realtime.datetime.date', autospec=True)
 @mock.patch('src.tfinta.realtime.time.time', autospec=True)
 @mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_RealtimeRail_StationsCall(  # pylint: disable=too-many-arguments,too-many-positional-arguments

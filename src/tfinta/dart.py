@@ -129,11 +129,11 @@ class DART:
           (min(s for _, s, _ in filtered_trips), name,
            sorted(filtered_trips, key=lambda t: (t[1], t[0]))))
     yield from sorted(filtered_trains, key=lambda t: (  # re-sort by:
-        t[0].direction,           # North/South
-        t[0].stops[0].name,       # start stop
-        t[0].stops[-1].name,      # destination stop
-        t[0].times[0].departure,  # HH:MM:SS as seconds
-        t[1],                     # tie-break with the train code (E800, ...)
+        t[0].direction,                 # North/South
+        t[0].stops[0].name,             # start stop
+        t[0].stops[-1].name,            # destination stop
+        t[0].times[0].times.departure,  # HH:MM:SS as seconds
+        t[1],                           # tie-break with the train code (E800, ...)
     ))
 
   def StationSchedule(self, stop_id: str, day: datetime.date, /) -> dict[
@@ -193,7 +193,9 @@ class DART:
           f'{base.BOLD}{base.YELLOW}{name}{base.NULL}',
           f'{base.BOLD}{schedule.stops[0].name}{base.NULL}',
           f'{base.BOLD}{schedule.stops[-1].name}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{base.SecondsToHMS(schedule.times[0].departure)}{base.NULL}',
+          f'{base.BOLD}{base.YELLOW}{
+              schedule.times[0].times.departure.ToHMS()
+              if schedule.times[0].times.departure else base.NULL_TEXT}{base.NULL}',
           f'{base.BOLD}{trip_codes}{base.NULL}',
       ])
     yield from table.get_string().splitlines()  # type:ignore
@@ -227,11 +229,12 @@ class DART:
          f'{base.RED}[\u2605Alt.Times]{base.NULL}'])  # ★
     last_arrival: int = 0
     last_departure: int = 0
-    for dest, time in sorted(day_dart_schedule.keys(), key=lambda k: (k[1], k[0])):
-      name, schedule, trips_in_train = day_dart_schedule[(dest, time)]
-      if time.arrival < last_arrival or time.departure < last_departure:
+    for dest, tm in sorted(day_dart_schedule.keys(), key=lambda k: (k[1], k[0])):
+      name, schedule, trips_in_train = day_dart_schedule[(dest, tm)]
+      if ((tm.times.arrival and tm.times.arrival.time < last_arrival) or
+          (tm.times.departure and tm.times.departure.time < last_departure)):
         # make sure both arrival and departures are strictly moving forward
-        raise Error(f'time moved backwards in schedule @ {dest} / {time}')
+        raise Error(f'time moved backwards in schedule @ {dest} / {tm}')
       trip_codes: str = ', '.join(
           f'{s}/{t.id}{"" if sc == schedule else f"/{base.RED}[\u2605]{base.NULL}{base.BOLD}"}'
           for s, sc, t in sorted(trips_in_train))
@@ -239,11 +242,14 @@ class DART:
           f'{base.BOLD}{dm.DART_DIRECTION(trips_in_train[0][2])}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{name}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{schedule.stops[-1].name}{base.NULL}',
-          f'{base.BOLD}{base.SecondsToHMS(time.arrival)}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{base.SecondsToHMS(time.departure)}{base.NULL}',
+          f'{base.BOLD}{tm.times.arrival.ToHMS()
+                        if tm.times.arrival else base.NULL_TEXT}{base.NULL}',
+          f'{base.BOLD}{base.YELLOW}{tm.times.departure.ToHMS()
+                                     if tm.times.departure else base.NULL_TEXT}{base.NULL}',
           f'{base.BOLD}{trip_codes}{base.NULL}',
       ])
-      last_arrival, last_departure = time.arrival, time.departure
+      last_arrival = tm.times.arrival.time if tm.times.arrival else 0
+      last_departure = tm.times.departure.time if tm.times.departure else 0
     yield from table.get_string().splitlines()  # type:ignore
 
   def PrettyPrintTrip(self, /, *, trip_name: str) -> Generator[str, None, None]:  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
@@ -345,9 +351,11 @@ class DART:
           table_row.append(
               f'{base.BOLD}{base.YELLOW}'
               f'{base.LIMITED_TEXT(self._gtfs.StopNameTranslator(stop.stop), 15)}{base.NULL}\n'
-              f'{base.BOLD}{base.SecondsToHMS(stop.scheduled.arrival)}'
+              f'{base.BOLD}{stop.scheduled.times.arrival.ToHMS()
+                            if stop.scheduled.times.arrival else base.NULL_TEXT}'
               f'{dm.STOP_TYPE_STR[stop.dropoff]}{base.NULL}\n'
-              f'{base.BOLD}{base.SecondsToHMS(stop.scheduled.departure)}'
+              f'{base.BOLD}{stop.scheduled.times.departure.ToHMS()
+                            if stop.scheduled.times.departure else base.NULL_TEXT}'
               f'{dm.STOP_TYPE_STR[stop.pickup]}{base.NULL}')
       table.add_row(table_row)
     table.hrules = prettytable.HRuleStyle.ALL

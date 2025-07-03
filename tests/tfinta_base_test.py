@@ -21,10 +21,10 @@ __author__ = 'BellaKeri@github.com , balparda@github.com'
 @pytest.mark.parametrize('hms', [
     '01', '01:01', '01:01:aa', '00:-1:00', '00:00:-1', '00:60:00', '00:00:60',
 ])
-def test_HMSToSeconds_fail(hms: str) -> None:
+def test_DayTime_HMSToSeconds_fail(hms: str) -> None:
   """Test."""
-  with pytest.raises(ValueError):
-    base.HMSToSeconds(hms)
+  with pytest.raises(base.Error):
+    base.DayTime.FromHMS(hms)
 
 
 @pytest.mark.parametrize('hms, sec', [
@@ -41,9 +41,9 @@ def test_HMSToSeconds_fail(hms: str) -> None:
     ('240:33:11', 865991),
     ('666:33:11', 2399591),
 ])
-def test_HMSToSeconds(hms: str, sec: int) -> None:
+def test_DayTime_HMSToSeconds(hms: str, sec: int) -> None:
   """Test."""
-  assert base.HMSToSeconds(hms) == sec
+  assert base.DayTime.FromHMS(hms).time == sec
 
 
 @pytest.mark.parametrize('sec, hms', [
@@ -55,12 +55,15 @@ def test_HMSToSeconds(hms: str, sec: int) -> None:
     (86400, '24:00:00'),
     (2399591, '666:33:11'),
 ])
-def test_SecondsToHMS(sec: int, hms: str) -> None:
+def test_DayTime_SecondsToHMS(sec: int, hms: str) -> None:
   """Test."""
-  assert base.SecondsToHMS(sec) == hms
-  if sec:
-    with pytest.raises(ValueError):
-      base.SecondsToHMS(-sec)  # if not zero, negative values should always fail
+  assert base.DayTime(time=sec).ToHMS() == hms
+
+
+def test_DayTime_fail() -> None:
+  """Test."""
+  with pytest.raises(base.Error):
+    base.DayTime(time=-1)
 
 
 @pytest.mark.parametrize('latitude, longitude, dms', [

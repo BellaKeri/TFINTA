@@ -159,7 +159,7 @@ LOCATION_TYPE_STR: dict[LocationType, str] = {
 class StationLineQueryData(RealtimeRPCData):
   """Realtime: Board/Station/Query info."""
   tm_server: datetime.datetime
-  tm_query: int
+  tm_query: base.DayTime
   station_name: str
   station_code: str
   day: datetime.date
@@ -181,19 +181,16 @@ class StationLine(RealtimeRPCData):
   train_code: str
   origin_code: str
   origin_name: str
-  origin_time: int
   destination_code: str
   destination_name: str
-  destination_time: int
+  trip: base.DayRange
   direction: str
-  due_in: int
+  due_in: base.DayTime
   late: int
   location_type: LocationType
   status: str | None
-  scheduled_arrival: int | None  # not having arrival==beginning of line
-  scheduled_depart: int | None   # must have either arrival or departure
-  expected_arrival: int | None   # same as above
-  expected_depart: int | None
+  scheduled: base.DayRange
+  expected: base.DayRange
   train_type: TrainType = TrainType.UNKNOWN
   last_location: str | None = None
 
@@ -201,11 +198,10 @@ class StationLine(RealtimeRPCData):
     """Less than. Makes sortable (b/c base class already defines __eq__)."""
     if not isinstance(other, StationLine):
       raise TypeError(f'invalid StationLine type comparison {self!r} versus {other!r}')
-    my_time: int | None = self.expected_arrival if self.expected_arrival else self.expected_depart
-    other_time: int | None = (
-        other.expected_arrival if other.expected_arrival else other.expected_depart)
-    if my_time and other_time and my_time != other_time:
-      return my_time < other_time
+    if self.due_in != other.due_in:
+      return self.due_in < other.due_in
+    if self.expected != other.expected:
+      return self.expected < other.expected
     return self.destination_name < other.destination_name
 
 
@@ -282,12 +278,9 @@ class TrainStop(RealtimeRPCData):
   station_order: int
   station_code: str
   station_name: str | None
-  arrival: int | None
-  departure: int | None
-  scheduled_arrival: int | None
-  scheduled_depart: int | None
-  expected_arrival: int | None
-  expected_depart: int | None
+  scheduled: base.DayRange
+  expected: base.DayRange
+  actual: base.DayRange
 
   def __lt__(self, other: Any) -> bool:
     """Less than. Makes sortable (b/c base class already defines __eq__)."""

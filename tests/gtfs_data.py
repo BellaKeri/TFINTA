@@ -457,8 +457,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86269',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=22500,
-                                        departure=22500,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=22500),
+                                            departure=base.DayTime(time=22500),
+                                        ),
                                     ),
                                     headsign='Limerick (Colbert)',
                                     pickup=dm.StopPointType.REGULAR,
@@ -471,8 +473,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86269',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=22920,
-                                        departure=22920,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=22920),
+                                            departure=base.DayTime(time=22920),
+                                        ),
                                     ),
                                 ),
                                 3: dm.Stop(
@@ -482,8 +486,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86269',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=23580,
-                                        departure=23820,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=23580),
+                                            departure=base.DayTime(time=23820),
+                                        ),
                                     ),
                                 ),
                                 4: dm.Stop(
@@ -493,8 +499,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86269',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=24360,
-                                        departure=24420,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=24360),
+                                            departure=base.DayTime(time=24420),
+                                        ),
                                     ),
                                 ),
                                 5: dm.Stop(
@@ -504,8 +512,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86269',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=24900,
-                                        departure=24960,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=24900),
+                                            departure=base.DayTime(time=24960),
+                                        ),
                                     ),
                                 ),
                             },
@@ -528,8 +538,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86269',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=24600,
-                                        departure=24600,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=24600),
+                                            departure=base.DayTime(time=24600),
+                                        ),
                                     ),
                                     headsign='Limerick (Colbert)',
                                     pickup=dm.StopPointType.REGULAR,
@@ -542,8 +554,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86269',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=25560,
-                                        departure=25560,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=25560),
+                                            departure=base.DayTime(time=25560),
+                                        ),
                                     ),
                                 ),
                                 3: dm.Stop(
@@ -553,8 +567,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86269',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=27000,
-                                        departure=27000,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=27000),
+                                            departure=base.DayTime(time=27000),
+                                        ),
                                     ),
                                     headsign=None,
                                     pickup=dm.StopPointType.NOT_AVAILABLE,
@@ -589,8 +605,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=69480,
-                                        departure=69480,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=69480),
+                                            departure=base.DayTime(time=69480),
+                                        ),
                                     ),
                                     headsign='Malahide',
                                     pickup=dm.StopPointType.REGULAR,
@@ -603,8 +621,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=70080,
-                                        departure=70260,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=70080),
+                                            departure=base.DayTime(time=70260),
+                                        ),
                                     ),
                                 ),
                                 3: dm.Stop(
@@ -614,8 +634,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=70500,
-                                        departure=70560,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=70500),
+                                            departure=base.DayTime(time=70560),
+                                        ),
                                     ),
                                 ),
                                 4: dm.Stop(
@@ -625,8 +647,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=70680,
-                                        departure=70680,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=70680),
+                                            departure=base.DayTime(time=70680),
+                                        ),
                                     ),
                                 ),
                             },
@@ -649,8 +673,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=69480,
-                                        departure=69480,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=69480),
+                                            departure=base.DayTime(time=69480),
+                                        ),
                                     ),
                                     headsign='Malahide',
                                     pickup=dm.StopPointType.REGULAR,
@@ -663,8 +689,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=70080,
-                                        departure=70260,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=70080),
+                                            departure=base.DayTime(time=70260),
+                                        ),
                                     ),
                                 ),
                                 3: dm.Stop(
@@ -674,8 +702,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=70500,
-                                        departure=70560,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=70500),
+                                            departure=base.DayTime(time=70560),
+                                        ),
                                     ),
                                 ),
                                 4: dm.Stop(
@@ -685,8 +715,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=70680,
-                                        departure=70680,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=70680),
+                                            departure=base.DayTime(time=70680),
+                                        ),
                                     ),
                                 ),
                             },
@@ -709,8 +741,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=69480,
-                                        departure=69480,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=69480),
+                                            departure=base.DayTime(time=69480),
+                                        ),
                                     ),
                                     headsign='Malahide',
                                     pickup=dm.StopPointType.REGULAR,
@@ -723,8 +757,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=70080,
-                                        departure=70260,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=70080),
+                                            departure=base.DayTime(time=70260),
+                                        ),
                                     ),
                                 ),
                                 3: dm.Stop(
@@ -734,8 +770,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=70500,
-                                        departure=70560,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=70500),
+                                            departure=base.DayTime(time=70560),
+                                        ),
                                     ),
                                 ),
                                 4: dm.Stop(
@@ -745,8 +783,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=70800,
-                                        departure=70800,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=70800),
+                                            departure=base.DayTime(time=70800),
+                                        ),
                                     ),
                                 ),
                             },
@@ -769,8 +809,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=76680,
-                                        departure=76680,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=76680),
+                                            departure=base.DayTime(time=76680),
+                                        ),
                                     ),
                                     headsign='Malahide',
                                     pickup=dm.StopPointType.REGULAR,
@@ -783,8 +825,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=77280,
-                                        departure=77460,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=77280),
+                                            departure=base.DayTime(time=77460),
+                                        ),
                                     ),
                                 ),
                                 3: dm.Stop(
@@ -794,8 +838,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=77700,
-                                        departure=77760,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=77700),
+                                            departure=base.DayTime(time=77760),
+                                        ),
                                     ),
                                 ),
                                 4: dm.Stop(
@@ -805,8 +851,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=77880,
-                                        departure=77880,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=77880),
+                                            departure=base.DayTime(time=77880),
+                                        ),
                                     ),
                                 ),
                             },
@@ -829,8 +877,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=77700,
-                                        departure=77760,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=77700),
+                                            departure=base.DayTime(time=77760),
+                                        ),
                                     ),
                                 ),
                                 2: dm.Stop(
@@ -840,8 +890,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=77880,
-                                        departure=77880,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=77880),
+                                            departure=base.DayTime(time=77880),
+                                        ),
                                     ),
                                 ),
                             },
@@ -864,8 +916,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=76680,
-                                        departure=76680,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=76680),
+                                            departure=base.DayTime(time=76680),
+                                        ),
                                     ),
                                     headsign='Malahide',
                                     pickup=dm.StopPointType.REGULAR,
@@ -878,8 +932,10 @@ ZIP_DB_1 = dm.GTFSData(
                                     agency=7778017,
                                     route='4452_86289',
                                     scheduled=dm.ScheduleStop(
-                                        arrival=77280,
-                                        departure=77460,
+                                        times=base.DayRange(
+                                            arrival=base.DayTime(time=77280),
+                                            departure=base.DayTime(time=77460),
+                                        ),
                                     ),
                                 ),
                             },
@@ -1277,16 +1333,21 @@ STOPS_1: tuple[dm.TrackStop] = (  # type:ignore
     dm.TrackStop(stop='8250IR0021', name='Killiney'),
 )
 TIMES_1: tuple[dm.ScheduleStop] = (  # type:ignore
-    dm.ScheduleStop(arrival=69480, departure=69480),
-    dm.ScheduleStop(arrival=70080, departure=70260),
-    dm.ScheduleStop(arrival=70500, departure=70560),
-    dm.ScheduleStop(arrival=70680, departure=70680),
+    dm.ScheduleStop(times=base.DayRange(
+        arrival=base.DayTime(time=69480), departure=base.DayTime(time=69480))),
+    dm.ScheduleStop(times=base.DayRange(
+        arrival=base.DayTime(time=70080), departure=base.DayTime(time=70260))),
+    dm.ScheduleStop(times=base.DayRange(
+        arrival=base.DayTime(time=70500), departure=base.DayTime(time=70560))),
+    dm.ScheduleStop(times=base.DayRange(
+        arrival=base.DayTime(time=70680), departure=base.DayTime(time=70680))),
 )
 TIMES_2: tuple[dm.ScheduleStop] = (  # type:ignore
     TIMES_1[0],
     TIMES_1[1],  # type:ignore
     TIMES_1[2],  # type:ignore
-    dm.ScheduleStop(arrival=70800, departure=70800),
+    dm.ScheduleStop(times=base.DayRange(
+        arrival=base.DayTime(time=70800), departure=base.DayTime(time=70800))),
 )
 
 DART_TRIPS_ZIP_1 = collections.OrderedDict({
@@ -1310,12 +1371,16 @@ DART_TRIPS_ZIP_1 = collections.OrderedDict({
                 ),
                 times=(  # type: ignore
                     dm.ScheduleStop(
-                        arrival=76680,
-                        departure=76680,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=76680),
+                            departure=base.DayTime(time=76680),
+                        ),
                     ),
                     dm.ScheduleStop(
-                        arrival=77280,
-                        departure=77460,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=77280),
+                            departure=base.DayTime(time=77460),
+                        ),
                     ),
                 ),
             ),
@@ -1348,20 +1413,28 @@ DART_TRIPS_ZIP_1 = collections.OrderedDict({
                 ),
                 times=(  # type: ignore
                     dm.ScheduleStop(
-                        arrival=76680,
-                        departure=76680,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=76680),
+                            departure=base.DayTime(time=76680),
+                        ),
                     ),
                     dm.ScheduleStop(
-                        arrival=77280,
-                        departure=77460,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=77280),
+                            departure=base.DayTime(time=77460),
+                        ),
                     ),
                     dm.ScheduleStop(
-                        arrival=77700,
-                        departure=77760,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=77700),
+                            departure=base.DayTime(time=77760),
+                        ),
                     ),
                     dm.ScheduleStop(
-                        arrival=77880,
-                        departure=77880,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=77880),
+                            departure=base.DayTime(time=77880),
+                        ),
                     ),
                 ),
             ),
@@ -1383,12 +1456,16 @@ DART_TRIPS_ZIP_1 = collections.OrderedDict({
                 ),
                 times=(  # type: ignore
                     dm.ScheduleStop(
-                        arrival=77700,
-                        departure=77760,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=77700),
+                            departure=base.DayTime(time=77760),
+                        ),
                     ),
                     dm.ScheduleStop(
-                        arrival=77880,
-                        departure=77880,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=77880),
+                            departure=base.DayTime(time=77880),
+                        ),
                     ),
                 ),
             ),
@@ -1423,20 +1500,28 @@ DART_TRIPS_ZIP_1 = collections.OrderedDict({
                 ),
                 times=(  # type: ignore
                     dm.ScheduleStop(
-                        arrival=69480,
-                        departure=69480,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=69480),
+                            departure=base.DayTime(time=69480),
+                        ),
                     ),
                     dm.ScheduleStop(
-                        arrival=70080,
-                        departure=70260,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=70080),
+                            departure=base.DayTime(time=70260),
+                        ),
                     ),
                     dm.ScheduleStop(
-                        arrival=70500,
-                        departure=70560,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=70500),
+                            departure=base.DayTime(time=70560),
+                        ),
                     ),
                     dm.ScheduleStop(
-                        arrival=70680,
-                        departure=70680,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=70680),
+                            departure=base.DayTime(time=70680),
+                        ),
                     ),
                 ),
             ),
@@ -1469,20 +1554,28 @@ DART_TRIPS_ZIP_1 = collections.OrderedDict({
                 ),
                 times=(  # type: ignore
                     dm.ScheduleStop(
-                        arrival=69480,
-                        departure=69480,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=69480),
+                            departure=base.DayTime(time=69480),
+                        ),
                     ),
                     dm.ScheduleStop(
-                        arrival=70080,
-                        departure=70260,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=70080),
+                            departure=base.DayTime(time=70260),
+                        ),
                     ),
                     dm.ScheduleStop(
-                        arrival=70500,
-                        departure=70560,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=70500),
+                            departure=base.DayTime(time=70560),
+                        ),
                     ),
                     dm.ScheduleStop(
-                        arrival=70680,
-                        departure=70680,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=70680),
+                            departure=base.DayTime(time=70680),
+                        ),
                     ),
                 ),
             ),
@@ -1515,20 +1608,28 @@ DART_TRIPS_ZIP_1 = collections.OrderedDict({
                 ),
                 times=(  # type: ignore
                     dm.ScheduleStop(
-                        arrival=69480,
-                        departure=69480,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=69480),
+                            departure=base.DayTime(time=69480),
+                        ),
                     ),
                     dm.ScheduleStop(
-                        arrival=70080,
-                        departure=70260,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=70080),
+                            departure=base.DayTime(time=70260),
+                        ),
                     ),
                     dm.ScheduleStop(
-                        arrival=70500,
-                        departure=70560,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=70500),
+                            departure=base.DayTime(time=70560),
+                        ),
                     ),
                     dm.ScheduleStop(
-                        arrival=70800,
-                        departure=70800,
+                        times=base.DayRange(
+                            arrival=base.DayTime(time=70800),
+                            departure=base.DayTime(time=70800),
+                        ),
                     ),
                 ),
             ),

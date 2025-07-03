@@ -795,8 +795,6 @@ class GTFS:
       RowError: error parsing this record
     """
     # get data, check if empty
-    arrival: int = base.HMSToSeconds(row['arrival_time'])
-    departure: int = base.HMSToSeconds(row['departure_time'])
     pickup: dm.StopPointType = (
         _STOP_POINT_TYPE_MAP[row['pickup_type']] if row['pickup_type'] else
         dm.StopPointType.REGULAR)
@@ -807,8 +805,6 @@ class GTFS:
       dropoff = dm.StopPointType(row['dropoff_type'])   # old spelling
     else:
       dropoff = dm.StopPointType.REGULAR
-    if arrival < 0 or departure < 0 or arrival > departure:
-      raise RowError(f'invalid row @{count} / {location}: {row}')
     if row['stop_id'] not in self._db.stops:
       raise RowError(f'stop_id in row was not found @{count} / {location}: {row}')
     agency, route, trip = self.FindTrip(row['trip_id'])
@@ -818,7 +814,11 @@ class GTFS:
     self._db.agencies[agency.id].routes[route.id].trips[row['trip_id']].stops[row['stop_sequence']] = dm.Stop(
         id=row['trip_id'], seq=row['stop_sequence'], stop=row['stop_id'],
         agency=agency.id, route=route.id,
-        scheduled=dm.ScheduleStop(arrival=arrival, departure=departure, timepoint=row['timepoint']),
+        scheduled=dm.ScheduleStop(
+            times=base.DayRange(
+                arrival=base.DayTime.FromHMS(row['arrival_time']),
+                departure=base.DayTime.FromHMS(row['departure_time'])),
+            timepoint=row['timepoint']),
         headsign=row['stop_headsign'], pickup=pickup, dropoff=dropoff)
 
   ##################################################################################################
@@ -1036,8 +1036,10 @@ class GTFS:
           f'{base.BOLD}{base.CYAN}{seq}{base.NULL}',
           f'{base.BOLD}{stop.stop}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{stop_name if stop_name else base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{base.SecondsToHMS(stop.scheduled.arrival)}{base.NULL}',
-          f'{base.BOLD}{base.SecondsToHMS(stop.scheduled.departure)}{base.NULL}',
+          f'{base.BOLD}{stop.scheduled.times.arrival.ToHMS()
+                        if stop.scheduled.times.arrival else base.NULL_TEXT}{base.NULL}',
+          f'{base.BOLD}{stop.scheduled.times.departure.ToHMS()
+                        if stop.scheduled.times.departure else base.NULL_TEXT}{base.NULL}',
           f'{base.BOLD}{stop_code}{base.NULL}',
           f'{base.BOLD}{stop_description if stop_description else base.NULL_TEXT}{base.NULL}',
       ])

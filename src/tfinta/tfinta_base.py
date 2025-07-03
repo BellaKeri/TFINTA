@@ -9,7 +9,7 @@ import dataclasses
 import datetime
 import functools
 # import pdb
-from typing import Any, Callable
+from typing import Any, Callable, Self
 
 from balparda_baselib import base
 
@@ -77,34 +77,77 @@ class Error(Exception):
   """TFINTA exception."""
 
 
-def HMSToSeconds(time_str: str, /) -> int:
-  """Accepts 'H:MM:SS' or 'HH:MM:SS' and returns total seconds since 00:00:00.
+@functools.total_ordering
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class DayTime:
+  """A time during some arbitrary day, measured in int seconds since midnight."""
+  time: int
 
-  Supports hours ≥ 0 with no upper bound. Very flexible, will even accept 'H:M:S' for example.
+  def __post_init__(self) -> None:
+    if self.time < 0:
+      raise Error(f'invalid time: {self}')
 
-  Args:
-    time_str: String to convert ('H:MM:SS' or 'HH:MM:SS')
+  def __lt__(self, other: Any) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__)."""
+    if not isinstance(other, DayTime):
+      raise TypeError(f'invalid DayTime type comparison {self!r} versus {other!r}')
+    return self.time < other.time
 
-  Raises:
-    ValueError: malformed input
-  """
-  try:
-    h_str, m_str, s_str = time_str.split(':')
-  except ValueError as err:
-    raise ValueError(f'bad time literal {time_str!r}') from err
-  h, m, s = int(h_str), int(m_str), int(s_str)
-  if not (0 <= m < 60 and 0 <= s < 60):
-    raise ValueError(f'bad time literal {time_str!r}: minute and second must be 0-59')
-  return h * 3600 + m * 60 + s
+  def ToHMS(self) -> str:
+    """Seconds from midnight to 'HH:MM:SS' representation. Supports any positive integer."""
+    self.__post_init__()
+    h, sec = divmod(self.time, 3600)
+    m, s = divmod(sec, 60)
+    return f'{h:02d}:{m:02d}:{s:02d}'
+
+  @classmethod
+  def FromHMS(cls, time_str: str, /) -> Self:
+    """Accepts 'H:MM:SS' or 'HH:MM:SS' and returns total seconds since 00:00:00.
+
+    Supports hours ≥ 0 with no upper bound. Very flexible, will even accept 'H:M:S' for example.
+
+    Args:
+      time_str: String to convert ('H:MM:SS' or 'HH:MM:SS')
+
+    Raises:
+      Error: malformed input
+    """
+    try:
+      h_str, m_str, s_str = time_str.split(':')
+      h, m, s = int(h_str), int(m_str), int(s_str)
+    except ValueError as err:
+      raise Error(f'bad time literal {time_str!r}') from err
+    if not (0 <= m < 60 and 0 <= s < 60):
+      raise Error(f'bad time literal {time_str!r}: minute and second must be 0-59')
+    return cls(time=h * 3600 + m * 60 + s)
 
 
-def SecondsToHMS(sec: int, /) -> str:
-  """Seconds from midnight to 'HH:MM:SS' representation. Supports any positive integer."""
-  if sec < 0:
-    raise ValueError(f'no negative time allowed, got {sec}')
-  h, sec = divmod(sec, 3600)
-  m, s = divmod(sec, 60)
-  return f'{h:02d}:{m:02d}:{s:02d}'
+@functools.total_ordering
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class DayRange:
+  """A time during some arbitrary day, measured in int seconds since midnight."""
+  arrival: DayTime | None
+  departure: DayTime | None
+  strict: bool = True     # if False won't check that arrival <= departure
+  nullable: bool = False  # if False won't allow None values
+
+  def __post_init__(self) -> None:
+    if not self.nullable and (self.arrival is None or self.departure is None):
+      raise Error(f'this DayRange is "not nullable": {self}')
+    if self.strict and self.arrival and self.departure and self.arrival.time > self.departure.time:
+      raise Error(f'this DayRange is "strict" and checks that arrival <= departure: {self}')
+
+  def __lt__(self, other: Any) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__)."""
+    if not isinstance(other, DayRange):
+      raise TypeError(f'invalid DayRange type comparison {self!r} versus {other!r}')
+    if self.departure and other.departure and self.departure != other.departure:
+      return self.departure.time < other.departure.time
+    if self.arrival and other.arrival and self.arrival != other.arrival:
+      return self.arrival.time < other.arrival.time
+    if (self.departure and not other.departure) or (self.arrival and not other.arrival):
+      return True
+    return False
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)

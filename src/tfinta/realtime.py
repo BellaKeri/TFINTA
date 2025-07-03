@@ -387,23 +387,6 @@ class RealtimeRail:
     day: datetime.date = base.DATE_OBJ_REALTIME(row['Traindate'])
     if day != datetime.date.today():
       raise Error(f'unexpected date {day}, not today @ station/{params!r}')
-    if row['Duein'] < 0:
-      raise Error(f'invalid row: {row!r} @ station/{params!r}')
-    origin_time: int = base.HMSToSeconds(row['Origintime'] + ':00')
-    destination_time: int = base.HMSToSeconds(row['Destinationtime'] + ':00')
-    scheduled_arrival: int | None = (None if row['Scharrival'] == '00:00' else
-                                     base.HMSToSeconds(row['Scharrival'] + ':00'))
-    scheduled_depart: int | None = (None if row['Schdepart'] == '00:00' else
-                                    base.HMSToSeconds(row['Schdepart'] + ':00'))
-    expected_arrival: int | None = (None if row['Exparrival'] == '00:00' else
-                                    base.HMSToSeconds(row['Exparrival'] + ':00'))
-    expected_depart: int | None = (None if row['Expdepart'] == '00:00' else
-                                   base.HMSToSeconds(row['Expdepart'] + ':00'))
-    if (origin_time > destination_time or  # pylint: disable=too-many-boolean-expressions
-        (not scheduled_arrival and not scheduled_depart) or
-        (not expected_arrival and not expected_depart) or
-        (scheduled_arrival and scheduled_depart and scheduled_arrival > scheduled_depart)):
-      raise Error(f'time shift row: {row!r} @ station/{params!r}')
     station_code: str = self.StationCodeFromNameFragmentOrCode(row['Stationcode'])
     if (self._latest.stations[station_code].description.lower() != row['Stationfullname'].lower() or
         station_code != params['station_code']):
@@ -413,7 +396,7 @@ class RealtimeRail:
     return dm.StationLine(
         query=dm.StationLineQueryData(
             tm_server=base.DATETIME_FROM_ISO(row['Servertime']),
-            tm_query=base.HMSToSeconds(row['Querytime']),
+            tm_query=base.DayTime.FromHMS(row['Querytime']),
             station_name=row['Stationfullname'],
             station_code=station_code,
             day=day,
@@ -421,20 +404,29 @@ class RealtimeRail:
         train_code=row['Traincode'].upper(),
         origin_code=self.StationCodeFromNameFragmentOrCode(row['Origin']),
         origin_name=row['Origin'],
-        origin_time=base.HMSToSeconds(row['Origintime'] + ':00'),
         destination_code=self.StationCodeFromNameFragmentOrCode(row['Destination']),
         destination_name=row['Destination'],
-        destination_time=base.HMSToSeconds(row['Destinationtime'] + ':00'),
+        trip=base.DayRange(
+            arrival=base.DayTime.FromHMS(row['Origintime'] + ':00'),  # note the inversion!
+            departure=base.DayTime.FromHMS(row['Destinationtime'] + ':00')),
         status=row['Status'],
         train_type=dm.TRAIN_TYPE_STR_MAP.get(row['Traintype'].upper(), dm.TrainType.UNKNOWN),
         last_location=row['Lastlocation'],
-        due_in=row['Duein'],
+        due_in=base.DayTime(time=row['Duein']),
         late=row['Late'],
         location_type=dm.LOCATION_TYPE_STR_MAP[row['Locationtype'].upper()],
-        scheduled_arrival=scheduled_arrival,
-        scheduled_depart=scheduled_depart,
-        expected_arrival=expected_arrival,
-        expected_depart=expected_depart,
+        scheduled=base.DayRange(
+            arrival=(None if row['Scharrival'] == '00:00' else
+                     base.DayTime.FromHMS(row['Scharrival'] + ':00')),
+            departure=(None if row['Schdepart'] == '00:00' else
+                       base.DayTime.FromHMS(row['Schdepart'] + ':00')),
+            nullable=True),
+        expected=base.DayRange(
+            arrival=(None if row['Exparrival'] == '00:00' else
+                     base.DayTime.FromHMS(row['Exparrival'] + ':00')),
+            departure=(None if row['Expdepart'] == '00:00' else
+                       base.DayTime.FromHMS(row['Expdepart'] + ':00')),
+            nullable=True, strict=False),
         direction=row['Direction'])
 
   def _HandleTrainStationXMLRow(
@@ -454,23 +446,6 @@ class RealtimeRail:
     day: datetime.date = base.DATE_OBJ_REALTIME(row['TrainDate'])
     if day != datetime.date.today() or day != params['day']:
       raise Error(f'unexpected date {day}, not today @ train/{params!r}')
-    arrival: int | None = (None if row['Arrival'] is None or row['Arrival'] == '00:00:00' else
-                           base.HMSToSeconds(row['Arrival']))
-    departure: int | None = (None if row['Departure'] is None or row['Departure'] == '00:00:00' else
-                             base.HMSToSeconds(row['Departure']))
-    scheduled_arrival: int | None = (None if row['ScheduledArrival'] == '00:00:00' else
-                                     base.HMSToSeconds(row['ScheduledArrival']))
-    scheduled_depart: int | None = (None if row['ScheduledDeparture'] == '00:00:00' else
-                                    base.HMSToSeconds(row['ScheduledDeparture']))
-    expected_arrival: int | None = (None if row['ExpectedArrival'] == '00:00:00' else
-                                    base.HMSToSeconds(row['ExpectedArrival']))
-    expected_depart: int | None = (None if row['ExpectedDeparture'] == '00:00:00' else
-                                   base.HMSToSeconds(row['ExpectedDeparture']))
-    if ((arrival and departure and arrival > departure) or  # pylint: disable=too-many-boolean-expressions
-        (not scheduled_arrival and not scheduled_depart) or
-        (not expected_arrival and not expected_depart) or
-        (scheduled_arrival and scheduled_depart and scheduled_arrival > scheduled_depart)):
-      raise Error(f'time shift row: {row!r} @ train/{params!r}')
     return dm.TrainStop(
         query=dm.TrainStopQueryData(
             train_code=row['TrainCode'],
@@ -484,12 +459,24 @@ class RealtimeRail:
         station_name=row['LocationFullName'],
         station_order=row['LocationOrder'],
         location_type=dm.LOCATION_TYPE_STR_MAP[row['LocationType'].upper()],
-        scheduled_arrival=scheduled_arrival,
-        scheduled_depart=scheduled_depart,
-        expected_arrival=expected_arrival,
-        expected_depart=expected_depart,
-        arrival=arrival,
-        departure=departure,
+        scheduled=base.DayRange(
+            arrival=(None if row['ScheduledArrival'] == '00:00:00' else
+                     base.DayTime.FromHMS(row['ScheduledArrival'])),
+            departure=(None if row['ScheduledDeparture'] == '00:00:00' else
+                       base.DayTime.FromHMS(row['ScheduledDeparture'])),
+            nullable=True),
+        expected=base.DayRange(
+            arrival=(None if row['ExpectedArrival'] == '00:00:00' else
+                     base.DayTime.FromHMS(row['ExpectedArrival'])),
+            departure=(None if row['ExpectedDeparture'] == '00:00:00' else
+                       base.DayTime.FromHMS(row['ExpectedDeparture'])),
+            nullable=True, strict=False),
+        actual=base.DayRange(
+            arrival=(None if row['Arrival'] is None or row['Arrival'] == '00:00:00' else
+                     base.DayTime.FromHMS(row['Arrival'])),
+            departure=(None if row['Departure'] is None or row['Departure'] == '00:00:00' else
+                       base.DayTime.FromHMS(row['Departure'])),
+            nullable=True),
         auto_arrival=False if row['AutoArrival'] is None else row['AutoArrival'],
         auto_depart=False if row['AutoDepart'] is None else row['AutoDepart'],
         stop_type=dm.STOP_TYPE_STR_MAP[row['StopType'].upper()])
@@ -589,19 +576,21 @@ class RealtimeRail:
            if line.train_type != dm.TrainType.UNKNOWN else ''),
           f'{base.BOLD}{line.origin_code}{base.NULL}\n'
           f'{base.BOLD}{base.LIMITED_TEXT(line.origin_name, 15)}{base.NULL}\n'
-          f'{base.BOLD}{base.SecondsToHMS(line.origin_time)}{base.NULL}',
+          f'{base.BOLD}{line.trip.arrival.ToHMS() if line.trip.arrival else
+                        base.NULL_TEXT}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{line.destination_code}{base.NULL}\n'
           f'{base.BOLD}{base.YELLOW}{base.LIMITED_TEXT(line.destination_name, 15)}{base.NULL}\n'
-          f'{base.BOLD}{base.SecondsToHMS(line.destination_time)}{base.NULL}',
-          f'{base.BOLD}{line.due_in:+}{base.NULL}',
-          f'{base.BOLD}{base.GREEN}{base.SecondsToHMS(line.scheduled_arrival)
-                                    if line.scheduled_arrival else base.NULL_TEXT}{base.NULL}' +
-          ('' if not line.expected_arrival or line.expected_arrival == line.scheduled_arrival else
-           f'\n{base.BOLD}{base.RED}{base.SecondsToHMS(line.expected_arrival)}{base.NULL}'),
-          f'{base.BOLD}{base.GREEN}{base.SecondsToHMS(line.scheduled_depart) if
-                                    line.scheduled_depart else base.NULL_TEXT}{base.NULL}' +
-          ('' if not line.expected_depart or line.expected_depart == line.scheduled_depart else
-           f'\n{base.BOLD}{base.RED}{base.SecondsToHMS(line.expected_depart)}{base.NULL}'),
+          f'{base.BOLD}{line.trip.departure.ToHMS() if line.trip.departure else
+                        base.NULL_TEXT}{base.NULL}',
+          f'{base.BOLD}{line.due_in.time:+}{base.NULL}',
+          f'{base.BOLD}{base.GREEN}{line.scheduled.arrival.ToHMS()
+                                    if line.scheduled.arrival else base.NULL_TEXT}{base.NULL}' +
+          ('' if not line.expected.arrival or line.expected.arrival == line.scheduled.arrival else
+           f'\n{base.BOLD}{base.RED}{line.expected.arrival.ToHMS()}{base.NULL}'),
+          f'{base.BOLD}{base.GREEN}{line.scheduled.departure.ToHMS() if
+                                    line.scheduled.departure else base.NULL_TEXT}{base.NULL}' +
+          ('' if not line.expected.departure or line.expected.departure == line.scheduled.departure else
+           f'\n{base.BOLD}{base.RED}{line.expected.departure.ToHMS()}{base.NULL}'),
           '\n' if not line.late else
           f'\n{base.BOLD}{base.RED if line.late > 0 else base.YELLOW}{line.late:+}{base.NULL}',
           f'\n{base.BOLD}{base.LIMITED_TEXT(line.status, 15) if line.status else
@@ -618,8 +607,6 @@ class RealtimeRail:
     train_code = train_code.upper()
     if train_code not in self._latest.trains or day not in self._latest.trains[train_code]:
       self.TrainDataCall(train_code, day)
-    # if self._latest.stations_tm is None or not self._latest.stations:
-    #   self.StationsCall()  # lazy load
     tm, query, train_stops = self._latest.trains[train_code][day]
     yield (f'{base.MAGENTA}Irish Rail Train {base.BOLD}{train_code}{base.NULL}{base.MAGENTA} @ '
            f'{base.BOLD}{base.STD_TIME_STRING(tm)}{base.NULL}')
@@ -647,20 +634,20 @@ class RealtimeRail:
           f'{base.BOLD}{base.YELLOW}{base.LIMITED_TEXT(stop.station_name, 15)
                                      if stop.station_name else '????'}{base.NULL}\n'
           f'{base.BOLD}{dm.LOCATION_TYPE_STR[stop.location_type]}{base.NULL}',
-          f'{base.BOLD}{base.GREEN}{base.SecondsToHMS(stop.scheduled_arrival)
-                                    if stop.scheduled_arrival else base.NULL_TEXT}{base.NULL}' +
-          ('' if not stop.expected_arrival or stop.expected_arrival == stop.scheduled_arrival else
-           f'\n{base.BOLD}{base.RED}{base.SecondsToHMS(stop.expected_arrival)}{base.NULL}') +
+          f'{base.BOLD}{base.GREEN}{stop.scheduled.arrival.ToHMS()
+                                    if stop.scheduled.arrival else base.NULL_TEXT}{base.NULL}' +
+          ('' if not stop.expected.arrival or stop.expected.arrival == stop.scheduled.arrival else
+           f'\n{base.BOLD}{base.RED}{stop.expected.arrival.ToHMS()}{base.NULL}') +
           (f'\n{base.BOLD}{dm.PRETTY_AUTO(True)}' if stop.auto_depart else ''),
-          f'{base.BOLD}{base.YELLOW}{base.SecondsToHMS(stop.arrival)
-                                     if stop.arrival else base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{base.GREEN}{base.SecondsToHMS(stop.scheduled_depart) if
-                                    stop.scheduled_depart else base.NULL_TEXT}{base.NULL}' +
-          ('' if not stop.expected_depart or stop.expected_depart == stop.scheduled_depart else
-           f'\n{base.BOLD}{base.RED}{base.SecondsToHMS(stop.expected_depart)}{base.NULL}') +
+          f'{base.BOLD}{base.YELLOW}{stop.actual.arrival.ToHMS()
+                                     if stop.actual.arrival else base.NULL_TEXT}{base.NULL}',
+          f'{base.BOLD}{base.GREEN}{stop.scheduled.departure.ToHMS() if
+                                    stop.scheduled.departure else base.NULL_TEXT}{base.NULL}' +
+          ('' if not stop.expected.departure or stop.expected.departure == stop.scheduled.departure else
+           f'\n{base.BOLD}{base.RED}{stop.expected.departure.ToHMS()}{base.NULL}') +
           (f'\n{base.BOLD}{dm.PRETTY_AUTO(True)}' if stop.auto_depart else ''),
-          f'{base.BOLD}{base.YELLOW}{base.SecondsToHMS(stop.departure)
-                                     if stop.departure else base.NULL_TEXT}{base.NULL}',
+          f'{base.BOLD}{base.YELLOW}{stop.actual.departure.ToHMS()
+                                     if stop.actual.departure else base.NULL_TEXT}{base.NULL}',
       ])
     table.hrules = prettytable.HRuleStyle.ALL
     yield from table.get_string().splitlines()  # type:ignore

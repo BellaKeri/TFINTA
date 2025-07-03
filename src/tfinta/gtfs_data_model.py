@@ -151,8 +151,7 @@ STOP_TYPE_STR: dict[StopPointType, str] = {
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class ScheduleStop:
   """A timetable entry, with arrival & departure. Sortable (by departure first then arrival)."""
-  arrival: int            # stop_times.txt/arrival_time - seconds from midnight, to represent 'HH:MM:SS'   (required)
-  departure: int          # stop_times.txt/departure_time - seconds from midnight, to represent 'HH:MM:SS' (required)
+  times: base.DayRange    # stop_times.txt/arrival_time+departure_time - seconds from midnight, to represent 'HH:MM:SS' (required)
   timepoint: bool = True  # stop_times.txt/timepoint (required) - False==Times are considered approximate; True==Times are considered exact
 
   def __lt__(self, other: Any) -> bool:
@@ -161,9 +160,7 @@ class ScheduleStop:
       raise TypeError(f'invalid ScheduleStop type comparison: {self!r} versus {other!r}')
     if self.timepoint != other.timepoint:
       raise TypeError(f'invalid mixed timepoint ScheduleStop comparison: {self!r} versus {other!r}')
-    if self.departure != other.departure:
-      return self.departure < other.departure
-    return self.arrival < other.arrival
+    return self.times < other.times
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
@@ -520,5 +517,7 @@ DART_DIRECTION: Callable[[Trip | Schedule], str] = (
     lambda t: f'{base.LIGHT_BLUE}S{base.NULL}' if t.direction else f'{base.LIGHT_RED}N{base.NULL}')
 
 NULL_STOP = Stop(
-    id='', seq=0, stop='', agency=0, route='', scheduled=ScheduleStop(arrival=0, departure=0),
+    id='', seq=0, stop='', agency=0, route='',
+    scheduled=ScheduleStop(times=base.DayRange(
+        arrival=base.DayTime(time=0), departure=base.DayTime(time=0))),
     pickup=StopPointType.NOT_AVAILABLE, dropoff=StopPointType.NOT_AVAILABLE)
