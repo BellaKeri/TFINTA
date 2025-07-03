@@ -16,7 +16,245 @@ Unless required by applicable law or agreed to in writing, software distributed 
 
 ## Overview
 
-TODO
+TFINTA (Transport for Ireland Data) is a small, batteries-included toolkit for working with publicly-available Irish public-transport datasets—right from your shell or from pure Python.
+
+| What you get | CLI entry-point | What it does |
+|:-------------|:---------------:|:-------------|
+| Static GTFS schedules for bus, rail, ferry, Luas… | `gtfs` | Download the national GTFS bundle, cache it, and let you inspect any table (agency, stops, routes, shapes, trips, calendars…). |
+| Irish Rail / DART schedules (their separate GTFS feed) | `dart` | Same idea, but focused on heavy-rail only—extra helpers for station boards and service calendars. |
+| Live train movements via the Irish Rail XML feed | `realtime` | Query the current running trains or a live arrivals/departures board for any station. |
+| Python API | `import tfinta` | Load the cached databases as Pandas DataFrames or iterate over strongly-typed dataclasses. |
+
+The authors and the library/tools art ***NOT*** affiliated with TFI or Irish Rail. The project simply republishes data that both agencies already expose for free. Always check the license/terms on the upstream feeds before redistributing.
+
+Why another transport library?
+
+* One-stop shop – static schedules and live positions under a single import.
+* Zero boilerplate – no need to remember URLs; the code bundles them.
+* Typed, test-covered, MIT-compatible – ideal for research, hobby dashboards or production back-ends.
+* Friendly CLI – perfect for quick shell exploration or cron-driven exports.
+
+Happy hacking & *fáilte chuig sonraí iompair na hÉireann!*
+
+## Use
+
+The TFINTA CLI (`gtfs`, `dart` and `realtime` commands) lets you download, cache, inspect, and pretty-print the official Transport for Ireland Rail and DART schedule dataset from your shell. It also allows you access to realtime data provided by the rail service.
+
+### Install
+
+To use in your project/terminal just do:
+
+```sh
+poetry add tfinta  # (or pip install tfinta)
+```
+
+(In code you will use as `from tfinta import dart` for example.)
+
+### Quick start
+
+```shell
+poetry add tfinta             # 1: Install the library
+poetry run gtfs read          # 2: Download latest GTFS feed (cached for 7 days)
+poetry run gtfs print basics  # 3: View some basics (files, agencies, routes)
+poetry run dart print stops   # 4: Show all DART stops
+poetry run dart print trips -d 20250701  # 5: Show all DART trips for 1st Jul 2025
+poetry run realtime print running        # 6: See the trains currently running on the network
+```
+
+### GTFS tool: `gtfs`
+
+All commands are executed through Poetry so your project’s virtual-env is used: `poetry run gtfs [-v] <command> [<sub-command>] [options]`
+
+* `-v` / `-vv` / `-vvv` / `-vvvv` Raise log level from `ERROR` → `WARN` → `INFO` → `DEBUG**`
+* `<command>` Either read (download/update data) or print (pretty-print parts of the DB)
+* `<sub-command>` Only required for `print` (see below)
+* options Command-specific flags (see full `-h` output below)
+
+Below is the exact `-h`/`--help` output so you can see every flag at a glance. Each block is produced with the same Poetry invocation you will use (`poetry run gtfs …`).
+
+```text
+usage: gtfs [-h] [-v] {read,print} ...
+
+positional arguments:
+  {read,print}
+    read         Read DB from official sources
+    print        Print DB
+
+options:
+  -h, --help     show this help message and exit
+  -v, --verbose  Increase verbosity (use -v, -vv, -vvv, -vvvv for ERR/WARN/INFO/DEBUG output)
+```
+
+#### `gtfs read` command
+
+Downloads / refreshes the GTFS zip, parses it and stores it locally. The data will live, by default, in `src/tfinta/.tfinta-data/transit.db`, the caching will share the `src/tfinta/.tfinta-data` directory.
+
+```text
+usage: gtfs read [-h] [-f FRESHNESS] [-u UNKNOWNFILE] [-i UNKNOWNFIELD] [-r REPLACE] [-o OVERRIDE]
+
+options:
+  -h, --help            show this help message and exit
+  -f FRESHNESS, --freshness FRESHNESS
+                        Number of days to cache; 0 == always load (default: 10)
+  -u UNKNOWNFILE, --unknownfile UNKNOWNFILE
+                        0 == disallows unknown files ; 1 == allows unknown files (default: 1)
+  -i UNKNOWNFIELD, --unknownfield UNKNOWNFIELD
+                        0 == disallows unknown fields ; 1 == allows unknown fields (default: 0)
+  -r REPLACE, --replace REPLACE
+                        0 == does not load the same version again ; 1 == forces replace version (default: 0)
+  -o OVERRIDE, --override OVERRIDE
+                        If given, this ZIP file path will override the download (default: empty)
+```
+
+Examples:
+
+```shell
+# Force-download the feed even if cached < 7 days
+poetry run gtfs read -f 0
+
+# Parse a local experimental feed instead of the official zip
+poetry run gtfs read -o /tmp/gtfs-test.zip
+
+# Replace an existing version even if it has the same feed_info.txt version
+poetry run gtfs read -s 1
+```
+
+#### `gtfs print` command
+
+Pretty-prints pieces of the cached database. Requires one sub-command that selects what to show.
+
+```text
+usage: gtfs print [-h] {basics,calendars,stops,shape,trip,all} ...
+
+positional arguments:
+  {basics,calendars,stops,shape,trip,all}
+    basics              Print Basic Data
+    calendars           Print Calendars/Services
+    stops               Print Stops
+    shape               Print Shape
+    trip                Print Trip
+    all                 Print All Data
+
+options:
+  -h, --help            show this help message and exit
+```
+
+Sub-commands & examples:
+
+| Sub-command | What it shows | Options | Example |
+|:------------|:--------------|:--------|:--------|
+| `basics` | Feed metadata (agency, version, date span, language…) |  | `poetry run gtfs print basics` |
+| `calendars` | Service calendars plus any exceptions |  | `poetry run gtfs print calendars` |
+| `stops` | Every stop with lat/lon and parent station |  | `poetry run gtfs print stops` |
+| `shape` | All points making up one shape trajectory | `-i ID, --id ID` Shape ID | `poetry run gtfs print shape -i 3453_66` |
+| `trip` | Stop-times, shape and calendar for one trip | `-i ID, --id ID` Trip ID` | `poetry run gtfs print trip -i 3475_2366` |
+| `all` | A concatenation of every printable section |  | `poetry run gtfs print all > everything.txt` |
+
+### DART tool: `dart`
+
+All commands are executed through Poetry so your project’s virtual-env is used: `poetry run dart [-v] <command> [<sub-command>] [options]` (same `-v` flag and command/sub-command structure as with `gtfs`).
+
+```text
+usage: dart [-h] [-v] {read,print} ...
+
+positional arguments:
+  {read,print}
+    read         Read DB from official sources
+    print        Print DB
+
+options:
+  -h, --help     show this help message and exit
+  -v, --verbose  Increase verbosity (use -v, -vv, -vvv, -vvvv for ERR/WARN/INFO/DEBUG output)
+```
+
+### `dart read` command
+
+Downloads or refreshes the Rail-&-DART GTFS zip, parses it and stores it locally. Basically a wrapper for `gtfs read`.
+
+```text
+usage: dart read [-h] [-f FRESHNESS] [-r REPLACE]
+
+options:
+  -h, --help            show this help message and exit
+  -f FRESHNESS, --freshness FRESHNESS
+                        Number of days to cache; 0 == always load (default: 10)
+  -r REPLACE, --replace REPLACE
+                        0 == does not load the same version again ; 1 == forces replace version (default: 0)
+```
+
+### `dart print` command
+
+Pretty-prints slices of the cached DART database. Requires one sub-command selecting what to display.
+
+```text
+usage: dart print [-h] {calendars,stops,trips,station,trip,all} ...
+
+positional arguments:
+  {calendars,stops,trips,station,trip,all}
+    calendars           Print Calendars/Services
+    stops               Print Stops
+    trips               Print Trips
+    station             Print Station Chart
+    trip                Print DART Trip
+    all                 Print All Data
+
+options:
+  -h, --help            show this help message and exit
+```
+
+Sub-commands & examples:
+
+| Sub-command | What it shows | Options | Example |
+|:------------|:--------------|:--------|:--------|
+| `calendars` | Every service calendar plus exceptions |  | `poetry run dart print calendars` |
+| `stops` | All DART stops with lat/lon & CRR code |  | `poetry run dart print stops` |
+| `trips` | All DART train services on a day | `-d DAY, --day DAY` day to consider in `YYYYMMDD` format (default: today) | `poetry run dart print trips -d 20250815` |
+| `station` | Arrivals/departures board for one station on a day | `-s STATION, --station STATION` station to print chart for; finds by ID (stops.txt/stop_id) or by name (stop_name)<br/>`-d DAY, --day DAY` day to consider in `YYYYMMDD` format (default: today) | `poetry run dart print station -s "Tara"` <!-- markdownlint-disable-line MD033 --> |
+| `trip` | Detailed stop-times & shape for a single train | -c CODE, --code CODE  DART train code, like "E108" for example | `poetry run dart print trip -c E108` |
+| `all` | Concatenation of every printable section |  | `poetry run dart print all > dart.txt` |
+
+### Realtime tool: `realtime`
+
+All commands are executed through Poetry so your project’s virtual-env is used: `poetry run dart [-v] <command> [<sub-command>] [options]` (same `-v` flag and command/sub-command structure as with `gtfs`).
+
+```text
+usage: realtime [-h] [-v] {print} ...
+
+positional arguments:
+  {print}
+    print        Print RPC Call
+
+options:
+  -h, --help     show this help message and exit
+  -v, --verbose  Increase verbosity (use -v, -vv, -vvv, -vvvv for ERR/WARN/INFO/DEBUG output)
+```
+
+### `realtime print` command
+
+Prints realtime data.
+
+```text
+usage: realtime print [-h] {stations,running,station,train} ...
+
+positional arguments:
+  {stations,running,station,train}
+    stations            Print All System Stations
+    running             Print Running Trains
+    station             Print Station Board
+    train               Print Train Movements
+
+options:
+  -h, --help            show this help message and exit
+```
+
+Sub-commands & examples:
+
+| Sub-command | What it shows | Options | Example |
+|:------------|:--------------|:--------|:--------|
+| `stations` | Every station with 5-letter code, lat/lon & county |  | `poetry run realtime print stations` |
+| `running` | All trains currently reporting movement, inc. origin/destination & delay |  | `poetry run realtime print running` |
+| `station` | Live board for one station on the current day (arrivals, departures, platform, delay) | `-c CODE, --code CODE` Either a 5-letter station code (ex: `LURGN`) or a search string that can be identified as a station (ex: `lurgan`) | `poetry run realtime print station -c tara` |
+| `train` | Full movement log for a single train: each stop’s schedule/expected/actual times | `-c CODE, --code CODE` Train code (ex: `E108`)<br/>`-d DAY, --day DAY` day to consider in `YYYYMMDD` format (default: today) | `poetry run realtime print train -c E108` <!-- markdownlint-disable-line MD033 --> |
 
 ## Data Sources
 
@@ -71,35 +309,7 @@ The [Official GTFS Schedules](https://data.gov.ie/dataset/operator-gtfs-schedule
 
 GTFS is [defined here](https://gtfs.org/documentation/schedule/reference/). It has 6 mandatory tables (files) and a number of optional ones. We will start by making a cached loader for this data into memory dicts that will be pickled to disk.
 
-## Use
-
-### Install
-
-To use in your project just do:
-
-```sh
-pip3 install tfinta
-```
-
-and then `from tfinta import base` for using it.
-
-### GTFS
-
-TODO: this needs quite some work.
-
-```sh
-poetry run gtfs read
-```
-
-### DART
-
-TODO: this needs quite some work.
-
-```sh
-poetry run dart print trip -i [id]
-```
-
-## Appendix: Development Instructions
+## Development Instructions
 
 ### Setup
 
