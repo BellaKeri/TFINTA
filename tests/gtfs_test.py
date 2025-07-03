@@ -8,6 +8,7 @@
 """gtfs.py unittest."""
 
 import datetime
+import os.path
 import pathlib
 # import pdb
 import sys
@@ -19,16 +20,23 @@ from src.tfinta import gtfs
 from src.tfinta import gtfs_data_model as dm
 
 from . import gtfs_data
+from . import util
 
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
+
+
+# mock test files
+_OPERATOR_CSV_PATH: str = os.path.join(util.DATA_DIR, 'GTFS Operator Files - 20250621.csv')
+# the zip directory has a very reduced version of the real data in 202506
+_ZIP_DIR_1: str = os.path.join(util.DATA_DIR, 'zip_1')
 
 
 @mock.patch('src.tfinta.gtfs.time.time', autospec=True)
 @mock.patch('src.tfinta.gtfs.urllib.request.urlopen', autospec=True)
 @mock.patch('src.tfinta.tfinta_base.BinSerialize', autospec=True)
 @mock.patch('src.tfinta.tfinta_base.BinDeSerialize', autospec=True)
-def test_GTFS_load_and_parse_from_net(
+def test_GTFS_load_and_parse_from_net(  # pylint: disable=too-many-locals,too-many-statements
     deserialize: mock.MagicMock,
     serialize: mock.MagicMock,
     urlopen: mock.MagicMock,
@@ -53,9 +61,9 @@ def test_GTFS_load_and_parse_from_net(
     exists.assert_called_once_with('db/path/transit.db')
   # load the GTFS data into database: do it BEFORE we mock open()!
   cache_file = mock.mock_open()
-  fake_csv = gtfs_data.FakeHTTPFile(gtfs_data.OPERATOR_CSV_PATH)
-  zip_bytes: bytes = gtfs_data.ZipDirBytes(pathlib.Path(gtfs_data.ZIP_DIR_1))
-  fake_zip = gtfs_data.FakeHTTPStream(zip_bytes)
+  fake_csv = util.FakeHTTPFile(_OPERATOR_CSV_PATH)
+  zip_bytes: bytes = gtfs_data.ZipDirBytes(pathlib.Path(_ZIP_DIR_1))
+  fake_zip = util.FakeHTTPStream(zip_bytes)
   with (mock.patch('src.tfinta.gtfs.os.path.exists', autospec=True) as exists,
         mock.patch('src.tfinta.gtfs.os.path.getmtime', autospec=True) as get_time,
         mock.patch('builtins.open', cache_file) as mock_open):
@@ -69,6 +77,9 @@ def test_GTFS_load_and_parse_from_net(
     mock_open.assert_called_once_with('db/path/https__www.transportforireland.ie_transitData_Data_GTFS_Irish_Rail.zip', 'wb')
     handle = cache_file()  # same mock returned by open()
     handle.write.assert_called_once_with(zip_bytes)
+    assert urlopen.call_args_list == [
+        mock.call('https://www.transportforireland.ie/transitData/Data/GTFS%20Operator%20Files.csv'),
+        mock.call('https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip')]
   # check calls
   deserialize.assert_not_called()
   assert serialize.call_args_list == [

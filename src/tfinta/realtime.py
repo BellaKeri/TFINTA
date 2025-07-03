@@ -9,13 +9,12 @@ See: https://api.irishrail.ie/realtime/
 """
 
 import argparse
-import collections
 import copy
 import datetime
 import functools
 import html
 import logging
-import pdb
+# import pdb
 import socket
 import sys
 import time
@@ -39,6 +38,7 @@ __version__: tuple[int, int] = (1, 4)  # v1.4 - 2025/06/28
 # globals
 _TFI_REALTIME_URL = 'https://api.irishrail.ie/realtime/realtime.asmx'
 _N_RETRIES = 3
+_DEFAULT_TIMEOUT = 10.0
 
 # cache sizes (in entries)
 _SMALL_CACHE = 1 << 10   # 1024
@@ -64,33 +64,33 @@ class RowError(ParseError):
 class RealtimeRail:
   """Irish Rail Realtime."""
 
-  RPC_CALLS: dict[str, Callable[..., str]] = {
+  _RPC_CALLS: dict[str, Callable[..., str]] = {
       'stations': lambda: f'{_TFI_REALTIME_URL}/getAllStationsXML',
       'running': lambda: f'{_TFI_REALTIME_URL}/getCurrentTrainsXML',
-      'station': lambda station: (  # type:ignore
-          f'{_TFI_REALTIME_URL}/getStationDataByCodeXML?StationCode={station.strip()}'),  # type:ignore
-      'train': lambda train, day: (  # type:ignore
-          f'{_TFI_REALTIME_URL}/getTrainMovementsXML?TrainId={train.strip()}'  # type:ignore
-          f'&TrainDate={day.strftime("%d%%20%b%%20%Y").lower()}'),             # type:ignore
+      'station': lambda station_code: (  # type:ignore
+          f'{_TFI_REALTIME_URL}/getStationDataByCodeXML?StationCode={station_code.strip()}'),  # type:ignore
+      'train': lambda train_code, day: (  # type:ignore
+          f'{_TFI_REALTIME_URL}/getTrainMovementsXML?TrainId={train_code.strip()}'  # type:ignore
+          f'&TrainDate={day.strftime("%d%%20%b%%20%Y").lower()}'),                  # type:ignore
   }
 
   def __init__(self) -> None:
     """Constructor."""
     self._latest = dm.LatestData(
-        stations=collections.OrderedDict(), running_trains=collections.OrderedDict(),
-        station_boards={}, trains={}, stations_tm=None, running_tm=None)
+        stations={}, running_trains={}, station_boards={}, trains={},
+        stations_tm=None, running_tm=None)
     # create file handlers structure
     self._file_handlers: dict[str, tuple[_RealtimeRowHandler, type, str, dict[  # type: ignore
         str, tuple[type, bool]], set[str]]] = {
         # {realtime_type: (handler, TypedDict_row_definition, xml_row_tag_name,
         #                  {field: (type, required?)}, {required1, required2, ...})}
-        'stations': (self._HandleStationXMLRow, dm.ExpectedStationXMLRowType,  # type: ignore
+        'stations': (self._HandleStationXMLRow, dm.ExpectedStationXMLRowType,           # type: ignore
                      'objStation', {}, set()),
         'running': (self._HandleRunningTrainXMLRow, dm.ExpectedRunningTrainXMLRowType,  # type: ignore
                     'objTrainPositions', {}, set()),
-        'station': (self._HandleStationLineXMLRow, dm.ExpectedStationLineXMLRowType,  # type: ignore
+        'station': (self._HandleStationLineXMLRow, dm.ExpectedStationLineXMLRowType,    # type: ignore
                     'objStationData', {}, set()),
-        'train': (self._HandleTrainStationXMLRow, dm.ExpectedTrainStopXMLRowType,  # type: ignore
+        'train': (self._HandleTrainStationXMLRow, dm.ExpectedTrainStopXMLRowType,       # type: ignore
                   'objTrainMovements', {}, set()),
     }
     # fill in types, derived from the _Expected*CSVRowType TypedDicts
@@ -110,6 +110,7 @@ class RealtimeRail:
           if field_type not in (str, int, float, bool):
             raise Error(f'incorrect type {rpc_name}/{field}: {field_args!r}')
           fields[field] = (field_type, False)
+    logging.info('Created realtime object')
 
   @functools.lru_cache(maxsize=_SMALL_CACHE)  # remember to update self._InvalidateCaches()
   def StationCodeFromNameFragmentOrCode(self, code: str, /) -> str:
@@ -141,7 +142,8 @@ class RealtimeRail:
     ):
       method.cache_clear()
 
-  def _LoadXMLFromURL(self, url: str, /, timeout: float = 10.0) -> xml.dom.minidom.Document:
+  def _LoadXMLFromURL(
+      self, url: str, /, timeout: float = _DEFAULT_TIMEOUT) -> xml.dom.minidom.Document:
     """Get URL data."""
     # get URL, do backoff and retries
     errors: list[str] = []
@@ -169,12 +171,12 @@ class RealtimeRail:
     # all retries exhausted
     raise Error(f'Too many retries ({_N_RETRIES}) loading {url!r}: {'; '.join(errors)}')
 
-  def _CallRPC(self, rpc_name: str, args: _PossibleRPCArgs, /) -> tuple[  # pylint: disable=too-many-locals
+  def _CallRPC(self, rpc_name: str, args: _PossibleRPCArgs, /) -> tuple[  # pylint: disable=too-many-locals,too-many-branches
       float, list[dm.RealtimeRPCData]]:
     """Call RPC and send rows to parsers."""
     # get fields definition and compute URL
     row_handler, _, row_xml_tag, row_types, row_required = self._file_handlers[rpc_name]
-    url: str = RealtimeRail.RPC_CALLS[rpc_name](**args)
+    url: str = RealtimeRail._RPC_CALLS[rpc_name](**args)
     # call external URL
     tm_now: float = time.time()
     xml_obj: xml.dom.minidom.Document = self._LoadXMLFromURL(url)
@@ -190,14 +192,12 @@ class RealtimeRail:
       for field_name, (field_type, field_required) in row_types.items():
         xml_data = list(xml_row.getElementsByTagName(field_name))
         if len(xml_data) != 1:
-          pdb.set_trace()
           raise ParseError(
               f'repeated elements: {rpc_name}/{args}/{row_count}/{field_name}: {xml_data}')
         child = xml_data[0].firstChild
         if child is None or (field_value := child.nodeValue) is None or not field_value.strip():  # type:ignore
           # field is empty
           if field_required:
-            pdb.set_trace()
             raise ParseError(
                 f'empty required field {rpc_name}/{args}/{row_count}/{field_name}: {xml_data}')
           row_data[field_name] = None
@@ -225,7 +225,6 @@ class RealtimeRail:
                 f'invalid field type {rpc_name}/{args}/{row_count}/{field_name}: {field_type!r}')
       # row is parsed, check required fields
       if (missing_fields := row_required - set(row_data)):
-        pdb.set_trace()
         raise ParseError(
             f'missing required fields {missing_fields}: {rpc_name}/{row_count}: {xml_data}')
       # call handler
@@ -244,7 +243,6 @@ class RealtimeRail:
       return []
     # we have new data
     sorted_stations: list[dm.Station] = sorted(stations)
-    self._latest.stations = collections.OrderedDict()
     for station in sorted_stations:
       self._latest.stations[station.code] = station  # insert in order
     self._latest.stations_tm = tm
@@ -259,59 +257,58 @@ class RealtimeRail:
       return []
     # we have new data
     sorted_running: list[dm.RunningTrain] = sorted(running)
-    self._latest.running_trains = collections.OrderedDict()
+    self._latest.running_trains = {}  # start from clean slate
     for train in sorted_running:
       self._latest.running_trains[train.code] = train  # insert in order
     self._latest.running_tm = tm
     return sorted_running  # no need for copy as we don't store this list
 
   def StationBoardCall(
-      self, code: str, /) -> tuple[dm.StationLineQueryData | None, list[dm.StationLine]]:
+      self, station_code: str, /) -> tuple[dm.StationLineQueryData | None, list[dm.StationLine]]:
     """Get a station board (all trains due to serve the named station in the next 90 minutes)."""
     # make call
-    code = code.strip().upper()
-    if not code:
+    station_code = station_code.strip().upper()
+    if not station_code:
       raise Error('empty station code')
     station_lines: list[dm.StationLine]
-    tm, station_lines = self._CallRPC('station', {'station': code})  # type: ignore
+    tm, station_lines = self._CallRPC('station', {'station_code': station_code})  # type: ignore
     if not station_lines:
       return (None, [])
     # we have new data
     sample_query: dm.StationLineQueryData = copy.deepcopy(station_lines[0].query)  # make a new copy
     for line in station_lines[1:]:
       if sample_query != line.query:
-        pdb.set_trace()
         raise Error(
-            f'field should match: {sample_query!r} versus {line.query!r} @ running/{code} {line}')
+            f'field should match: {sample_query!r} versus {line.query!r} '
+            f'@ running/{station_code} {line}')
     station_lines.sort()
-    self._latest.station_boards[code] = (tm, sample_query, station_lines)
+    self._latest.station_boards[station_code] = (tm, sample_query, station_lines)
     return (copy.deepcopy(sample_query), list(station_lines))  # make a new copy
 
-  def TrainDataCall(self, code: str, day: datetime.date, /) -> tuple[
+  def TrainDataCall(self, train_code: str, day: datetime.date, /) -> tuple[
       dm.TrainStopQueryData | None, list[dm.TrainStop]]:
     """Get train realtime."""
     # make call
-    code = code.strip().upper()
-    if not code:
+    train_code = train_code.strip().upper()
+    if not train_code:
       raise Error('empty train code')
     train_stops: list[dm.TrainStop]
-    tm, train_stops = self._CallRPC('train', {'train': code, 'day': day})  # type: ignore
+    tm, train_stops = self._CallRPC('train', {'train_code': train_code, 'day': day})  # type: ignore
     if not train_stops:
       return (None, [])
     # we have new data
     sample_query: dm.TrainStopQueryData = copy.deepcopy(train_stops[0].query)  # make a new copy
     for line in train_stops[1:]:
       if sample_query != line.query:
-        pdb.set_trace()
         raise Error(
-            f'field should match: {sample_query!r} versus {line.query!r} @ train/{code}/{day} {line}')
+            f'field should match: {sample_query!r} versus {line.query!r} '
+            f'@ train/{train_code}/{day} {line}')
     train_stops.sort()
-    self._latest.trains.setdefault(code, {})[day] = (
+    self._latest.trains.setdefault(train_code, {})[day] = (
         tm, sample_query, {s.station_order: s for s in train_stops})
-    if (stop_seqs := set(self._latest.trains[code][day][2])) != set(
-        range(1, len(self._latest.trains[code][day][2]) + 1)):
-      pdb.set_trace()
-      raise Error(f'missing stop #: {sorted(stop_seqs)!r} @ train/{code}/{day}')
+    if (stop_seqs := set(self._latest.trains[train_code][day][2])) != set(
+        range(1, len(self._latest.trains[train_code][day][2]) + 1)):
+      raise Error(f'missing stop #: {sorted(stop_seqs)!r} @ train/{train_code}/{day}')
     return (copy.deepcopy(sample_query), train_stops)  # no need for new train_stops
 
   ##################################################################################################
@@ -348,7 +345,8 @@ class RealtimeRail:
         id=row['StationId'],
         code=row['StationCode'].upper(),
         description=row['StationDesc'],
-        location=base.Point(latitude=row['StationLatitude'], longitude=row['StationLongitude']),
+        location=(None if row['StationLatitude'] == 0.0 and row['StationLongitude'] == 0.0 else
+                  base.Point(latitude=row['StationLatitude'], longitude=row['StationLongitude'])),
         alias=row['StationAlias'])
 
   def _HandleRunningTrainXMLRow(
@@ -369,7 +367,7 @@ class RealtimeRail:
       raise Error(f'unexpected date {day}, not today @ running/{params!r}')
     return dm.RunningTrain(
         code=row['TrainCode'].upper(),
-        is_running=row['TrainStatus'].upper() == 'R',
+        status=dm.TRAIN_STATUS_STR_MAP[row['TrainStatus'].upper()],
         day=day,
         direction=row['Direction'],
         position=(None if row['TrainLatitude'] == 0 and row['TrainLongitude'] == 0 else
@@ -407,11 +405,10 @@ class RealtimeRail:
         (not scheduled_arrival and not scheduled_depart) or
         (not expected_arrival and not expected_depart) or
         (scheduled_arrival and scheduled_depart and scheduled_arrival > scheduled_depart)):
-      pdb.set_trace()
       raise Error(f'time shift row: {row!r} @ station/{params!r}')
     station_code: str = self.StationCodeFromNameFragmentOrCode(row['Stationcode'])
     if (self._latest.stations[station_code].description.lower() != row['Stationfullname'].lower() or
-        station_code != params['station']):
+        station_code != params['station_code']):
       raise Error(
           f'station description mismatch: {self._latest.stations[station_code].description} '
           f'versus {row["Stationfullname"]} @ station/{params!r}')
@@ -454,7 +451,7 @@ class RealtimeRail:
     Raises:
       RowError: error parsing this record
     """
-    if row['LocationOrder'] < 1 or row['TrainCode'] != params['train']:
+    if row['LocationOrder'] < 1 or row['TrainCode'] != params['train_code']:
       raise Error(f'invalid row: {row!r} @ train/{params!r}')
     day: datetime.date = base.DATE_OBJ_REALTIME(row['TrainDate'])
     if day != datetime.date.today() or day != params['day']:
@@ -475,7 +472,6 @@ class RealtimeRail:
         (not scheduled_arrival and not scheduled_depart) or
         (not expected_arrival and not expected_depart) or
         (scheduled_arrival and scheduled_depart and scheduled_arrival > scheduled_depart)):
-      pdb.set_trace()
       raise Error(f'time shift row: {row!r} @ train/{params!r}')
     return dm.TrainStop(
         query=dm.TrainStopQueryData(
@@ -518,17 +514,17 @@ class RealtimeRail:
          f'{base.BOLD}{base.CYAN}Alias{base.NULL}',
          f'{base.BOLD}{base.CYAN}Location °{base.NULL}',
          f'{base.BOLD}{base.CYAN}Location{base.NULL}'])
-    for code, station in self._latest.stations.items():
-      lat, lon = station.location.ToDMS()
+    for station in sorted(self._latest.stations.values()):
+      lat, lon = (None, None) if station.location is None else station.location.ToDMS()
       table.add_row([
           f'{base.BOLD}{base.CYAN}{station.id}{base.NULL}',
-          f'{base.BOLD}{code}{base.NULL}',
+          f'{base.BOLD}{station.code}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{station.description}{base.NULL}',
           f'{base.BOLD}{station.alias if station.alias else base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{lat}{base.NULL}\n'
-          f'{base.BOLD}{base.YELLOW}{lon}{base.NULL}',
-          f'{base.BOLD}{station.location.latitude}{base.NULL}\n'
-          f'{base.BOLD}{station.location.longitude}{base.NULL}',
+          f'{base.BOLD}{base.YELLOW}{lat if lat else base.NULL_TEXT}{base.NULL}\n'
+          f'{base.BOLD}{base.YELLOW}{lon if lon else base.NULL_TEXT}{base.NULL}',
+          f'{base.BOLD}{station.location.latitude if station.location else base.NULL_TEXT}{base.NULL}\n'
+          f'{base.BOLD}{station.location.longitude if station.location else base.NULL_TEXT}{base.NULL}',
       ])
     table.hrules = prettytable.HRuleStyle.ALL
     yield from table.get_string().splitlines()  # type:ignore
@@ -541,18 +537,17 @@ class RealtimeRail:
         self._latest.running_tm)}{base.NULL}'  # type: ignore
     yield ''
     table = prettytable.PrettyTable(
-        [f'{base.BOLD}{base.CYAN}Run?{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Code{base.NULL}',
+        [f'{base.BOLD}{base.CYAN}Train{base.NULL}',
          f'{base.BOLD}{base.CYAN}Direction{base.NULL}',
          f'{base.BOLD}{base.CYAN}Location °{base.NULL}',
          f'{base.BOLD}{base.CYAN}Location{base.NULL}',
          f'{base.BOLD}{base.CYAN}Message{base.NULL}'])
-    for code, train in self._latest.running_trains.items():
+    for train in sorted(self._latest.running_trains.values()):
       lat, lon = train.position.ToDMS() if train.position is not None else (None, None)
       table.add_row([
-          f'{base.BOLD}{dm.PRETTY_RUNNING_STOPPED(train.is_running)}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{code}{base.NULL}',
-          f'{base.BOLD}{train.direction}{base.NULL}',
+          f'{base.BOLD}{base.CYAN}{train.code}{base.NULL}\n'
+          f'{base.BOLD}{dm.TRAIN_STATUS_STR[train.status]}{base.NULL}',
+          f'{base.BOLD}{base.LIMITED_TEXT(train.direction, 15)}{base.NULL}',
           f'{base.BOLD}{base.YELLOW if lat else ''}{lat if lat else base.NULL_TEXT}{base.NULL}\n'
           f'{base.BOLD}{base.YELLOW if lon else ''}{lon if lon else base.NULL_TEXT}{base.NULL}',
           f'{base.BOLD}{train.position.latitude if train.position else base.NULL_TEXT}{base.NULL}\n'
@@ -613,7 +608,7 @@ class RealtimeRail:
           f'\n{base.BOLD}{base.RED if line.late > 0 else base.YELLOW}{line.late:+}{base.NULL}',
           f'\n{base.BOLD}{base.LIMITED_TEXT(line.status, 15) if line.status else
                           base.NULL_TEXT}{base.NULL}',
-          f'\n{base.BOLD}{base.LIMITED_TEXT(line.last_location, 20) if line.last_location else
+          f'\n{base.BOLD}{base.LIMITED_TEXT(line.last_location, 15) if line.last_location else
                           base.NULL_TEXT}{base.NULL}',
       ])
     table.hrules = prettytable.HRuleStyle.ALL
@@ -676,7 +671,6 @@ class RealtimeRail:
 def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,too-many-locals
   """Main entry point."""
   # parse the input arguments, add subparser for `command`
-  # TODO: add some logging to class!
   parser: argparse.ArgumentParser = argparse.ArgumentParser()
   command_arg_subparsers = parser.add_subparsers(dest='command')
   # "print" command

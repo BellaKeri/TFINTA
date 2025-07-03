@@ -9,7 +9,6 @@
 See: https://api.irishrail.ie/realtime/
 """
 
-import collections
 import dataclasses
 import datetime
 import enum
@@ -45,7 +44,7 @@ class Station(RealtimeRPCData):
   id: int
   code: str         # 5-letter uppercase code (ex: 'LURGN')
   description: str  # name (ex: 'Lurgan')
-  location: base.Point
+  location: base.Point | None = None
   alias: str | None = None
 
   def __lt__(self, other: Any) -> bool:
@@ -65,12 +64,32 @@ class ExpectedStationXMLRowType(TypedDict):
   StationAlias: str | None
 
 
+class TrainStatus(enum.Enum):
+  """Train status."""
+  TERMINATED = 0
+  NOT_YET_RUNNING = 1
+  RUNNING = 2
+
+
+TRAIN_STATUS_STR_MAP: dict[str, TrainStatus] = {
+    'T': TrainStatus.TERMINATED,
+    'R': TrainStatus.RUNNING,
+    'N': TrainStatus.NOT_YET_RUNNING,
+}
+
+TRAIN_STATUS_STR: dict[TrainStatus, str] = {
+    TrainStatus.TERMINATED: f'{base.YELLOW}\u2717{base.NULL}',    # ✗
+    TrainStatus.NOT_YET_RUNNING: f'{base.RED}\u25A0{base.NULL}',  # ■
+    TrainStatus.RUNNING: f'{base.GREEN}\u25BA{base.NULL}'         # ►
+}
+
+
 @functools.total_ordering
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class RunningTrain(RealtimeRPCData):
   """Realtime: Running Train."""
   code: str
-  is_running: bool
+  status: TrainStatus
   day: datetime.date
   direction: str
   message: str
@@ -80,8 +99,8 @@ class RunningTrain(RealtimeRPCData):
     """Less than. Makes sortable (b/c base class already defines __eq__)."""
     if not isinstance(other, RunningTrain):
       raise TypeError(f'invalid RunningTrain type comparison {self!r} versus {other!r}')
-    if self.is_running != other.is_running:
-      return self.is_running > other.is_running  # note the reversal
+    if self.status != other.status:
+      return self.status.value > other.status.value  # note the reversal
     return self.code < other.code
 
 
@@ -302,17 +321,13 @@ class ExpectedTrainStopXMLRowType(TypedDict):
 class LatestData:
   """Realtime: latest fetched data."""
   stations_tm: float | None
-  stations: collections.OrderedDict[str, Station]  # {station_code: Station}
+  stations: dict[str, Station]                  # {station_code: Station}
   running_tm: float | None
-  running_trains: collections.OrderedDict[str, RunningTrain]  # {train_code: RunningTrain}
-  station_boards: dict[str, tuple[  # {station_code: (tm, query_data, list[lines])}
+  running_trains: dict[str, RunningTrain]       # {train_code: RunningTrain}
+  station_boards: dict[str, tuple[              # {station_code: (tm, query_data, list[lines])}
       float, StationLineQueryData, list[StationLine]]]
   trains: dict[str, dict[datetime.date, tuple[  # {train_code: {day: (tm, query, {seq: train_stop})}}
       float, TrainStopQueryData, dict[int, TrainStop]]]]
 
 
-# useful
-
-PRETTY_RUNNING_STOPPED: Callable[[bool], str] = (
-    lambda b: f'{base.GREEN}\u25BA{base.NULL}' if b else f'{base.RED}\u25A0{base.NULL}')  # ► / ■
 PRETTY_AUTO: Callable[[bool], str] = lambda b: f'{base.GREEN}\u2699{base.NULL}' if b else ''  # ⚙

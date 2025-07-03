@@ -327,7 +327,7 @@ class DART:
          for trip in trips])
     table.add_row(
         [f'{base.BOLD}{base.CYAN}Block{base.NULL}'] +
-        [(f'{base.BOLD}{base.LIMITED_TEXT(trip.block, 10)}{base.NULL}'
+        [(f'{base.BOLD}{base.LIMITED_TEXT(trip.block, 15)}{base.NULL}'
           if trip.block else base.NULL_TEXT) for trip in trips])
     table.add_row(
         [f'{base.BOLD}{base.CYAN}#{base.NULL}'] +
@@ -344,7 +344,7 @@ class DART:
         else:
           table_row.append(
               f'{base.BOLD}{base.YELLOW}'
-              f'{base.LIMITED_TEXT(self._gtfs.StopNameTranslator(stop.stop), 10)}{base.NULL}\n'
+              f'{base.LIMITED_TEXT(self._gtfs.StopNameTranslator(stop.stop), 15)}{base.NULL}\n'
               f'{base.BOLD}{base.SecondsToHMS(stop.scheduled.arrival)}'
               f'{dm.STOP_TYPE_STR[stop.dropoff]}{base.NULL}\n'
               f'{base.BOLD}{base.SecondsToHMS(stop.scheduled.departure)}'

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ArrayOfObjStation xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://api.irishrail.ie/realtime/">
+  <objStation>
+    <StationDesc>Malahide with extra looooooooooooooooooong name</StationDesc>
+    <StationAlias />
+    <StationLatitude>54.6123</StationLatitude>
+    <StationLongitude>-5.91744</StationLongitude>
+    <StationCode>MHIDE</StationCode>
+    <StationId>228</StationId>
+  </objStation>
+  <objStation>
+    <StationDesc>Bray</StationDesc>
+    <StationAlias />
+    <StationLatitude>51.8688</StationLatitude>
+    <StationLongitude>-8.32417</StationLongitude>
+    <StationCode>BRAY</StationCode>
+    <StationId>64</StationId>
+  </objStation>
+  <objStation>
+    <StationDesc>Cobh</StationDesc>
+    <StationAlias />
+    <StationLatitude>51.8491</StationLatitude>
+    <StationLongitude>-8.29956</StationLongitude>
+    <StationCode>COBH </StationCode>
+    <StationId>66</StationId>
+  </objStation>
+  <objStation>
+    <StationDesc>CITY JUNCTION</StationDesc>
+    <StationAlias>Dublin Belfast</StationAlias>
+    <StationLatitude>0</StationLatitude>
+    <StationLongitude>0</StationLongitude>
+    <StationCode>CITYJ</StationCode>
+    <StationId>1516</StationId>
+  </objStation>
+  <objStation>
+    <StationDesc>CENTRAL JUNCTION</StationDesc>
+    <StationAlias>Dublin Connolly</StationAlias>
+    <StationLatitude>0</StationLatitude>
+    <StationLongitude>0</StationLongitude>
+    <StationCode>CENTJ</StationCode>
+    <StationId>1517</StationId>
+  </objStation>
+  <objStation>
+    <StationDesc>MOIRA</StationDesc>
+    <StationAlias>Dublin Belfast</StationAlias>
+    <StationLatitude>0</StationLatitude>
+    <StationLongitude>0</StationLongitude>
+    <StationCode>MOIRA</StationCode>
+    <StationId>1519</StationId>
+  </objStation>
+</ArrayOfObjStation>

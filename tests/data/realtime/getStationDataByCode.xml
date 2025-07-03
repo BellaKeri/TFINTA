@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ArrayOfObjStationData xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://api.irishrail.ie/realtime/">
+  <objStationData>
+    <Servertime>2025-06-29T09:14:27.863</Servertime>
+    <Traincode>E802 </Traincode>
+    <Stationfullname>Malahide with extra looooooooooooooooooong name</Stationfullname>
+    <Stationcode>MHIDE</Stationcode>
+    <Querytime>09:14:27</Querytime>
+    <Traindate>29 Jun 2025</Traindate>
+    <Origin>Bray</Origin>
+    <Destination>Malahide</Destination>
+    <Origintime>08:51</Origintime>
+    <Destinationtime>10:06</Destinationtime>
+    <Status>En Route</Status>
+    <Lastlocation>Arrived Salthill and Monkstown</Lastlocation>
+    <Duein>52</Duein>
+    <Late>1</Late>
+    <Exparrival>10:07</Exparrival>
+    <Expdepart>00:00</Expdepart>
+    <Scharrival>10:06</Scharrival>
+    <Schdepart>00:00</Schdepart>
+    <Direction>Northbound</Direction>
+    <Traintype>DART10</Traintype>
+    <Locationtype>D</Locationtype>
+  </objStationData>
+  <objStationData>
+    <Servertime>2025-06-29T09:14:27.863</Servertime>
+    <Traincode>D802 </Traincode>
+    <Stationfullname>Malahide with extra looooooooooooooooooong name   </Stationfullname>
+    <Stationcode>MHIDE</Stationcode>
+    <Querytime>09:14:27</Querytime>
+    <Traindate>29 Jun 2025</Traindate>
+    <Origin>Dublin Connolly</Origin>
+    <Destination>Bray</Destination>
+    <Origintime>10:10</Origintime>
+    <Destinationtime>11:15</Destinationtime>
+    <Status>No Information</Status>
+    <Lastlocation />
+    <Duein>81</Duein>
+    <Late>-1</Late>
+    <Exparrival>10:35</Exparrival>
+    <Expdepart>10:39</Expdepart>
+    <Scharrival>10:35</Scharrival>
+    <Schdepart>10:38</Schdepart>
+    <Direction>Northbound</Direction>
+    <Traintype>DMU</Traintype>
+    <Locationtype>S</Locationtype>
+  </objStationData>
+  <objStationData>
+    <Servertime>2025-06-29T09:14:27.863</Servertime>
+    <Traincode>P702 </Traincode>
+    <Stationfullname>Malahide with extra looooooooooooooooooong name</Stationfullname>
+    <Stationcode>MHIDE</Stationcode>
+    <Querytime>09:14:27</Querytime>
+    <Traindate>29 Jun 2025</Traindate>
+    <Origin>Bray</Origin>
+    <Destination>Dublin Connolly</Destination>
+    <Origintime>08:45</Origintime>
+    <Destinationtime>09:45</Destinationtime>
+    <Status>En Route</Status>
+    <Lastlocation>Arrived Rush and Lusk</Lastlocation>
+    <Duein>9</Duein>
+    <Late>5</Late>
+    <Exparrival>09:22</Exparrival>
+    <Expdepart>09:27</Expdepart>
+    <Scharrival>09:22</Scharrival>
+    <Schdepart>09:23</Schdepart>
+    <Direction>Southbound</Direction>
+    <Traintype>DMU</Traintype>
+    <Locationtype>S</Locationtype>
+  </objStationData>
+  <objStationData>
+    <Servertime>2025-06-29T09:14:27.863</Servertime>
+    <Traincode>E205 </Traincode>
+    <Stationfullname>Malahide with extra looooooooooooooooooong name</Stationfullname>
+    <Stationcode>MHIDE</Stationcode>
+    <Querytime>09:14:27</Querytime>
+    <Traindate>29 Jun 2025</Traindate>
+    <Origin>Malahide</Origin>
+    <Destination>Bray</Destination>
+    <Origintime>10:24</Origintime>
+    <Destinationtime>11:39</Destinationtime>
+    <Status>No Information</Status>
+    <Lastlocation />
+    <Duein>70</Duein>
+    <Late>0</Late>
+    <Exparrival>00:00</Exparrival>
+    <Expdepart>10:24</Expdepart>
+    <Scharrival>00:00</Scharrival>
+    <Schdepart>10:24</Schdepart>
+    <Direction>Southbound</Direction>
+    <Traintype>DART10</Traintype>
+    <Locationtype>O</Locationtype>
+  </objStationData>
+</ArrayOfObjStationData>

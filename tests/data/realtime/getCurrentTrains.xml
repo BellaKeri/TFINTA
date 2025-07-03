@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ArrayOfObjTrainPositions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://api.irishrail.ie/realtime/">
+  <objTrainPositions>
+    <TrainStatus>N</TrainStatus>
+    <TrainLatitude>53.3464</TrainLatitude>
+    <TrainLongitude>-6.29461</TrainLongitude>
+    <TrainCode>A218</TrainCode>
+    <TrainDate>29 Jun 2025</TrainDate>
+    <PublicMessage>A218\nDublin Heuston to Cork\nExpected Departure 15:00</PublicMessage>
+    <Direction>To Cork</Direction>
+  </objTrainPositions>
+  <objTrainPositions>
+    <TrainStatus>N</TrainStatus>
+    <TrainLatitude>53.3531</TrainLatitude>
+    <TrainLongitude>-6.24591</TrainLongitude>
+    <TrainCode>A908</TrainCode>
+    <TrainDate>29 Jun 2025</TrainDate>
+    <PublicMessage>A908\nDublin Connolly to Sligo\nExpected Departure 15:05</PublicMessage>
+    <Direction>Northbound</Direction>
+  </objTrainPositions>
+  <objTrainPositions>
+    <TrainStatus>N</TrainStatus>
+    <TrainLatitude>53.4509</TrainLatitude>
+    <TrainLongitude>-6.15649</TrainLongitude>
+    <TrainCode>E218</TrainCode>
+    <TrainDate>29 Jun 2025</TrainDate>
+    <PublicMessage>E218\nMalahide to Bray\nExpected Departure 15:04</PublicMessage>
+    <Direction>Southbound</Direction>
+  </objTrainPositions>
+  <objTrainPositions>
+    <TrainStatus>R</TrainStatus>
+    <TrainLatitude>0</TrainLatitude>
+    <TrainLongitude>0</TrainLongitude>
+    <TrainCode>A407</TrainCode>
+    <TrainDate>29 Jun 2025</TrainDate>
+    <PublicMessage>A407\n14:20 - Limerick to Dublin Heuston (-1 mins late)\nDeparted LJ461 next stop Thurles</PublicMessage>
+    <Direction>To Dublin Heuston</Direction>
+  </objTrainPositions>
+  <objTrainPositions>
+    <TrainStatus>R</TrainStatus>
+    <TrainLatitude>54.0007</TrainLatitude>
+    <TrainLongitude>-6.41291</TrainLongitude>
+    <TrainCode>A152</TrainCode>
+    <TrainDate>29 Jun 2025</TrainDate>
+    <PublicMessage>A152\n13:50 - Dublin Connolly to Belfast (5 mins late)\nArrived Dundalk next stop Newry</PublicMessage>
+    <Direction>Northbound</Direction>
+  </objTrainPositions>
+  <objTrainPositions>
+    <TrainStatus>T</TrainStatus>
+    <TrainLatitude>53.3531</TrainLatitude>
+    <TrainLongitude>-6.24591</TrainLongitude>
+    <TrainCode>B957</TrainCode>
+    <TrainDate>29 Jun 2025</TrainDate>
+    <PublicMessage>B957\n13:55 - Maynooth to Dublin Connolly(13 mins late)\nTERMINATED Dublin Connolly at 14:51</PublicMessage>
+    <Direction>Southbound</Direction>
+  </objTrainPositions>
+  <objTrainPositions>
+    <TrainStatus>T</TrainStatus>
+    <TrainLatitude>53.3831</TrainLatitude>
+    <TrainLongitude>-6.4242</TrainLongitude>
+    <TrainCode>P375</TrainCode>
+    <TrainDate>29 Jun 2025</TrainDate>
+    <PublicMessage>P375\n14:40 - M3 Parkway to Clonsilla(0 mins late)\nTERMINATED Clonsilla at 14:49</PublicMessage>
+    <Direction>Southbound</Direction>
+  </objTrainPositions>
+</ArrayOfObjTrainPositions>
