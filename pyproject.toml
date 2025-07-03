@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tfinta"
-version = "1.4"
+version = "1.5"
 description = "TFI/NTA database and utilities"
 readme = "README.md"
 license = "Apache-2.0"

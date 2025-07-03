@@ -13,7 +13,7 @@ import dataclasses
 import sys
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 3)  # v1.3 - 2025/06/27
+__version__: tuple[int, int] = (1, 5)  # v1.5 - 2025/07/03
 
 
 ALL_RUNNING_TRAINS_URL = 'http://api.irishrail.ie/realtime/realtime.asmx/getCurrentTrainsXML'

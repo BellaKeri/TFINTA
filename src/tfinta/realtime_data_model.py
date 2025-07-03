@@ -19,7 +19,7 @@ from typing import Any, Callable, TypedDict
 from . import tfinta_base as base
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 4)  # v1.4 - 2025/06/28
+__version__: tuple[int, int] = (1, 5)  # v1.5 - 2025/07/03
 
 
 ####################################################################################################
