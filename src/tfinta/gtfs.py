@@ -930,6 +930,7 @@ class GTFS:
       ])
     if not has_data:
       raise Error('No calendar data found')
+    table.hrules = prettytable.HRuleStyle.ALL
     yield from table.get_string().splitlines()  # type:ignore
 
   def PrettyPrintStops(
@@ -973,6 +974,7 @@ class GTFS:
       ])
     if not has_data:
       raise Error('No stop data found')
+    table.hrules = prettytable.HRuleStyle.ALL
     yield from table.get_string().splitlines()  # type:ignore
 
   def PrettyPrintShape(self, /, *, shape_id: str) -> Generator[str, None, None]:
@@ -985,18 +987,20 @@ class GTFS:
     table = prettytable.PrettyTable(
         [f'{base.BOLD}{base.CYAN}#{base.NULL}',
          f'{base.BOLD}{base.CYAN}Distance{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Location °{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Location{base.NULL}'])
+         f'{base.BOLD}{base.CYAN}Latitude °{base.NULL}',
+         f'{base.BOLD}{base.CYAN}Longitude °{base.NULL}',
+         f'{base.BOLD}{base.CYAN}Latitude{base.NULL}',
+         f'{base.BOLD}{base.CYAN}Longitude{base.NULL}'])
     for seq in range(1, len(shape.points) + 1):
       point: dm.ShapePoint = shape.points[seq]
       lat, lon = point.point.ToDMS()
       table.add_row([
           f'{base.BOLD}{base.CYAN}{seq}{base.NULL}',
-          f'{base.BOLD}{point.distance}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{lat}{base.NULL}\n'
+          f'{base.BOLD}{point.distance:0.2f}{base.NULL}',
+          f'{base.BOLD}{base.YELLOW}{lat}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{lon}{base.NULL}',
-          f'{base.BOLD}{point.point.latitude}{base.NULL}\n'
-          f'{base.BOLD}{point.point.longitude}{base.NULL}',
+          f'{base.BOLD}{point.point.latitude:0.7f}{base.NULL}',
+          f'{base.BOLD}{point.point.longitude:0.7f}{base.NULL}',
       ])
     yield from table.get_string().splitlines()  # type:ignore
 

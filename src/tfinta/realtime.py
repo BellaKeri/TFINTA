@@ -620,12 +620,15 @@ class RealtimeRail:
     table = prettytable.PrettyTable(
         [f'{base.BOLD}{base.CYAN}#{base.NULL}',
          f'{base.BOLD}{base.CYAN}Stop{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Arrival (Expect.){base.NULL}',
-         f'{base.BOLD}{base.CYAN}Arrival (Actual){base.NULL}',
-         f'{base.BOLD}{base.CYAN}Depart. (Expect.){base.NULL}',
-         f'{base.BOLD}{base.CYAN}Depart. (Actual){base.NULL}'])
+         f'{base.BOLD}{base.CYAN}Arr.(Expect){base.NULL}',
+         f'{base.BOLD}{base.CYAN}A.(Actual){base.NULL}',
+         f'{base.BOLD}{base.CYAN}Depart.(Expect){base.NULL}',
+         f'{base.BOLD}{base.CYAN}D.(Actual){base.NULL}',
+         f'{base.BOLD}{base.CYAN}Late(Min){base.NULL}'])
     for seq in range(1, len(train_stops) + 1):
       stop: dm.TrainStop = train_stops[seq]
+      late: int | None = (None if stop.actual.arrival is None or stop.scheduled.arrival is None else
+                          stop.actual.arrival.time - stop.scheduled.arrival.time)
       table.add_row([
           f'{base.BOLD}{base.CYAN}{seq}{base.NULL}{
               "" if stop.stop_type == dm.StopType.UNKNOWN else
@@ -648,6 +651,7 @@ class RealtimeRail:
           (f'\n{base.BOLD}{dm.PRETTY_AUTO(True)}' if stop.auto_depart else ''),
           f'{base.BOLD}{base.YELLOW}{stop.actual.departure.ToHMS()
                                      if stop.actual.departure else base.NULL_TEXT}{base.NULL}',
+          f'{base.BOLD}{base.NULL_TEXT if late is None else (f"{base.RED}{late / 60.0:+0.2f}" if late > 0 else f"{base.GREEN}{late / 60.0:+0.2f}")}{base.NULL}',
       ])
     table.hrules = prettytable.HRuleStyle.ALL
     yield from table.get_string().splitlines()  # type:ignore

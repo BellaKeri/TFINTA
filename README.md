@@ -31,7 +31,7 @@ Why another transport library?
 
 * One-stop shop – static schedules and live positions under a single import.
 * Zero boilerplate – no need to remember URLs; the code bundles them.
-* Typed, test-covered, MIT-compatible – ideal for research, hobby dashboards or production back-ends.
+* Typed, 90%+ test-covered, MIT-compatible – ideal for research, hobby dashboards or production back-ends.
 * Friendly CLI – perfect for quick shell exploration or cron-driven exports.
 
 Happy hacking & *fáilte chuig sonraí iompair na hÉireann!*
@@ -146,8 +146,8 @@ Sub-commands & examples:
 | `basics` | Feed metadata (agency, version, date span, language…) |  | `poetry run gtfs print basics` |
 | `calendars` | Service calendars plus any exceptions |  | `poetry run gtfs print calendars` |
 | `stops` | Every stop with lat/lon and parent station |  | `poetry run gtfs print stops` |
-| `shape` | All points making up one shape trajectory | `-i ID, --id ID` Shape ID | `poetry run gtfs print shape -i 3453_66` |
-| `trip` | Stop-times, shape and calendar for one trip | `-i ID, --id ID` Trip ID` | `poetry run gtfs print trip -i 3475_2366` |
+| `shape` | All points making up one shape trajectory | `-i ID, --id ID` Shape ID | `poetry run gtfs print shape -i 4452_42` |
+| `trip` | Stop-times, shape and calendar for one trip | `-i ID, --id ID` Trip ID` | `poetry run gtfs print trip -i 4452_210` |
 | `all` | A concatenation of every printable section |  | `poetry run gtfs print all > everything.txt` |
 
 ### DART tool: `dart`
