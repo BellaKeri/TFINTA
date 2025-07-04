@@ -3,7 +3,7 @@
 # Copyright 2025 BellaKeri (BellaKeri@github.com) & Daniel Balparda (balparda@github.com)
 # Apache-2.0 license
 #
-"""Stations loader."""
+"""Stations loader. DO NOT USE - OLD CODE."""
 
 import dataclasses
 # import logging
@@ -13,7 +13,7 @@ import urllib.request
 import xml.dom.minidom
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 5)  # v1.5 - 2025/07/03
+__version__: tuple[int, int] = (1, 6)  # v1.6 - 2025/07/04
 
 # The TfI URLs:
 ALL_STATIONS_URL = 'http://api.irishrail.ie/realtime/realtime.asmx/getAllStationsXML'

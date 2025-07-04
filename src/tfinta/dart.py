@@ -21,7 +21,7 @@ from . import gtfs_data_model as dm
 from . import gtfs
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 5)  # v1.5 - 2025/07/03
+__version__: tuple[int, int] = (1, 6)  # v1.6 - 2025/07/04
 
 
 # defaults
@@ -186,16 +186,16 @@ class DART:
          f'{base.RED}[\u2605Alt.Times]{base.NULL}'])  # ★
     for schedule, name, trips_in_train in self.WalkTrains(filter_services=day_services):
       trip_codes: str = ', '.join(
-          f'{s}/{t.id}{"" if sc == schedule else f"/{base.RED}[\u2605]{base.NULL}{base.BOLD}"}'
+          f'{s}/{t.id}{"" if sc == schedule else f"/{base.RED}[★]{base.NULL}{base.BOLD}"}'
           for s, sc, t in trips_in_train)
       table.add_row([  # type: ignore
           f'{base.BOLD}{dm.DART_DIRECTION(schedule)}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{name}{base.NULL}',
           f'{base.BOLD}{schedule.stops[0].name}{base.NULL}',
           f'{base.BOLD}{schedule.stops[-1].name}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{
-              schedule.times[0].times.departure.ToHMS()
-              if schedule.times[0].times.departure else base.NULL_TEXT}{base.NULL}',
+          f'{base.BOLD}{base.YELLOW}'
+          f'{schedule.times[0].times.departure.ToHMS() if schedule.times[0].times.departure else base.NULL_TEXT}'
+          f'{base.NULL}',
           f'{base.BOLD}{trip_codes}{base.NULL}',
       ])
     yield from table.get_string().splitlines()  # type:ignore
@@ -236,16 +236,16 @@ class DART:
         # make sure both arrival and departures are strictly moving forward
         raise Error(f'time moved backwards in schedule @ {dest} / {tm}')
       trip_codes: str = ', '.join(
-          f'{s}/{t.id}{"" if sc == schedule else f"/{base.RED}[\u2605]{base.NULL}{base.BOLD}"}'
+          f'{s}/{t.id}{"" if sc == schedule else f"/{base.RED}[★]{base.NULL}{base.BOLD}"}'
           for s, sc, t in sorted(trips_in_train))
       table.add_row([  # type: ignore
           f'{base.BOLD}{dm.DART_DIRECTION(trips_in_train[0][2])}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{name}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{schedule.stops[-1].name}{base.NULL}',
-          f'{base.BOLD}{tm.times.arrival.ToHMS()
-                        if tm.times.arrival else base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{tm.times.departure.ToHMS()
-                                     if tm.times.departure else base.NULL_TEXT}{base.NULL}',
+          f'{base.BOLD}'
+          f'{tm.times.arrival.ToHMS() if tm.times.arrival else base.NULL_TEXT}{base.NULL}',
+          f'{base.BOLD}{base.YELLOW}'
+          f'{tm.times.departure.ToHMS() if tm.times.departure else base.NULL_TEXT}{base.NULL}',
           f'{base.BOLD}{trip_codes}{base.NULL}',
       ])
       last_arrival = tm.times.arrival.time if tm.times.arrival else 0
@@ -351,11 +351,11 @@ class DART:
           table_row.append(
               f'{base.BOLD}{base.YELLOW}'
               f'{base.LIMITED_TEXT(self._gtfs.StopNameTranslator(stop.stop), 10)}{base.NULL}\n'
-              f'{base.BOLD}{stop.scheduled.times.arrival.ToHMS()
-                            if stop.scheduled.times.arrival else base.NULL_TEXT}'
+              f'{base.BOLD}'
+              f'{stop.scheduled.times.arrival.ToHMS() if stop.scheduled.times.arrival else base.NULL_TEXT}'
               f'{dm.STOP_TYPE_STR[stop.dropoff]}{base.NULL}\n'
-              f'{base.BOLD}{stop.scheduled.times.departure.ToHMS()
-                            if stop.scheduled.times.departure else base.NULL_TEXT}'
+              f'{base.BOLD}'
+              f'{stop.scheduled.times.departure.ToHMS() if stop.scheduled.times.departure else base.NULL_TEXT}'
               f'{dm.STOP_TYPE_STR[stop.pickup]}{base.NULL}')
       table.add_row(table_row)
     table.hrules = prettytable.HRuleStyle.ALL

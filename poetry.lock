@@ -14,14 +14,14 @@ files = [
 
 [[package]]
 name = "balparda-baselib"
-version = "1.10"
+version = "1.11"
 description = "A base library for various utilities, by balparda@github.com"
 optional = false
-python-versions = ">=3.12.11"
+python-versions = ">=3.11.13"
 groups = ["main"]
 files = [
-    {file = "balparda_baselib-1.10-py3-none-any.whl", hash = "sha256:90bb24353e7b24b4bb3e5521ef9240d6c4f1308d0d50dedc11c042274bfcc1e0"},
-    {file = "balparda_baselib-1.10.tar.gz", hash = "sha256:019247fab80c4f806740f88c42b5df399cd0a3322908b4a6d6040623eed7fdba"},
+    {file = "balparda_baselib-1.11-py3-none-any.whl", hash = "sha256:8a4f70a2b730097f1c12b8eb83cd58496ecad2f2a8c55ac1c2ae23edd1c4ddff"},
+    {file = "balparda_baselib-1.11.tar.gz", hash = "sha256:bb59581bbfd49ce8e8515e0486bb596bc053091b8a7b66a0fde354d43b1d8f45"},
 ]
 
 [package.dependencies]
@@ -602,7 +602,10 @@ files = [
 [package.dependencies]
 astroid = ">=3.3.8,<=3.4.0.dev0"
 colorama = {version = ">=0.4.5", markers = "sys_platform == \"win32\""}
-dill = {version = ">=0.3.7", markers = "python_version >= \"3.12\""}
+dill = [
+    {version = ">=0.3.7", markers = "python_version >= \"3.12\""},
+    {version = ">=0.3.6", markers = "python_version == \"3.11\""},
+]
 isort = ">=4.2.5,<5.13 || >5.13,<7"
 mccabe = ">=0.6,<0.8"
 platformdirs = ">=2.2"
@@ -749,5 +752,5 @@ files = [
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.12.11"
-content-hash = "c251ced92108abe1ec41e10641de1ceea26cda90b2341ed9dd9e37e5ba26ce6a"
+python-versions = ">=3.11.13"
+content-hash = "bb5949fd2ec6e0a437572b9628469e998cc10cf1c81e915e6ced5bd06cef374a"

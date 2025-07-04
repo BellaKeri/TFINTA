@@ -14,7 +14,7 @@ from typing import Any, Callable, Self
 from balparda_baselib import base
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 5)  # v1.5 - 2025/07/03
+__version__: tuple[int, int] = (1, 6)  # v1.6 - 2025/07/04
 
 
 # copy useful stuff from balparda_baselib

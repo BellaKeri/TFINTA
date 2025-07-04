@@ -3,7 +3,7 @@
 # Copyright 2025 BellaKeri (BellaKeri@github.com) & Daniel Balparda (balparda@github.com)
 # Apache-2.0 license
 #
-"""Running Trains Loader."""
+"""Running Trains Loader. DO NOT USE - OLD CODE."""
 
 # import logging
 # import pdb
@@ -13,7 +13,7 @@ import dataclasses
 import sys
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 5)  # v1.5 - 2025/07/03
+__version__: tuple[int, int] = (1, 6)  # v1.6 - 2025/07/04
 
 
 ALL_RUNNING_TRAINS_URL = 'http://api.irishrail.ie/realtime/realtime.asmx/getCurrentTrainsXML'

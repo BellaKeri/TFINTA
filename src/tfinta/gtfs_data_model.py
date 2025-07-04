@@ -20,7 +20,7 @@ import zoneinfo
 from . import tfinta_base as base
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 5)  # v1.5 - 2025/07/03
+__version__: tuple[int, int] = (1, 6)  # v1.6 - 2025/07/04
 
 
 ####################################################################################################

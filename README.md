@@ -1,6 +1,6 @@
 # TFINTA - Transport for Ireland Data
 
-This is a set of libraries for loading, parsing, etc on Irish public transit data.
+***"Python library and shell scripts for parsing and displaying*** **Transport for Ireland (TFI/NTA)** ***Rail and DART schedule datasets, both GTFS and realtime"***
 
 Since version 1.2 it is PyPI package:
 
@@ -317,8 +317,8 @@ If you want to develop for this project, first install [Poetry](https://python-p
 
 ```sh
 brew uninstall poetry
-python3.12 -m pip install --user pipx
-python3.12 -m pipx ensurepath
+python3.11 -m pip install --user pipx
+python3.11 -m pipx ensurepath
 # re-open terminal
 poetry self add poetry-plugin-export@^1.8  # allows export to requirements.txt (see below)
 poetry config virtualenvs.in-project true  # creates venv inside project directory
@@ -328,16 +328,16 @@ poetry config pypi-token.pypi <TOKEN>      # add you personal project token
 Now install the project:
 
 ```sh
-brew install python@3.12 python@3.13 git
+brew install python@3.11 python@3.13 git
 brew update
 brew upgrade
 brew cleanup -s
-# or on Ubuntu/Debian: sudo apt-get install python3.12 python3.12-venv git
+# or on Ubuntu/Debian: sudo apt-get install python3.11 python3.11-venv git
 
 git clone https://github.com/BellaKeri/TFINTA.git TFINTA
 cd TFINTA
 
-poetry env use python3.12  # creates the venv: use 3.12, but supports 3.13
+poetry env use python3.11  # creates the venv: use 3.11, but supports 3.13
 poetry install --sync      # HONOR the project's poetry.lock file, uninstalls stray packages
 poetry env info            # no-op: just to check
 

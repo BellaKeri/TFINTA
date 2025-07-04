@@ -35,7 +35,7 @@ from . import tfinta_base as base
 from . import gtfs_data_model as dm
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 5)  # v1.5 - 2025/07/03
+__version__: tuple[int, int] = (1, 6)  # v1.6 - 2025/07/04
 
 
 # defaults
@@ -913,9 +913,9 @@ class GTFS:
       table.add_row([
           f'{base.BOLD}{base.CYAN}{calendar.id}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{base.PRETTY_DATE(calendar.days.start)}{base.NULL}',
-          f'{base.BOLD}{base.PRETTY_DATE(
-              calendar.days.end if calendar.days.end != calendar.days.start
-              else None)}{base.NULL}',
+          f'{base.BOLD}'
+          f'{base.PRETTY_DATE(calendar.days.end if calendar.days.end != calendar.days.start else None)}'
+          f'{base.NULL}',
           f'{base.BOLD}{base.PRETTY_BOOL(calendar.week[0])}{base.NULL}',
           f'{base.BOLD}{base.PRETTY_BOOL(calendar.week[1])}{base.NULL}',
           f'{base.BOLD}{base.PRETTY_BOOL(calendar.week[2])}{base.NULL}',
@@ -960,8 +960,7 @@ class GTFS:
       lat, lon = stop.point.ToDMS()
       table.add_row([
           f'{base.BOLD}{base.CYAN}{stop.id}{base.NULL}{parent_code}',
-          f'{base.BOLD}{stop.code if stop.code and stop.code != '0'
-                        else base.NULL_TEXT}{base.NULL}',
+          f'{base.BOLD}{stop.code if stop.code and stop.code != "0" else base.NULL_TEXT}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{stop.name}{base.NULL}{parent_name}',
           f'{base.BOLD}{stop.location.name}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{lat}{base.NULL}\n'
@@ -1040,10 +1039,12 @@ class GTFS:
           f'{base.BOLD}{base.CYAN}{seq}{base.NULL}',
           f'{base.BOLD}{stop.stop}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{stop_name if stop_name else base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{stop.scheduled.times.arrival.ToHMS()
-                        if stop.scheduled.times.arrival else base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{stop.scheduled.times.departure.ToHMS()
-                        if stop.scheduled.times.departure else base.NULL_TEXT}{base.NULL}',
+          f'{base.BOLD}'
+          f'{stop.scheduled.times.arrival.ToHMS() if stop.scheduled.times.arrival else base.NULL_TEXT}'
+          f'{base.NULL}',
+          f'{base.BOLD}'
+          f'{stop.scheduled.times.departure.ToHMS() if stop.scheduled.times.departure else base.NULL_TEXT}'
+          f'{base.NULL}',
           f'{base.BOLD}{stop_code}{base.NULL}',
           f'{base.BOLD}{stop_description if stop_description else base.NULL_TEXT}{base.NULL}',
       ])

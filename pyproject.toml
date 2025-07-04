@@ -8,8 +8,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tfinta"
-version = "1.5"
-description = "TFI/NTA database and utilities"
+version = "1.6"
+description = "Python library and shell scripts for parsing and displaying Transport for Ireland (TFI/NTA) Rail and DART schedule datasets, both GTFS and realtime"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -17,9 +17,10 @@ authors = [
   { name = "BellaKeri", email = "BellaKeri@github.com" },
   { name = "Daniel Balparda", email = "balparda@github.com" }
 ]
-requires-python = ">=3.12.11"  # if version changes, remember to change README.md
+requires-python = ">=3.11.13"  # if version changes, remember to change README.md
 classifiers = [  # see: https://pypi.org/classifiers/
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Operating System :: OS Independent",
@@ -27,7 +28,7 @@ classifiers = [  # see: https://pypi.org/classifiers/
 ]
 dependencies = [
   "prettytable (>=3.16,<4.0)",
-  "balparda-baselib (>=1.9,<2.0)"
+  "balparda-baselib (>=1.11,<2.0)"
 ]
 
 [project.urls]
