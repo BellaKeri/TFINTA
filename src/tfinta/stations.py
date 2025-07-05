@@ -12,8 +12,10 @@ import sys
 import urllib.request
 import xml.dom.minidom
 
+from . import tfinta_base as base
+
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 6)  # v1.6 - 2025/07/04
+__version__: tuple[int, int] = base.__version__
 
 # The TfI URLs:
 ALL_STATIONS_URL = 'http://api.irishrail.ie/realtime/realtime.asmx/getAllStationsXML'

@@ -556,33 +556,26 @@ Irish Rail Running Trains @ 2025/Jun/29-08:14:27-UTC
 +-------+-----------------+---------------+----------+---------------------------------------------------+
 | Train |    Direction    |   Location °  | Location |                      Message                      |
 +-------+-----------------+---------------+----------+---------------------------------------------------+
-|  A152 |    Northbound   |  54°0′2.52″N  | 54.0007  |                        A152                       |
-|   ►   |                 |  6°24′46.48″W | -6.41291 |  13:50 - Dublin Connolly to Belfast (5 mins late) |
-|       |                 |               |          |          Arrived Dundalk next stop Newry          |
+|  A152 |    Northbound   |  54°0′2.52″N  | 54.0007  |  13:50 - Dublin Connolly to Belfast (5 mins late) |
+|   ►   |                 |  6°24′46.48″W | -6.41291 |          Arrived Dundalk next stop Newry          |
 +-------+-----------------+---------------+----------+---------------------------------------------------+
-|  A407 | To Dublin Heus… |       ∅       |    ∅     |                        A407                       |
-|   ►   |                 |       ∅       |    ∅     | 14:20 - Limerick to Dublin Heuston (-1 mins late) |
-|       |                 |               |          |          Departed LJ461 next stop Thurles         |
+|  A407 | To Dublin Heus… |       ∅       |    ∅     | 14:20 - Limerick to Dublin Heuston (-1 mins late) |
+|   ►   |                 |       ∅       |    ∅     |          Departed LJ461 next stop Thurles         |
 +-------+-----------------+---------------+----------+---------------------------------------------------+
-|  A218 |     To Cork     | 53°20′47.04″N | 53.3464  |                        A218                       |
-|   ■   |                 |  6°17′40.60″W | -6.29461 |               Dublin Heuston to Cork              |
-|       |                 |               |          |              Expected Departure 15:00             |
+|  A218 |     To Cork     | 53°20′47.04″N | 53.3464  |               Dublin Heuston to Cork              |
+|   ■   |                 |  6°17′40.60″W | -6.29461 |              Expected Departure 15:00             |
 +-------+-----------------+---------------+----------+---------------------------------------------------+
-|  A908 |    Northbound   | 53°21′11.16″N | 53.3531  |                        A908                       |
-|   ■   |                 |  6°14′45.28″W | -6.24591 |              Dublin Connolly to Sligo             |
-|       |                 |               |          |              Expected Departure 15:05             |
+|  A908 |    Northbound   | 53°21′11.16″N | 53.3531  |              Dublin Connolly to Sligo             |
+|   ■   |                 |  6°14′45.28″W | -6.24591 |              Expected Departure 15:05             |
 +-------+-----------------+---------------+----------+---------------------------------------------------+
-|  E218 |    Southbound   |  53°27′3.24″N | 53.4509  |                        E218                       |
-|   ■   |                 |  6°9′23.36″W  | -6.15649 |                  Malahide to Bray                 |
-|       |                 |               |          |              Expected Departure 15:04             |
+|  E218 |    Southbound   |  53°27′3.24″N | 53.4509  |                  Malahide to Bray                 |
+|   ■   |                 |  6°9′23.36″W  | -6.15649 |              Expected Departure 15:04             |
 +-------+-----------------+---------------+----------+---------------------------------------------------+
-|  B957 |    Southbound   | 53°21′11.16″N | 53.3531  |                        B957                       |
-|   ✗   |                 |  6°14′45.28″W | -6.24591 | 13:55 - Maynooth to Dublin Connolly(13 mins late) |
-|       |                 |               |          |        TERMINATED Dublin Connolly at 14:51        |
+|  B957 |    Southbound   | 53°21′11.16″N | 53.3531  | 13:55 - Maynooth to Dublin Connolly(13 mins late) |
+|   ✗   |                 |  6°14′45.28″W | -6.24591 |        TERMINATED Dublin Connolly at 14:51        |
 +-------+-----------------+---------------+----------+---------------------------------------------------+
-|  P375 |    Southbound   | 53°22′59.16″N | 53.3831  |                        P375                       |
-|   ✗   |                 |  6°25′27.12″W | -6.4242  |    14:40 - M3 Parkway to Clonsilla(0 mins late)   |
-|       |                 |               |          |           TERMINATED Clonsilla at 14:49           |
+|  P375 |    Southbound   | 53°22′59.16″N | 53.3831  |    14:40 - M3 Parkway to Clonsilla(0 mins late)   |
+|   ✗   |                 |  6°25′27.12″W | -6.4242  |           TERMINATED Clonsilla at 14:49           |
 +-------+-----------------+---------------+----------+---------------------------------------------------+\
 """
 
@@ -646,6 +639,6 @@ Destination: Bray (BRAY)
 +---------+---------------+--------------+------------+-----------------+------------+-----------+
 |    7    |      BRAY     |   10:55:00   |  10:55:06  |        ∅        |     ∅      |   +0.10   |
 | CURRENT |      Bray     |   10:54:18   |            |                 |            |           |
-|         |  DESTINATION  |              |            |                 |            |           |
+|         |  DESTINATION  |      ⚙       |            |                 |            |           |
 +---------+---------------+--------------+------------+-----------------+------------+-----------+\
 """

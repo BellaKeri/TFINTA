@@ -32,7 +32,7 @@ from . import tfinta_base as base
 from . import realtime_data_model as dm
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 6)  # v1.6 - 2025/07/04
+__version__: tuple[int, int] = base.__version__
 
 
 # globals
@@ -350,7 +350,7 @@ class RealtimeRail:
         alias=row['StationAlias'])
 
   def _HandleRunningTrainXMLRow(
-      self, params: _PossibleRPCArgs,
+      self, unused_params: _PossibleRPCArgs,
       row: dm.ExpectedRunningTrainXMLRowType, /) -> dm.RunningTrain:
     """Handler: RunningTrain.
 
@@ -362,8 +362,6 @@ class RealtimeRail:
       RowError: error parsing this record
     """
     day: datetime.date = base.DATE_OBJ_REALTIME(row['TrainDate'])
-    if day != datetime.date.today():
-      raise Error(f'unexpected date {day}, not today @ running/{params!r}')
     return dm.RunningTrain(
         code=row['TrainCode'].upper(),
         status=dm.TRAIN_STATUS_STR_MAP[row['TrainStatus'].upper()],
@@ -385,14 +383,20 @@ class RealtimeRail:
       RowError: error parsing this record
     """
     day: datetime.date = base.DATE_OBJ_REALTIME(row['Traindate'])
-    if day != datetime.date.today():
-      raise Error(f'unexpected date {day}, not today @ station/{params!r}')
-    station_code: str = self.StationCodeFromNameFragmentOrCode(row['Stationcode'])
-    if (self._latest.stations[station_code].description.lower() != row['Stationfullname'].lower() or
-        station_code != params['station_code']):
+    station_code: str = row['Stationcode']
+    if station_code != params['station_code']:
       raise Error(
-          f'station description mismatch: {self._latest.stations[station_code].description} '
-          f'versus {row["Stationfullname"]} @ station/{params!r}')
+          f'station mismatch: {params["station_code"]} versus {station_code} @ station/{params!r}')
+    origin_code: str = '???'
+    try:
+      origin_code = self.StationCodeFromNameFragmentOrCode(row['Origin'])
+    except Error as err:
+      logging.warning(err)
+    destination_code: str = '???'
+    try:
+      destination_code = self.StationCodeFromNameFragmentOrCode(row['Destination'])
+    except Error as err:
+      logging.warning(err)
     return dm.StationLine(
         query=dm.StationLineQueryData(
             tm_server=base.DATETIME_FROM_ISO(row['Servertime']),
@@ -402,9 +406,9 @@ class RealtimeRail:
             day=day,
         ),
         train_code=row['Traincode'].upper(),
-        origin_code=self.StationCodeFromNameFragmentOrCode(row['Origin']),
+        origin_code=origin_code,
         origin_name=row['Origin'],
-        destination_code=self.StationCodeFromNameFragmentOrCode(row['Destination']),
+        destination_code=destination_code,
         destination_name=row['Destination'],
         trip=base.DayRange(
             arrival=base.DayTime.FromHMS(row['Origintime'] + ':00'),  # note the inversion!
@@ -444,15 +448,23 @@ class RealtimeRail:
     if row['LocationOrder'] < 1 or row['TrainCode'] != params['train_code']:
       raise Error(f'invalid row: {row!r} @ train/{params!r}')
     day: datetime.date = base.DATE_OBJ_REALTIME(row['TrainDate'])
-    if day != datetime.date.today() or day != params['day']:
-      raise Error(f'unexpected date {day}, not today @ train/{params!r}')
+    origin_code: str = '???'
+    try:
+      origin_code = self.StationCodeFromNameFragmentOrCode(row['TrainOrigin'])
+    except Error as err:
+      logging.warning(err)
+    destination_code: str = '???'
+    try:
+      destination_code = self.StationCodeFromNameFragmentOrCode(row['TrainDestination'])
+    except Error as err:
+      logging.warning(err)
     return dm.TrainStop(
         query=dm.TrainStopQueryData(
             train_code=row['TrainCode'],
             day=day,
-            origin_code=self.StationCodeFromNameFragmentOrCode(row['TrainOrigin']),
+            origin_code=origin_code,
             origin_name=row['TrainOrigin'],
-            destination_code=self.StationCodeFromNameFragmentOrCode(row['TrainDestination']),
+            destination_code=destination_code,
             destination_name=row['TrainDestination'],
         ),
         station_code=row['LocationCode'],
@@ -529,6 +541,8 @@ class RealtimeRail:
          f'{base.BOLD}{base.CYAN}Message{base.NULL}'])
     for train in sorted(self._latest.running_trains.values()):
       lat, lon = train.position.ToDMS() if train.position is not None else (None, None)
+      train_message: str = ('\n'.join(train.message.splitlines()[1:])
+                            if train.message.startswith(train.code + '\n') else train.message)
       table.add_row([
           f'{base.BOLD}{base.CYAN}{train.code}{base.NULL}\n'
           f'{base.BOLD}{dm.TRAIN_STATUS_STR[train.status]}{base.NULL}',
@@ -538,7 +552,7 @@ class RealtimeRail:
           f'{base.BOLD}{train.position.latitude if train.position else base.NULL_TEXT}{base.NULL}\n'
           f'{base.BOLD}{train.position.longitude if train.position else base.NULL_TEXT}{base.NULL}',
           '\n'.join(f'{base.BOLD}{base.LIMITED_TEXT(m, 50)}{base.NULL}'
-                    for m in train.message.split('\n')),
+                    for m in train_message.split('\n')),
       ])
     table.hrules = prettytable.HRuleStyle.ALL
     yield from table.get_string().splitlines()  # type:ignore
@@ -644,7 +658,7 @@ class RealtimeRail:
           f'{stop.scheduled.arrival.ToHMS() if stop.scheduled.arrival else base.NULL_TEXT}{base.NULL}' +
           ('' if not stop.expected.arrival or stop.expected.arrival == stop.scheduled.arrival else
            f'\n{base.BOLD}{base.RED}{stop.expected.arrival.ToHMS()}{base.NULL}') +
-          (f'\n{base.BOLD}{dm.PRETTY_AUTO(True)}' if stop.auto_depart else ''),
+          (f'\n{base.BOLD}{dm.PRETTY_AUTO(True)}' if stop.auto_arrival else ''),
           f'{base.BOLD}{base.YELLOW}'
           f'{stop.actual.arrival.ToHMS() if stop.actual.arrival else base.NULL_TEXT}{base.NULL}',
           f'{base.BOLD}{base.GREEN}'

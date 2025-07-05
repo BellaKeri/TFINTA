@@ -35,7 +35,7 @@ from . import tfinta_base as base
 from . import gtfs_data_model as dm
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 6)  # v1.6 - 2025/07/04
+__version__: tuple[int, int] = base.__version__
 
 
 # defaults

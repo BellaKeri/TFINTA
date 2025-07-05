@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tfinta"
-version = "1.6"
+version = "1.7"
 description = "Python library and shell scripts for parsing and displaying Transport for Ireland (TFI/NTA) Rail and DART schedule datasets, both GTFS and realtime"
 readme = "README.md"
 license = "Apache-2.0"

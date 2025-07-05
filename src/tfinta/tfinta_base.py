@@ -11,34 +11,34 @@ import functools
 # import pdb
 from typing import Any, Callable, Self
 
-from balparda_baselib import base
+from balparda_baselib import base as balparda_base
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 6)  # v1.6 - 2025/07/04
+__version__: tuple[int, int] = (1, 7)  # v1.7 - 2025/07/05
 
 
 # copy useful stuff from balparda_baselib
 
-LOG_FORMAT = base.LOG_FORMAT
-MODULE_PRIVATE_DIR = base.MODULE_PRIVATE_DIR
-STD_TIME_STRING = base.STD_TIME_STRING
-STRIP_ANSI = base.STRIP_ANSI
+LOG_FORMAT = balparda_base.LOG_FORMAT
+MODULE_PRIVATE_DIR = balparda_base.MODULE_PRIVATE_DIR
+STD_TIME_STRING = balparda_base.STD_TIME_STRING
+STRIP_ANSI = balparda_base.STRIP_ANSI
 
-NULL = base.TERM_END
-BOLD = base.TERM_BOLD
-BLUE = base.TERM_BLUE
-LIGHT_BLUE = base.TERM_LIGHT_BLUE
-GREEN = base.TERM_GREEN
-RED = base.TERM_RED
-LIGHT_RED = base.TERM_LIGHT_RED
-YELLOW = base.TERM_YELLOW
-CYAN = base.TERM_CYAN
-MAGENTA = base.TERM_MAGENTA
+NULL = balparda_base.TERM_END
+BOLD = balparda_base.TERM_BOLD
+BLUE = balparda_base.TERM_BLUE
+LIGHT_BLUE = balparda_base.TERM_LIGHT_BLUE
+GREEN = balparda_base.TERM_GREEN
+RED = balparda_base.TERM_RED
+LIGHT_RED = balparda_base.TERM_LIGHT_RED
+YELLOW = balparda_base.TERM_YELLOW
+CYAN = balparda_base.TERM_CYAN
+MAGENTA = balparda_base.TERM_MAGENTA
 
-BinSerialize = base.BinSerialize
-BinDeSerialize = base.BinDeSerialize
-Timer = base.Timer
-HumanizedBytes = base.HumanizedBytes
+BinSerialize = balparda_base.BinSerialize
+BinDeSerialize = balparda_base.BinDeSerialize
+Timer = balparda_base.Timer
+HumanizedBytes = balparda_base.HumanizedBytes
 
 
 # data parsing utils

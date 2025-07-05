@@ -19,7 +19,7 @@ from typing import Any, Callable, TypedDict
 from . import tfinta_base as base
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 6)  # v1.6 - 2025/07/04
+__version__: tuple[int, int] = base.__version__
 
 
 ####################################################################################################
@@ -80,7 +80,7 @@ TRAIN_STATUS_STR_MAP: dict[str, TrainStatus] = {
 TRAIN_STATUS_STR: dict[TrainStatus, str] = {
     TrainStatus.TERMINATED: f'{base.YELLOW}\u2717{base.NULL}',    # ✗
     TrainStatus.NOT_YET_RUNNING: f'{base.RED}\u25A0{base.NULL}',  # ■
-    TrainStatus.RUNNING: f'{base.GREEN}\u25BA{base.NULL}'         # ►
+    TrainStatus.RUNNING: f'{base.GREEN}\u25BA{base.NULL}',        # ►
 }
 
 
@@ -149,8 +149,8 @@ LOCATION_TYPE_STR_MAP: dict[str, LocationType] = {
 LOCATION_TYPE_STR: dict[LocationType, str] = {
     LocationType.ORIGIN: f'{base.GREEN}ORIGIN{base.NULL}',
     LocationType.DESTINATION: f'{base.GREEN}DESTINATION{base.NULL}',
-    LocationType.STOP: f'{base.GREEN}\u25A0{base.NULL}',  # ■
-    LocationType.TIMING_POINT: f'{base.RED}\u23F1{base.NULL}'   # ⏱
+    LocationType.STOP: f'{base.GREEN}\u25A0{base.NULL}',        # ■
+    LocationType.TIMING_POINT: f'{base.RED}\u23F1{base.NULL}',  # ⏱
 }
 
 
