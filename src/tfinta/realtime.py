@@ -520,8 +520,10 @@ class RealtimeRail:
           f'{base.BOLD}{station.alias if station.alias else base.NULL_TEXT}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{lat if lat else base.NULL_TEXT}{base.NULL}\n'
           f'{base.BOLD}{base.YELLOW}{lon if lon else base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{station.location.latitude if station.location else base.NULL_TEXT}{base.NULL}\n'
-          f'{base.BOLD}{station.location.longitude if station.location else base.NULL_TEXT}{base.NULL}',
+          f'{base.BOLD}{f"{station.location.latitude:0.7f}" if station.location else base.NULL_TEXT}'
+          f'{base.NULL}\n'
+          f'{base.BOLD}{f"{station.location.longitude:0.7f}" if station.location else base.NULL_TEXT}'
+          f'{base.NULL}',
       ])
     table.hrules = prettytable.HRuleStyle.ALL
     yield from table.get_string().splitlines()  # type:ignore
@@ -549,8 +551,10 @@ class RealtimeRail:
           f'{base.BOLD}{base.LIMITED_TEXT(train.direction, 15)}{base.NULL}',
           f'{base.BOLD}{base.YELLOW if lat else ""}{lat if lat else base.NULL_TEXT}{base.NULL}\n'
           f'{base.BOLD}{base.YELLOW if lon else ""}{lon if lon else base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{train.position.latitude if train.position else base.NULL_TEXT}{base.NULL}\n'
-          f'{base.BOLD}{train.position.longitude if train.position else base.NULL_TEXT}{base.NULL}',
+          f'{base.BOLD}{f"{train.position.latitude:0.7f}" if train.position else base.NULL_TEXT}'
+          f'{base.NULL}\n'
+          f'{base.BOLD}{f"{train.position.longitude:0.7f}" if train.position else base.NULL_TEXT}'
+          f'{base.NULL}',
           '\n'.join(f'{base.BOLD}{base.LIMITED_TEXT(m, 50)}{base.NULL}'
                     for m in train_message.split('\n')),
       ])

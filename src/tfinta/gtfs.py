@@ -965,8 +965,8 @@ class GTFS:
           f'{base.BOLD}{stop.location.name}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{lat}{base.NULL}\n'
           f'{base.BOLD}{base.YELLOW}{lon}{base.NULL}',
-          f'{base.BOLD}{stop.point.latitude}{base.NULL}\n'
-          f'{base.BOLD}{stop.point.longitude}{base.NULL}',
+          f'{base.BOLD}{stop.point.latitude:0.7f}{base.NULL}\n'
+          f'{base.BOLD}{stop.point.longitude:0.7f}{base.NULL}',
           f'{base.BOLD}{stop.zone if stop.zone else base.NULL_TEXT}{base.NULL}',
           f'{base.BOLD}{stop.description if stop.zone else base.NULL_TEXT}{base.NULL}',
           f'{base.BOLD}{stop.url if stop.url else base.NULL_TEXT}{base.NULL}',
