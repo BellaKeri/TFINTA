@@ -24,6 +24,7 @@ from . import util
 
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
+__version__: tuple[int, int] = gtfs.__version__  # tests inherit version from module
 
 
 # mock test files

@@ -11,6 +11,8 @@ from src.tfinta import realtime_data_model as dm
 from src.tfinta import tfinta_base as base
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
+__version__: tuple[int, int] = base.__version__
+
 
 RT_TIME = 1751184867.863  # datetime.datetime(2025, 6, 29, 9, 14, 27, 863000)
 

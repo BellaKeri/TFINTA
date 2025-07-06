@@ -16,6 +16,7 @@ import pytest
 from src.tfinta import tfinta_base as base
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
+__version__: tuple[int, int] = base.__version__  # tests inherit version from module
 
 
 @pytest.mark.parametrize('hms', [

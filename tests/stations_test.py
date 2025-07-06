@@ -16,6 +16,7 @@ import pytest
 from src.tfinta import stations
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
+__version__: tuple[int, int] = stations.__version__  # tests inherit version from module
 
 
 def test_Soma() -> None:

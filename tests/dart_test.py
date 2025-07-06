@@ -23,6 +23,7 @@ from . import gtfs_data
 
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
+__version__: tuple[int, int] = dart.__version__  # tests inherit version from module
 
 
 @pytest.fixture

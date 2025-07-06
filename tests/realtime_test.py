@@ -24,6 +24,7 @@ from . import realtime_data
 from . import util
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
+__version__: tuple[int, int] = realtime.__version__  # tests inherit version from module
 
 
 _REALTIME_DIR: str = os.path.join(util.DATA_DIR, 'realtime')

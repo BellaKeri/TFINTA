@@ -10,7 +10,10 @@ import os.path
 # import pdb
 from typing import Any, Self
 
+from src.tfinta import tfinta_base as base
+
 __author__ = 'BellaKeri@github.com , balparda@github.com'
+__version__: tuple[int, int] = base.__version__
 
 
 # test dir
