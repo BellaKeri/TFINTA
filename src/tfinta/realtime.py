@@ -403,8 +403,9 @@ class RealtimeRail:
       logging.warning(err)
     try:
       loc_type: dm.LocationType = dm.LOCATION_TYPE_STR_MAP[row['Locationtype'].upper()]
+      train_type: dm.TrainType = dm.TRAIN_TYPE_STR_MAP.get(row['Traintype'].upper(), dm.TrainType.UNKNOWN)
     except KeyError as err:
-      raise Error(f'invalid Locationtype: {row!r} @ station/{params!r}') from err
+      raise Error(f'invalid Locationtype/Traintype: {row!r} @ station/{params!r}') from err
     return dm.StationLine(
         query=dm.StationLineQueryData(
             tm_server=base.DATETIME_FROM_ISO(row['Servertime']),
@@ -422,7 +423,7 @@ class RealtimeRail:
             arrival=base.DayTime.FromHMS(row['Origintime'] + ':00'),  # note the inversion!
             departure=base.DayTime.FromHMS(row['Destinationtime'] + ':00')),
         status=row['Status'],
-        train_type=dm.TRAIN_TYPE_STR_MAP.get(row['Traintype'].upper(), dm.TrainType.UNKNOWN),
+        train_type=train_type,
         last_location=row['Lastlocation'],
         due_in=base.DayTime(time=row['Duein']),
         late=row['Late'],
