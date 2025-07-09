@@ -44,7 +44,7 @@
     <LocationCode>GRGRD</LocationCode>
     <LocationFullName>Clongriffin</LocationFullName>
     <LocationOrder>3</LocationOrder>
-    <LocationType>S</LocationType>
+    <LocationType>C</LocationType>
     <TrainOrigin>Malahide</TrainOrigin>
     <TrainDestination>Bray</TrainDestination>
     <ScheduledArrival>09:36:00</ScheduledArrival>

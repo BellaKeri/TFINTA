@@ -137,6 +137,7 @@ class LocationType(enum.Enum):
   ORIGIN = 1
   DESTINATION = 2
   TIMING_POINT = 3
+  CREW_RELIEF_OR_CURRENT = 4
 
 
 LOCATION_TYPE_STR_MAP: dict[str, LocationType] = {
@@ -144,13 +145,15 @@ LOCATION_TYPE_STR_MAP: dict[str, LocationType] = {
     'O': LocationType.ORIGIN,
     'D': LocationType.DESTINATION,
     'T': LocationType.TIMING_POINT,
+    'C': LocationType.CREW_RELIEF_OR_CURRENT,
 }
 
 LOCATION_TYPE_STR: dict[LocationType, str] = {
     LocationType.ORIGIN: f'{base.GREEN}ORIGIN{base.NULL}',
     LocationType.DESTINATION: f'{base.GREEN}DESTINATION{base.NULL}',
-    LocationType.STOP: f'{base.GREEN}\u25A0{base.NULL}',        # ■
-    LocationType.TIMING_POINT: f'{base.RED}\u23F1{base.NULL}',  # ⏱
+    LocationType.STOP: f'{base.GREEN}\u25A0{base.NULL}',                          # ■
+    LocationType.TIMING_POINT: f'{base.RED}\u23F1{base.NULL}',                    # ⏱
+    LocationType.CREW_RELIEF_OR_CURRENT: f'{base.GREEN}\u25A0\u25A0{base.NULL}',  # ■■
 }
 
 

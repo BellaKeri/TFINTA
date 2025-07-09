@@ -392,7 +392,7 @@ TRAIN_OBJ = dm.LatestData(
                         query=_TRAIN_OBJ_QUERY,
                         auto_arrival=True,
                         auto_depart=True,
-                        location_type=dm.LocationType.STOP,
+                        location_type=dm.LocationType.CREW_RELIEF_OR_CURRENT,
                         stop_type=dm.StopType.UNKNOWN,
                         station_order=3,
                         station_code='GRGRD',
@@ -625,7 +625,7 @@ Destination: Bray (BRAY)
 +---------+---------------+--------------+------------+-----------------+------------+-----------+
 |    3    |     GRGRD     |   09:36:00   |  09:35:36  |     09:36:30    |  09:36:54  |   -0.40   |
 |         |  Clongriffin  |   09:36:30   |            |     09:36:06    |            |           |
-|         |       ■       |      ⚙       |            |        ⚙        |            |           |
+|         |       ■■      |      ⚙       |            |        ⚙        |            |           |
 +---------+---------------+--------------+------------+-----------------+------------+-----------+
 |    4    |      BRAY     |   10:44:30   |  10:43:06  |     10:45:30    |  10:45:06  |   -1.40   |
 |         |      Bray     |   10:44:54   |            |     10:44:06    |            |           |

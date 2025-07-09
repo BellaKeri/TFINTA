@@ -350,7 +350,7 @@ class RealtimeRail:
         alias=row['StationAlias'])
 
   def _HandleRunningTrainXMLRow(
-      self, unused_params: _PossibleRPCArgs,
+      self, params: _PossibleRPCArgs,
       row: dm.ExpectedRunningTrainXMLRowType, /) -> dm.RunningTrain:
     """Handler: RunningTrain.
 
@@ -362,9 +362,13 @@ class RealtimeRail:
       RowError: error parsing this record
     """
     day: datetime.date = base.DATE_OBJ_REALTIME(row['TrainDate'])
+    try:
+      train_status: dm.TrainStatus = dm.TRAIN_STATUS_STR_MAP[row['TrainStatus'].upper()]
+    except KeyError as err:
+      raise Error(f'invalid TrainStatus: {row!r} @ running/{params!r}') from err
     return dm.RunningTrain(
         code=row['TrainCode'].upper(),
-        status=dm.TRAIN_STATUS_STR_MAP[row['TrainStatus'].upper()],
+        status=train_status,
         day=day,
         direction=row['Direction'],
         position=(None if row['TrainLatitude'] == 0 and row['TrainLongitude'] == 0 else
@@ -397,6 +401,10 @@ class RealtimeRail:
       destination_code = self.StationCodeFromNameFragmentOrCode(row['Destination'])
     except Error as err:
       logging.warning(err)
+    try:
+      loc_type: dm.LocationType = dm.LOCATION_TYPE_STR_MAP[row['Locationtype'].upper()]
+    except KeyError as err:
+      raise Error(f'invalid Locationtype: {row!r} @ station/{params!r}') from err
     return dm.StationLine(
         query=dm.StationLineQueryData(
             tm_server=base.DATETIME_FROM_ISO(row['Servertime']),
@@ -418,7 +426,7 @@ class RealtimeRail:
         last_location=row['Lastlocation'],
         due_in=base.DayTime(time=row['Duein']),
         late=row['Late'],
-        location_type=dm.LOCATION_TYPE_STR_MAP[row['Locationtype'].upper()],
+        location_type=loc_type,
         scheduled=base.DayRange(
             arrival=(None if row['Scharrival'] == '00:00' else
                      base.DayTime.FromHMS(row['Scharrival'] + ':00')),
@@ -458,6 +466,11 @@ class RealtimeRail:
       destination_code = self.StationCodeFromNameFragmentOrCode(row['TrainDestination'])
     except Error as err:
       logging.warning(err)
+    try:
+      loc_type: dm.LocationType = dm.LOCATION_TYPE_STR_MAP[row['LocationType'].upper()]
+      stop_type: dm.StopType = dm.STOP_TYPE_STR_MAP[row['StopType'].upper()]
+    except KeyError as err:
+      raise Error(f'invalid LocationType/StopType: {row!r} @ train/{params!r}') from err
     return dm.TrainStop(
         query=dm.TrainStopQueryData(
             train_code=row['TrainCode'],
@@ -470,7 +483,7 @@ class RealtimeRail:
         station_code=row['LocationCode'],
         station_name=row['LocationFullName'],
         station_order=row['LocationOrder'],
-        location_type=dm.LOCATION_TYPE_STR_MAP[row['LocationType'].upper()],
+        location_type=loc_type,
         scheduled=base.DayRange(
             arrival=(None if row['ScheduledArrival'] == '00:00:00' else
                      base.DayTime.FromHMS(row['ScheduledArrival'])),
@@ -491,7 +504,7 @@ class RealtimeRail:
             nullable=True),
         auto_arrival=False if row['AutoArrival'] is None else row['AutoArrival'],
         auto_depart=False if row['AutoDepart'] is None else row['AutoDepart'],
-        stop_type=dm.STOP_TYPE_STR_MAP[row['StopType'].upper()])
+        stop_type=stop_type)
 
   ##################################################################################################
   # REALTIME PRETTY PRINTS
