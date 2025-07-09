@@ -121,6 +121,7 @@ class TrainType(enum.Enum):
   DMU = 1   # Diesel-multiple-unit commuter sets
   DART = 2  # DART (Dublin Area Rapid Transit) electric suburban, 'DART' or 'DART10' values
   ICR = 3   # 22000-class InterCity Railcars
+  LOCO = 4  # loco-hauled services
 
 
 TRAIN_TYPE_STR_MAP: dict[str, TrainType] = {
@@ -128,6 +129,7 @@ TRAIN_TYPE_STR_MAP: dict[str, TrainType] = {
     'DART': TrainType.DART,
     'DART10': TrainType.DART,
     'ICR': TrainType.ICR,
+    'TRAIN': TrainType.LOCO,
 }
 
 
