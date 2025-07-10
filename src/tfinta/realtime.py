@@ -37,7 +37,7 @@ __version__: tuple[int, int] = base.__version__
 
 # globals
 _TFI_REALTIME_URL = 'https://api.irishrail.ie/realtime/realtime.asmx'
-_N_RETRIES = 3
+_N_RETRIES = 5
 _DEFAULT_TIMEOUT = 10.0
 
 # cache sizes (in entries)
