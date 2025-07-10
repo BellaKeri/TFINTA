@@ -6,6 +6,30 @@ Since version 1.2 it is PyPI package:
 
 <https://pypi.org/project/tfinta/>
 
+- [TFINTA - Transport for Ireland Data](#tfinta---transport-for-ireland-data)
+  - [License](#license)
+  - [Overview](#overview)
+  - [Use](#use)
+    - [Install](#install)
+    - [Quick start](#quick-start)
+    - [GTFS tool: `gtfs`](#gtfs-tool-gtfs)
+      - [`gtfs read` command](#gtfs-read-command)
+      - [`gtfs print` command](#gtfs-print-command)
+    - [DART tool: `dart`](#dart-tool-dart)
+    - [`dart read` command](#dart-read-command)
+    - [`dart print` command](#dart-print-command)
+    - [Realtime tool: `realtime`](#realtime-tool-realtime)
+    - [`realtime print` command](#realtime-print-command)
+  - [Data Sources](#data-sources)
+    - [Stations](#stations)
+    - [Trains](#trains)
+    - [GTFS Schedule Files](#gtfs-schedule-files)
+  - [Development Instructions](#development-instructions)
+    - [Setup](#setup)
+    - [Updating Dependencies](#updating-dependencies)
+    - [Creating a New Version](#creating-a-new-version)
+    - [TODO](#todo)
+
 ## License
 
 Copyright 2025 BellaKeri <BellaKeri@github.com> & Daniel Balparda <balparda@github.com>
@@ -29,10 +53,10 @@ The authors and the library/tools art ***NOT*** affiliated with TFI or Irish Rai
 
 Why another transport library?
 
-* One-stop shop – static schedules and live positions under a single import.
-* Zero boilerplate – no need to remember URLs; the code bundles them.
-* Typed, 90%+ test-covered, MIT-compatible – ideal for research, hobby dashboards or production back-ends.
-* Friendly CLI – perfect for quick shell exploration or cron-driven exports.
+- One-stop shop – static schedules and live positions under a single import.
+- Zero boilerplate – no need to remember URLs; the code bundles them.
+- Typed, 90%+ test-covered, MIT-compatible – ideal for research, hobby dashboards or production back-ends.
+- Friendly CLI – perfect for quick shell exploration or cron-driven exports.
 
 Happy hacking & *fáilte chuig sonraí iompair na hÉireann!*
 
@@ -65,10 +89,10 @@ poetry run realtime print running        # 6: See the trains currently running o
 
 All commands are executed through Poetry so your project’s virtual-env is used: `poetry run gtfs [-v] <command> [<sub-command>] [options]`
 
-* `-v` / `-vv` / `-vvv` / `-vvvv` Raise log level from `ERROR` → `WARN` → `INFO` → `DEBUG**`
-* `<command>` Either read (download/update data) or print (pretty-print parts of the DB)
-* `<sub-command>` Only required for `print` (see below)
-* options Command-specific flags (see full `-h` output below)
+- `-v` / `-vv` / `-vvv` / `-vvvv` Raise log level from `ERROR` → `WARN` → `INFO` → `DEBUG**`
+- `<command>` Either read (download/update data) or print (pretty-print parts of the DB)
+- `<sub-command>` Only required for `print` (see below)
+- options Command-specific flags (see full `-h` output below)
 
 Below is the exact `-h`/`--help` output so you can see every flag at a glance. Each block is produced with the same Poetry invocation you will use (`poetry run gtfs …`).
 
@@ -283,13 +307,13 @@ Sub-commands & examples:
 
 1. [Get All Running Trains](http://api.irishrail.ie/realtime/realtime.asmx/getCurrentTrainsXML) - Usage returns a listing of 'running trains' ie trains that are between origin and destination or are due to start within 10 minutes of the query time. Returns `TrainStatus`, `TrainLatitude`, `TrainLongitude`, `TrainCode`, `TrainDate`, `PublicMessage` and `Direction`.
 
-* a . `TrainStatus` = ***N*** for not yet running or ***R*** for running.
+- a . `TrainStatus` = ***N*** for not yet running or ***R*** for running.
 
-* b . `TrainCode` is Irish Rail's unique code for an individual train service on a date.
+- b . `TrainCode` is Irish Rail's unique code for an individual train service on a date.
 
-* c . `Direction` is either *Northbound* or *Southbound* for trains between Dundalk and Rosslare and between Sligo and Dublin.  for all other trains the direction is to the destination *eg. To Limerick*.
+- c . `Direction` is either *Northbound* or *Southbound* for trains between Dundalk and Rosslare and between Sligo and Dublin.  for all other trains the direction is to the destination *eg. To Limerick*.
 
-* d . `Public Message` is the latest information on the train uses ***\n*** for a line break *eg AA509\n11:00 - Waterford to Dublin Heuston (0 mins late)\nDeparted Waterford next stop Thomastown*.
+- d . `Public Message` is the latest information on the train uses ***\n*** for a line break *eg AA509\n11:00 - Waterford to Dublin Heuston (0 mins late)\nDeparted Waterford next stop Thomastown*.
 
 ```xml
 <objTrainPositions>
@@ -409,5 +433,5 @@ poetry publish
 
 ### TODO
 
-* Versioning of GTFS data
-* Migrate to SQL?
+- Versioning of GTFS data
+- Migrate to SQL?
