@@ -720,6 +720,7 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
   args: argparse.Namespace = parser.parse_args(argv)
   levels: list[int] = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
   logging.basicConfig(level=levels[min(args.verbose, len(levels) - 1)], format=base.LOG_FORMAT)  # type:ignore
+  logging.captureWarnings(True)
   command = args.command.lower().strip() if args.command else ''
   realtime = RealtimeRail()
   # look at main command

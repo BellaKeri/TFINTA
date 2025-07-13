@@ -14,7 +14,7 @@ from typing import Any, Callable, Self
 from balparda_baselib import base as balparda_base
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 8)  # v1.8 - 2025/07/10
+__version__: tuple[int, int] = (1, 9)  # v1.9 - 2025/07/13
 
 
 # copy useful stuff from balparda_baselib
@@ -39,6 +39,8 @@ BinSerialize = balparda_base.BinSerialize
 BinDeSerialize = balparda_base.BinDeSerialize
 Timer = balparda_base.Timer
 HumanizedBytes = balparda_base.HumanizedBytes
+HumanizedDecimal = balparda_base.HumanizedDecimal
+HumanizedSeconds = balparda_base.HumanizedSeconds
 
 
 # data parsing utils
