@@ -3,7 +3,7 @@
 # Apache-2.0 license
 
 [build-system]
-requires = ["setuptools>=77", "wheel"]
+requires = ["setuptools>=80", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -49,13 +49,13 @@ include = ["tfinta*"]  # avoid picking up stuff not in "tfinta"
 poetry-plugin-export = ">=1.8"
 
 [tool.poetry.group.dev.dependencies]
-pylint = "~3.3"
-flake8 = "~7.2"
-pyright = "~1.1"
-pytest = "^8.4"
-pytest-pythonpath = "^0.7"
-coverage = "^7.9"
-tomli = "^2.2.1"
+pylint = "^3.3"
+flake8 = "^7.2"
+pyright = "^1.1"
+pytest = ">=8.4"
+pytest-pythonpath = ">=0.7"
+coverage = ">=7.9"
+tomli = ">=2.2.1"
 
 [tool.poetry.scripts]
 dart = "tfinta.dart:main"
@@ -66,8 +66,3 @@ trains = "tfinta.trains:main"
 
 [pytest]
 pythonpath = ["src"]
-
-# test with:
-# $ python3
-# >>> import sys, tomli, pathlib
-# >>> tomli.loads(pathlib.Path('pyproject.toml').read_text())
