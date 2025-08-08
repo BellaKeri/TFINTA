@@ -324,7 +324,7 @@ Sub-commands & examples:
     <TrainDate>01 Jun 2025</TrainDate>
     <PublicMessage>D501\nCork to Cobh\nExpected Departure 08:00</PublicMessage>
     <Direction>To Cobh</Direction>
-</objTrainPositions>
+</objTrainPositions>Taranis Travel - Android/iPhone App
 ```
 
 ### GTFS Schedule Files
@@ -333,39 +333,62 @@ The [Official GTFS Schedules](https://data.gov.ie/dataset/operator-gtfs-schedule
 
 GTFS is [defined here](https://gtfs.org/documentation/schedule/reference/). It has 6 mandatory tables (files) and a number of optional ones. We will start by making a cached loader for this data into memory dicts that will be pickled to disk.
 
-## Development Instructions
+## Appendix: Development Instructions
 
 ### Setup
 
-If you want to develop for this project, first install [Poetry](https://python-poetry.org/docs/cli/), but make sure it is like this:
+If you want to develop for this project, first install python 3.11/12/13 and [Poetry](https://python-poetry.org/docs/cli/), but to get the versions you will need, we suggest you do it like this (*Linux*):
 
 ```sh
-brew uninstall poetry
-python3.11 -m pip install --user pipx
-python3.11 -m pipx ensurepath
+sudo apt-get update
+sudo apt-get upgrade
+sudo apt-get install git python3 python3-pip pipx python3-dev python3-venv build-essential software-properties-common
+
+sudo add-apt-repository ppa:deadsnakes/ppa  # install arbitrary python version
+sudo apt-get update
+sudo apt-get install python3.11 python3.13
+
+sudo apt-get remove python3-poetryTaranis Travel - Android/iPhone App
+python3.13 -m pipx ensurepath
 # re-open terminal
-poetry self add poetry-plugin-export@^1.8  # allows export to requirements.txt (see below)
-poetry config virtualenvs.in-project true  # creates venv inside project directory
-poetry config pypi-token.pypi <TOKEN>      # add you personal project token
+pipx install poetry
+poetry --version  # should be >=2.1
+
+poetry config virtualenvs.in-project true  # creates .venv inside project directory
+poetry config pypi-token.pypi <TOKEN>      # add your personal PyPI project token, if any
+```
+
+or this (*Mac*):
+
+```sh
+brew update
+brew upgrade
+brew cleanup -s
+
+brew install git python@3.11 python@3.13  # install arbitrary python version
+
+brew uninstall poetry
+python3.13 -m pip install --user pipx
+python3.13 -m pipx ensurepath
+# re-open terminal
+pipx install poetry
+poetry --version  # should be >=2.1
+
+poetry config virtualenvs.in-project true  # creates .venv inside project directory
+poetry config pypi-token.pypi <TOKEN>      # add your personal PyPI project token, if any
 ```
 
 Now install the project:
 
 ```sh
-brew install python@3.11 python@3.13 git
-brew update
-brew upgrade
-brew cleanup -s
-# or on Ubuntu/Debian: sudo apt-get install python3.11 python3.11-venv git
-
 git clone https://github.com/BellaKeri/TFINTA.git TFINTA
 cd TFINTA
 
-poetry env use python3.11  # creates the venv: use 3.11, but supports 3.13
+poetry env use python3.11  # creates the venv, 3.11 for development!
 poetry install --sync      # HONOR the project's poetry.lock file, uninstalls stray packages
 poetry env info            # no-op: just to check
 
-poetry run pytest
+poetry run pytest -vvv
 # or any command as:
 poetry run <any-command>
 ```
@@ -378,34 +401,35 @@ poetry env activate
 source .env/bin/activate                         # if .env is local to the project
 source "$(poetry env info --path)/bin/activate"  # for other paths
 
-pytest
+pytest  # or other commands
 
 deactivate
 ```
 
 ### Updating Dependencies
 
-To update `poetry.lock` file to more current versions:
+To update `poetry.lock` file to more current versions do `poetry update`, it will ignore the current lock, update, and rewrite the `poetry.lock` file.
 
-```sh
-poetry update  # ignores current lock, updates, rewrites `poetry.lock` file
-poetry run pytest
-```
-
-To add a new dependency you should:
+To add a new dependency you should do:
 
 ```sh
 poetry add "pkg>=1.2.3"  # regenerates lock, updates env
-# also: "pkg@^1.2.3" = latest 1.* ; "pkg@~1.2.3" = latest 1.2.* ; "pkg@1.2.3" exact
-poetry export --format requirements.txt --without-hashes --output requirements.txt
+# also remember: "pkg@^1.2.3" = latest 1.* ; "pkg@~1.2.3" = latest 1.2.* ; "pkg@1.2.3" exact
 ```
 
-If you added a dependency to `pyproject.toml`:
+If you manually added a dependency to `pyproject.toml` you should ***very carefully*** recreate the environment and files:
 
 ```sh
-poetry run pip3 freeze --all  # lists all dependencies pip knows about
-poetry lock     # re-lock your dependencies, so `poetry.lock` is regenerated
-poetry install  # sync your virtualenv to match the new lock file
+rm -rf .venv .poetry poetry.lock
+poetry env use python3.13
+poetry install
+```
+
+Remember to check your diffs before submitting (especially `poetry.lock`) to avoid surprises!
+
+When dependencies change, always regenerate `requirements.txt` by running:
+
+```sh
 poetry export --format requirements.txt --without-hashes --output requirements.txt
 ```
 

@@ -45,6 +45,9 @@ include = ["tfinta*"]  # avoid picking up stuff not in "tfinta"
 [tool.setuptools.package-data]
 "tfinta" = ["py.typed"]
 
+[tool.poetry]
+requires-poetry = "^2.1"
+
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"
 
