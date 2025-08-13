@@ -26,10 +26,6 @@ classifiers = [  # see: https://pypi.org/classifiers/
   "Operating System :: OS Independent",
   "Topic :: Utilities"
 ]
-dependencies = [
-  "prettytable (>=3.16,<4.0)",
-  "balparda-baselib (>=1.11,<2.0)"
-]
 
 [project.urls]
 Homepage = "https://github.com/BellaKeri/TFINTA"
@@ -48,6 +44,10 @@ include = ["tfinta*"]  # avoid picking up stuff not in "tfinta"
 [tool.poetry]
 requires-poetry = "^2.1"
 
+[tool.poetry.dependencies]
+balparda-baselib = "^1.11"
+prettytable = "^3.16"
+
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"
 
@@ -59,6 +59,7 @@ pytest = ">=8.4"
 pytest-pythonpath = ">=0.7"
 coverage = ">=7.9"
 tomli = ">=2.2.1"
+typeguard = ">=4.4.4"
 
 [tool.poetry.scripts]
 dart = "tfinta.dart:main"
