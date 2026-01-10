@@ -5,6 +5,8 @@
 #
 """Stations loader. DO NOT USE - OLD CODE."""
 
+from __future__ import annotations
+
 import dataclasses
 # import logging
 # import pdb

@@ -4,6 +4,8 @@
 # Apache-2.0 license
 """Realtime unittest data."""
 
+from __future__ import annotations
+
 import datetime
 # import pdb
 

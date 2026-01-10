@@ -5,6 +5,8 @@
 #
 """Dublin DART: data and extensible tables."""
 
+from __future__ import annotations
+
 import argparse
 import collections
 import copy

@@ -5,6 +5,8 @@
 #
 """Running Trains Loader. DO NOT USE - OLD CODE."""
 
+from __future__ import annotations
+
 # import logging
 # import pdb
 import urllib.request

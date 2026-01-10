@@ -4,6 +4,8 @@
 # Apache-2.0 license
 """GTFS unittest data."""
 
+from __future__ import annotations
+
 import collections
 import datetime
 import io

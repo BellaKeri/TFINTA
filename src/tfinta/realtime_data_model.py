@@ -9,6 +9,8 @@
 See: https://api.irishrail.ie/realtime/
 """
 
+from __future__ import annotations
+
 import dataclasses
 import datetime
 import enum

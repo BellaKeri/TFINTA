@@ -33,6 +33,7 @@
 
   // spelling
   "cSpell.words": [
+    "addopts",
     "Ardrahan",
     "Athenry",
     "Ceannt",
@@ -58,6 +59,7 @@
     "Expdepart",
     "fáilte",
     "FILENAMECSV",
+    "flakefinder",
     "getstations",
     "Greystones",
     "GRGRD",
@@ -114,6 +116,8 @@
     "Traindate",
     "Traintype",
     "transportforireland",
+    "tryfirst",
+    "typeguard",
     "unknownfield",
     "unknownfile",
     "XMLTABLENAME"

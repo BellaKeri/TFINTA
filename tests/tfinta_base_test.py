@@ -7,6 +7,8 @@
 # pyright: reportPrivateUsage=false
 """gtfs.py unittest."""
 
+from __future__ import annotations
+
 import datetime
 # import pdb
 import sys

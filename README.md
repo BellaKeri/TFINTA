@@ -24,7 +24,7 @@ Since version 1.2 it is PyPI package:
     - [Stations](#stations)
     - [Trains](#trains)
     - [GTFS Schedule Files](#gtfs-schedule-files)
-  - [Development Instructions](#development-instructions)
+  - [Appendix: Development Instructions](#appendix-development-instructions)
     - [Setup](#setup)
     - [Updating Dependencies](#updating-dependencies)
     - [Creating a New Version](#creating-a-new-version)
@@ -454,6 +454,18 @@ git push --tags
 # prepare package for PyPI
 poetry build
 poetry publish
+```
+
+You can find the 10 top slowest tests by running:
+
+```sh
+poetry run pytest -vvv -q --durations=10
+```
+
+You can search for flaky tests by running all tests 100 times:
+
+```sh
+poetry run pytest --flake-finder --flake-runs=100
 ```
 
 ### TODO

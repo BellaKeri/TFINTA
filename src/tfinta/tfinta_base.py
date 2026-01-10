@@ -5,6 +5,8 @@
 #
 """TFINTA base constants and methods."""
 
+from __future__ import annotations
+
 import dataclasses
 import datetime
 import functools

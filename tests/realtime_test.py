@@ -7,6 +7,8 @@
 # pyright: reportPrivateUsage=false
 """realtime.py unittest."""
 
+from __future__ import annotations
+
 import datetime
 import os.path
 # import pdb
@@ -15,6 +17,7 @@ from typing import Callable, Generator, Self
 from unittest import mock
 
 import pytest
+import typeguard
 
 from src.tfinta import tfinta_base as base
 from src.tfinta import realtime
@@ -92,7 +95,8 @@ def test_RealtimeRail_StationsCall(  # pylint: disable=too-many-arguments,too-ma
   mock_open.side_effect = [util.FakeHTTPFile(TEST_XMLS[c]) for c, _ in call_names]
   # call
   rt = realtime.RealtimeRail()
-  return_str: str = '\n'.join(call_obj(rt, **call_names[0][1]))
+  with typeguard.suppress_type_checks():
+    return_str: str = '\n'.join(call_obj(rt, **call_names[0][1]))
   # check data
   assert rt._latest == expected_obj
   assert base.STRIP_ANSI(return_str) == expected_str

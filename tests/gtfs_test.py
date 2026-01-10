@@ -7,6 +7,8 @@
 # pyright: reportPrivateUsage=false
 """gtfs.py unittest."""
 
+from __future__ import annotations
+
 import datetime
 import os.path
 import pathlib
@@ -15,6 +17,7 @@ import sys
 from unittest import mock
 
 import pytest
+import typeguard
 
 from src.tfinta import gtfs
 from src.tfinta import gtfs_data_model as dm
@@ -70,9 +73,10 @@ def test_GTFS_load_and_parse_from_net(  # pylint: disable=too-many-locals,too-ma
         mock.patch('builtins.open', cache_file) as mock_open):
     exists.return_value = False
     urlopen.side_effect = [fake_csv, fake_zip]
-    db.LoadData(
-        dm.IRISH_RAIL_OPERATOR, dm.IRISH_RAIL_LINK,
-        allow_unknown_file=True, allow_unknown_field=True)
+    with typeguard.suppress_type_checks():
+      db.LoadData(
+          dm.IRISH_RAIL_OPERATOR, dm.IRISH_RAIL_LINK,
+          allow_unknown_file=True, allow_unknown_field=True)
     exists.assert_called_once_with('db/path/https__www.transportforireland.ie_transitData_Data_GTFS_Irish_Rail.zip')
     get_time.assert_not_called()
     mock_open.assert_called_once_with('db/path/https__www.transportforireland.ie_transitData_Data_GTFS_Irish_Rail.zip', 'wb')

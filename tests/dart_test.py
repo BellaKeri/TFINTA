@@ -7,6 +7,8 @@
 # pyright: reportPrivateUsage=false
 """dart.py unittest."""
 
+from __future__ import annotations
+
 import datetime
 # import pdb
 import sys
@@ -14,6 +16,7 @@ from typing import Generator
 from unittest import mock
 
 import pytest
+import typeguard
 
 from src.tfinta import dart
 from src.tfinta import gtfs
@@ -48,16 +51,17 @@ def gtfs_object() -> Generator[gtfs.GTFS, None, None]:
 
 def test_DART(gtfs_object: gtfs.GTFS) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
-  with pytest.raises(gtfs.Error):
-    dart.DART(None)  # type: ignore
-  db = dart.DART(gtfs_object)
+  with typeguard.suppress_type_checks():
+    with pytest.raises(gtfs.Error):
+      dart.DART(None)  # type: ignore
+    db = dart.DART(gtfs_object)
   assert db.Services() == {83, 84}
   assert db.ServicesForDay(datetime.date(2025, 8, 4)) == {84}
   assert db.ServicesForDay(datetime.date(2025, 6, 22)) == {83}
   assert db.ServicesForDay(datetime.date(2025, 6, 23)) == set()
   print(db._dart_trips)
   assert db._dart_trips == gtfs_data.DART_TRIPS_ZIP_1
-  with pytest.raises(gtfs.Error):
+  with pytest.raises(gtfs.Error), typeguard.suppress_type_checks():
     list(db.PrettyDaySchedule(day=None))  # type: ignore
   assert gtfs.base.STRIP_ANSI('\n'.join(
       db.PrettyDaySchedule(day=datetime.date(2025, 8, 4)))) == gtfs_data.TRIPS_SCHEDULE_2025_08_04

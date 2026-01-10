@@ -9,6 +9,8 @@
 See: https://gtfs.org/documentation/schedule/reference/
 """
 
+from __future__ import annotations
+
 import dataclasses
 import datetime
 import enum
