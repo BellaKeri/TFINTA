@@ -385,7 +385,7 @@ git clone https://github.com/BellaKeri/TFINTA.git TFINTA
 cd TFINTA
 
 poetry env use python3.11  # creates the venv, 3.11 for development!
-poetry install --sync      # HONOR the project's poetry.lock file, uninstalls stray packages
+poetry sync                # sync env to project's poetry.lock file
 poetry env info            # no-op: just to check
 
 poetry run pytest -vvv
@@ -408,7 +408,7 @@ deactivate
 
 ### Updating Dependencies
 
-To update `poetry.lock` file to more current versions do `poetry update`, it will ignore the current lock, update, and rewrite the `poetry.lock` file.
+To update `poetry.lock` file to more current versions do `poetry update`, it will ignore the current lock, update, and rewrite the `poetry.lock` file. If you have cache problems `poetry cache clear PyPI --all` will clean it.
 
 To add a new dependency you should do:
 
