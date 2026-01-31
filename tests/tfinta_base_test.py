@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 BellaKeri (BellaKeri@github.com) & D. Balparda <balparda@github.com>
+# SPDX-FileCopyrightText: Copyright 2026 BellaKeri@github.com & balparda@github.com
 # SPDX-License-Identifier: Apache-2.0
 """gtfs.py unittest."""
 
