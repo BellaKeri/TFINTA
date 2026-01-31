@@ -12,7 +12,7 @@ build-backend = "poetry.core.masonry.api"
 [project]
 
 name = "tfinta"
-version = "1.9.0"  # also update src/tfinta/__init__.py
+version = "2.0.0"  # also update src/tfinta/__init__.py
 
 description = "Python library and shell scripts for parsing and displaying Transport for Ireland (TFI/NTA) Rail and DART schedule datasets, both GTFS and realtime"
 license = "Apache-2.0"
@@ -56,6 +56,7 @@ dependencies = [
   # development-only dependencies go in the [tool.poetry.group.dev.dependencies] section below
 
   "prettytable>=3.17",
+  "balparda-baselib>=1.11"  # TODO: remove after migration!
 
 ]
 
@@ -68,8 +69,6 @@ dependencies = [
 dart = "tfinta.dart:main"
 gtfs = "tfinta.gtfs:main"
 realtime = "tfinta.realtime:main"
-stations = "tfinta.stations:main"
-trains = "tfinta.trains:main"
 
 ####################################################################################################
 [tool.poetry.scripts]
@@ -80,8 +79,6 @@ trains = "tfinta.trains:main"
 dart = "tfinta.dart:main"
 gtfs = "tfinta.gtfs:main"
 realtime = "tfinta.realtime:main"
-stations = "tfinta.stations:main"
-trains = "tfinta.trains:main"
 
 ####################################################################################################
 [project.urls]

@@ -1,14 +1,13 @@
-#!/usr/bin/env python3
-#
-# Copyright 2025 BellaKeri (BellaKeri@github.com) & Daniel Balparda (balparda@github.com)
-# Apache-2.0 license
-#
+# SPDX-FileCopyrightText: 2026 BellaKeri (BellaKeri@github.com) & D. Balparda <balparda@github.com>
+# SPDX-License-Identifier: Apache-2.0
 """Test utils."""
 
 from __future__ import annotations
 
 import io
 import os.path
+import pathlib
+
 # import pdb
 from typing import Any, Self
 
@@ -45,5 +44,5 @@ class FakeHTTPFile(FakeHTTPStream):
   """
 
   def __init__(self, payload_path: str, /) -> None:
-    with open(payload_path, 'rb') as payload:
+    with pathlib.Path(payload_path).open('rb') as payload:
       super().__init__(payload.read())

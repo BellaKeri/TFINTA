@@ -1,8 +1,5 @@
-#!/usr/bin/env python3
-#
-# Copyright 2025 BellaKeri (BellaKeri@github.com) & Daniel Balparda (balparda@github.com)
-# Apache-2.0 license
-#
+# SPDX-FileCopyrightText: 2026 BellaKeri (BellaKeri@github.com) & D. Balparda <balparda@github.com>
+# SPDX-License-Identifier: Apache-2.0
 """TFINTA base constants and methods."""
 
 from __future__ import annotations
@@ -10,8 +7,10 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import functools
+from collections.abc import Callable
+
 # import pdb
-from typing import Any, Callable, Self
+from typing import Any, Self
 
 from balparda_baselib import base as balparda_base
 
@@ -49,7 +48,9 @@ HumanizedSeconds = balparda_base.HumanizedSeconds
 
 BOOL_FIELD: dict[str, bool] = {'0': False, '1': True}
 _DT_OBJ_GTFS: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(s, '%Y%m%d')
-_DT_OBJ_REALTIME: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(s, '%d %b %Y')
+_DT_OBJ_REALTIME: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(
+  s, '%d %b %Y'
+)
 # _UTC_DATE: Callable[[str], float] = lambda s: _DT_OBJ(s).replace(
 #     tzinfo=datetime.timezone.utc).timestamp()
 DATE_OBJ_GTFS: Callable[[str], datetime.date] = lambda s: _DT_OBJ_GTFS(s).date()
@@ -58,23 +59,26 @@ DATETIME_FROM_ISO: Callable[[str], datetime.datetime] = datetime.datetime.fromis
 
 NULL_TEXT: str = f'{BLUE}\u2205{NULL}'  # ∅
 LIMITED_TEXT: Callable[[str | None, int], str] = (
-    lambda s, w: NULL_TEXT if s is None else (s if len(s) <= w else f'{s[:(w - 1)]}\u2026'))  # …
+  lambda s, w: NULL_TEXT if s is None else (s if len(s) <= w else f'{s[: (w - 1)]}\u2026')
+)  # …
 PRETTY_BOOL: Callable[[bool | None], str] = lambda b: (  # ✓ and ✗
-    f'{GREEN}\u2713{NULL}' if b else f'{RED}\u2717{NULL}')
+  f'{GREEN}\u2713{NULL}' if b else f'{RED}\u2717{NULL}'
+)
 
 DAY_NAME: dict[int, str] = {
-    0: 'Monday',
-    1: 'Tuesday',
-    2: 'Wednesday',
-    3: 'Thursday',
-    4: 'Friday',
-    5: 'Saturday',
-    6: 'Sunday',
+  0: 'Monday',
+  1: 'Tuesday',
+  2: 'Wednesday',
+  3: 'Thursday',
+  4: 'Friday',
+  5: 'Saturday',
+  6: 'Sunday',
 }
 
 SHORT_DAY_NAME: Callable[[int], str] = lambda i: DAY_NAME[i][:3]
 PRETTY_DATE: Callable[[datetime.date | None], str] = lambda d: (
-    NULL_TEXT if d is None else f'{d.isoformat()}\u00B7{SHORT_DAY_NAME(d.weekday())}')  # ·
+  NULL_TEXT if d is None else f'{d.isoformat()}\u00b7{SHORT_DAY_NAME(d.weekday())}'
+)  # ·
 
 
 class Error(Exception):
@@ -85,6 +89,7 @@ class Error(Exception):
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class DayTime:
   """A time during some arbitrary day, measured in int seconds since midnight."""
+
   time: int
 
   def __post_init__(self) -> None:
@@ -115,6 +120,7 @@ class DayTime:
 
     Raises:
       Error: malformed input
+
     """
     try:
       h_str, m_str, s_str = time_str.split(':')
@@ -130,9 +136,10 @@ class DayTime:
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class DayRange:
   """A time during some arbitrary day, measured in int seconds since midnight."""
+
   arrival: DayTime | None
   departure: DayTime | None
-  strict: bool = True     # if False won't check that arrival <= departure
+  strict: bool = True  # if False won't check that arrival <= departure
   nullable: bool = False  # if False won't allow None values
 
   def __post_init__(self) -> None:
@@ -157,7 +164,8 @@ class DayRange:
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class Point:
   """A point (location) on Earth. Latitude and longitude in decimal degrees (WGS84)."""
-  latitude: float   # latitude;   -90.0 <= lat <= 90.0  (required)
+
+  latitude: float  # latitude;   -90.0 <= lat <= 90.0  (required)
   longitude: float  # longitude; -180.0 <= lat <= 180.0 (required)
 
   def __post_init__(self) -> None:
@@ -190,6 +198,7 @@ class Point:
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class DaysRange:
   """Range of calendar days (supposes start <= end, but doesn't check). Sortable."""
+
   start: datetime.date
   end: datetime.date
 

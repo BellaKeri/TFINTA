@@ -1,9 +1,5 @@
-#!/usr/bin/env python3
-#
-# Copyright 2025 BellaKeri (BellaKeri@github.com) & Daniel Balparda (balparda@github.com)
-# Apache-2.0 license
-#
-# pylint: disable=too-many-instance-attributes
+# SPDX-FileCopyrightText: 2026 BellaKeri (BellaKeri@github.com) & D. Balparda <balparda@github.com>
+# SPDX-License-Identifier: Apache-2.0
 """Irish Rail Realtime data model.
 
 See: https://api.irishrail.ie/realtime/
@@ -15,8 +11,10 @@ import dataclasses
 import datetime
 import enum
 import functools
+from collections.abc import Callable
+
 # import pdb
-from typing import Any, Callable, TypedDict
+from typing import Any, TypedDict
 
 from . import tfinta_base as base
 
@@ -43,8 +41,9 @@ class RealtimeRPCData:
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class Station(RealtimeRPCData):
   """Realtime: Station."""
+
   id: int
-  code: str         # 5-letter uppercase code (ex: 'LURGN')
+  code: str  # 5-letter uppercase code (ex: 'LURGN')
   description: str  # name (ex: 'Lurgan')
   location: base.Point | None = None
   alias: str | None = None
@@ -58,6 +57,7 @@ class Station(RealtimeRPCData):
 
 class ExpectedStationXMLRowType(TypedDict):
   """getAllStationsXML/objStation"""
+
   StationId: int
   StationCode: str
   StationDesc: str
@@ -68,21 +68,22 @@ class ExpectedStationXMLRowType(TypedDict):
 
 class TrainStatus(enum.Enum):
   """Train status."""
+
   TERMINATED = 0
   NOT_YET_RUNNING = 1
   RUNNING = 2
 
 
 TRAIN_STATUS_STR_MAP: dict[str, TrainStatus] = {
-    'T': TrainStatus.TERMINATED,
-    'R': TrainStatus.RUNNING,
-    'N': TrainStatus.NOT_YET_RUNNING,
+  'T': TrainStatus.TERMINATED,
+  'R': TrainStatus.RUNNING,
+  'N': TrainStatus.NOT_YET_RUNNING,
 }
 
 TRAIN_STATUS_STR: dict[TrainStatus, str] = {
-    TrainStatus.TERMINATED: f'{base.YELLOW}\u2717{base.NULL}',    # ✗
-    TrainStatus.NOT_YET_RUNNING: f'{base.RED}\u25A0{base.NULL}',  # ■
-    TrainStatus.RUNNING: f'{base.GREEN}\u25BA{base.NULL}',        # ►
+  TrainStatus.TERMINATED: f'{base.YELLOW}\u2717{base.NULL}',  # ✗
+  TrainStatus.NOT_YET_RUNNING: f'{base.RED}\u25a0{base.NULL}',  # ■
+  TrainStatus.RUNNING: f'{base.GREEN}\u25ba{base.NULL}',  # ►
 }
 
 
@@ -90,6 +91,7 @@ TRAIN_STATUS_STR: dict[TrainStatus, str] = {
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class RunningTrain(RealtimeRPCData):
   """Realtime: Running Train."""
+
   code: str
   status: TrainStatus
   day: datetime.date
@@ -108,6 +110,7 @@ class RunningTrain(RealtimeRPCData):
 
 class ExpectedRunningTrainXMLRowType(TypedDict):
   """getCurrentTrainsXML/objTrainPositions"""
+
   TrainCode: str
   TrainStatus: str  # 'R'==running; 'N'==not yet running
   TrainDate: str
@@ -119,24 +122,26 @@ class ExpectedRunningTrainXMLRowType(TypedDict):
 
 class TrainType(enum.Enum):
   """Train type."""
+
   UNKNOWN = 0
-  DMU = 1   # Diesel-multiple-unit commuter sets
+  DMU = 1  # Diesel-multiple-unit commuter sets
   DART = 2  # DART (Dublin Area Rapid Transit) electric suburban, 'DART' or 'DART10' values
-  ICR = 3   # 22000-class InterCity Railcars
+  ICR = 3  # 22000-class InterCity Railcars
   LOCO = 4  # loco-hauled services
 
 
 TRAIN_TYPE_STR_MAP: dict[str, TrainType] = {
-    'DMU': TrainType.DMU,
-    'DART': TrainType.DART,
-    'DART10': TrainType.DART,
-    'ICR': TrainType.ICR,
-    'TRAIN': TrainType.LOCO,
+  'DMU': TrainType.DMU,
+  'DART': TrainType.DART,
+  'DART10': TrainType.DART,
+  'ICR': TrainType.ICR,
+  'TRAIN': TrainType.LOCO,
 }
 
 
 class LocationType(enum.Enum):
   """Location type."""
+
   STOP = 0
   ORIGIN = 1
   DESTINATION = 2
@@ -145,19 +150,19 @@ class LocationType(enum.Enum):
 
 
 LOCATION_TYPE_STR_MAP: dict[str, LocationType] = {
-    'S': LocationType.STOP,
-    'O': LocationType.ORIGIN,
-    'D': LocationType.DESTINATION,
-    'T': LocationType.TIMING_POINT,
-    'C': LocationType.CREW_RELIEF_OR_CURRENT,
+  'S': LocationType.STOP,
+  'O': LocationType.ORIGIN,
+  'D': LocationType.DESTINATION,
+  'T': LocationType.TIMING_POINT,
+  'C': LocationType.CREW_RELIEF_OR_CURRENT,
 }
 
 LOCATION_TYPE_STR: dict[LocationType, str] = {
-    LocationType.ORIGIN: f'{base.GREEN}ORIGIN{base.NULL}',
-    LocationType.DESTINATION: f'{base.GREEN}DESTINATION{base.NULL}',
-    LocationType.STOP: f'{base.GREEN}\u25A0{base.NULL}',                          # ■
-    LocationType.TIMING_POINT: f'{base.RED}\u23F1{base.NULL}',                    # ⏱
-    LocationType.CREW_RELIEF_OR_CURRENT: f'{base.GREEN}\u25A0\u25A0{base.NULL}',  # ■■
+  LocationType.ORIGIN: f'{base.GREEN}ORIGIN{base.NULL}',
+  LocationType.DESTINATION: f'{base.GREEN}DESTINATION{base.NULL}',
+  LocationType.STOP: f'{base.GREEN}\u25a0{base.NULL}',  # ■
+  LocationType.TIMING_POINT: f'{base.RED}\u23f1{base.NULL}',  # ⏱
+  LocationType.CREW_RELIEF_OR_CURRENT: f'{base.GREEN}\u25a0\u25a0{base.NULL}',  # ■■
 }
 
 
@@ -165,6 +170,7 @@ LOCATION_TYPE_STR: dict[LocationType, str] = {
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class StationLineQueryData(RealtimeRPCData):
   """Realtime: Board/Station/Query info."""
+
   tm_server: datetime.datetime
   tm_query: base.DayTime
   station_name: str
@@ -184,6 +190,7 @@ class StationLineQueryData(RealtimeRPCData):
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class StationLine(RealtimeRPCData):
   """Realtime: Station Board Line."""
+
   query: StationLineQueryData
   train_code: str
   origin_code: str
@@ -214,6 +221,7 @@ class StationLine(RealtimeRPCData):
 
 class ExpectedStationLineXMLRowType(TypedDict):
   """getStationDataByCodeXML/objStationData"""
+
   Servertime: str
   Traincode: str
   Stationfullname: str
@@ -239,15 +247,16 @@ class ExpectedStationLineXMLRowType(TypedDict):
 
 class StopType(enum.Enum):
   """Stop type."""
+
   UNKNOWN = 0
   CURRENT = 1
   NEXT = 2
 
 
 STOP_TYPE_STR_MAP: dict[str, StopType] = {
-    'C': StopType.CURRENT,
-    'N': StopType.NEXT,
-    '-': StopType.UNKNOWN,
+  'C': StopType.CURRENT,
+  'N': StopType.NEXT,
+  '-': StopType.UNKNOWN,
 }
 
 
@@ -255,6 +264,7 @@ STOP_TYPE_STR_MAP: dict[str, StopType] = {
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class TrainStopQueryData(RealtimeRPCData):
   """Realtime: Train/Query info."""
+
   train_code: str
   day: datetime.date
   origin_code: str
@@ -277,6 +287,7 @@ class TrainStopQueryData(RealtimeRPCData):
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class TrainStop(RealtimeRPCData):
   """Realtime: Train Station."""
+
   query: TrainStopQueryData
   auto_arrival: bool
   auto_depart: bool
@@ -298,6 +309,7 @@ class TrainStop(RealtimeRPCData):
 
 class ExpectedTrainStopXMLRowType(TypedDict):
   """getTrainMovementsXML/objTrainMovements"""
+
   TrainCode: str
   TrainDate: str
   LocationCode: str
@@ -320,14 +332,26 @@ class ExpectedTrainStopXMLRowType(TypedDict):
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=False)
 class LatestData:
   """Realtime: latest fetched data."""
+
   stations_tm: float | None
-  stations: dict[str, Station]                  # {station_code: Station}
+  stations: dict[str, Station]  # {station_code: Station}
   running_tm: float | None
-  running_trains: dict[str, RunningTrain]       # {train_code: RunningTrain}
-  station_boards: dict[str, tuple[              # {station_code: (tm, query_data, list[lines])}
-      float, StationLineQueryData, list[StationLine]]]
-  trains: dict[str, dict[datetime.date, tuple[  # {train_code: {day: (tm, query, {seq: train_stop})}}
-      float, TrainStopQueryData, dict[int, TrainStop]]]]
+  running_trains: dict[str, RunningTrain]  # {train_code: RunningTrain}
+  station_boards: dict[
+    str,
+    tuple[  # {station_code: (tm, query_data, list[lines])}
+      float, StationLineQueryData, list[StationLine]
+    ],
+  ]
+  trains: dict[
+    str,
+    dict[
+      datetime.date,
+      tuple[  # {train_code: {day: (tm, query, {seq: train_stop})}}
+        float, TrainStopQueryData, dict[int, TrainStop]
+      ],
+    ],
+  ]
 
 
 PRETTY_AUTO: Callable[[bool], str] = lambda b: f'{base.GREEN}\u2699{base.NULL}' if b else ''  # ⚙

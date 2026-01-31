@@ -1,8 +1,5 @@
-#!/usr/bin/env python3
-#
-# Copyright 2025 BellaKeri (BellaKeri@github.com) & Daniel Balparda (balparda@github.com)
-# Apache-2.0 license
-#
+# SPDX-FileCopyrightText: 2026 BellaKeri (BellaKeri@github.com) & D. Balparda <balparda@github.com>
+# SPDX-License-Identifier: Apache-2.0
 """GTFS: Loading, parsing, etc.
 
 See: https://gtfs.org/documentation/schedule/reference/
@@ -18,23 +15,25 @@ import datetime
 import functools
 import io
 import logging
-import os
 import os.path
+import pathlib
+
 # import pdb
 import sys
 import time
 import types
-from typing import Any, Callable, Generator, IO
-from typing import get_args as GetTypeArgs
-from typing import get_type_hints as GetTypeHints
 import urllib.request
 import zipfile
 import zoneinfo
+from collections.abc import Callable, Generator
+from typing import IO, Any
+from typing import get_args as GetTypeArgs
+from typing import get_type_hints as GetTypeHints
 
 import prettytable
 
-from . import tfinta_base as base
 from . import gtfs_data_model as dm
+from . import tfinta_base as base
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
 __version__: tuple[int, int] = base.__version__
@@ -49,9 +48,9 @@ DEFAULT_DATA_DIR: str = base.MODULE_PRIVATE_DIR(__file__, '.tfinta-data')
 _DB_FILE_NAME = 'transit.db'
 
 # cache sizes (in entries)
-_SMALL_CACHE = 1 << 10   # 1024
+_SMALL_CACHE = 1 << 10  # 1024
 _MEDIUM_CACHE = 1 << 14  # 16384
-_LARGE_CACHE = 1 << 16   # 65536
+_LARGE_CACHE = 1 << 16  # 65536
 
 # type maps for efficiency and memory (so we don't build countless enum objects)
 _LOCATION_TYPE_MAP: dict[int, dm.LocationType] = {e.value: e for e in dm.LocationType}
@@ -82,14 +81,14 @@ class RowError(ParseError):
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class _TableLocation:
   """GTFS table coordinates (just for parsing use for now)."""
-  operator: str   # GTFS Operator, from CSV Official Sources (required)
-  link: str       # GTFS ZIP file URL location               (required)
+
+  operator: str  # GTFS Operator, from CSV Official Sources (required)
+  link: str  # GTFS ZIP file URL location               (required)
   file_name: str  # file name (ex: 'feed_info.txt')          (required)
 
 
 # useful aliases
-_GTFSRowHandler = Callable[
-    [_TableLocation, int, dict[str, None | str | int | float | bool]], None]
+_GTFSRowHandler = Callable[[_TableLocation, int, dict[str, None | str | int | float | bool]], None]
 
 
 class GTFS:
@@ -100,19 +99,20 @@ class GTFS:
 
     Args:
       db_dir_path: Path to directory in which to save DB 'transit.db'
+
     """
     # save the dir/path, create directory if needed
     self._dir_path: str = db_dir_path.strip()
     if not self._dir_path:
       raise Error('DB dir path cannot be empty')
-    if not os.path.isdir(self._dir_path):
-      os.mkdir(self._dir_path)
+    if not pathlib.Path(self._dir_path).is_dir():
+      pathlib.Path(self._dir_path).mkdir()
       logging.info('Created data directory: %s', self._dir_path)
     self._db_path: str = os.path.join(self._dir_path, _DB_FILE_NAME)
     self._db: dm.GTFSData
     self._changed = False
     # load DB, or create if new
-    if os.path.exists(self._db_path):
+    if pathlib.Path(self._db_path).exists():
       # DB exists: load
       with base.Timer() as tm_load:
         self._db = base.BinDeSerialize(file_path=self._db_path, compress=True)
@@ -121,22 +121,34 @@ class GTFS:
     else:
       # DB does not exist: create empty
       self._db = dm.GTFSData(  # empty DB
-          tm=0.0, files=dm.OfficialFiles(tm=0.0, files={}),
-          agencies={}, calendar={}, shapes={}, stops={})
+        tm=0.0,
+        files=dm.OfficialFiles(tm=0.0, files={}),
+        agencies={},
+        calendar={},
+        shapes={},
+        stops={},
+      )
       self.Save(force=True)
     # create file handlers structure
-    self._file_handlers: dict[str, tuple[_GTFSRowHandler, type, dict[str, tuple[type, bool]], set[str]]] = {  # type:ignore
-        # {file_name: (handler, TypedDict_row_definition,
-        #              {field: (type, required?)}, {required1, required2, ...})}
-        'feed_info.txt': (self._HandleFeedInfoRow, dm.ExpectedFeedInfoCSVRowType, {}, set()),                 # type:ignore
-        'agency.txt': (self._HandleAgencyRow, dm.ExpectedAgencyCSVRowType, {}, set()),                        # type:ignore
-        'calendar.txt': (self._HandleCalendarRow, dm.ExpectedCalendarCSVRowType, {}, set()),                  # type:ignore
-        'calendar_dates.txt': (self._HandleCalendarDatesRow, dm.ExpectedCalendarDatesCSVRowType, {}, set()),  # type:ignore
-        'routes.txt': (self._HandleRoutesRow, dm.ExpectedRoutesCSVRowType, {}, set()),                        # type:ignore
-        'shapes.txt': (self._HandleShapesRow, dm.ExpectedShapesCSVRowType, {}, set()),                        # type:ignore
-        'trips.txt': (self._HandleTripsRow, dm.ExpectedTripsCSVRowType, {}, set()),                           # type:ignore
-        'stops.txt': (self._HandleStopsRow, dm.ExpectedStopsCSVRowType, {}, set()),                           # type:ignore
-        'stop_times.txt': (self._HandleStopTimesRow, dm.ExpectedStopTimesCSVRowType, {}, set()),              # type:ignore
+    self._file_handlers: dict[
+      str, tuple[_GTFSRowHandler, type, dict[str, tuple[type, bool]], set[str]]
+    ] = {  # type:ignore
+      # {file_name: (handler, TypedDict_row_definition,
+      #              {field: (type, required?)}, {required1, required2, ...})}
+      'feed_info.txt': (self._HandleFeedInfoRow, dm.ExpectedFeedInfoCSVRowType, {}, set()),  # type:ignore
+      'agency.txt': (self._HandleAgencyRow, dm.ExpectedAgencyCSVRowType, {}, set()),  # type:ignore
+      'calendar.txt': (self._HandleCalendarRow, dm.ExpectedCalendarCSVRowType, {}, set()),  # type:ignore
+      'calendar_dates.txt': (
+        self._HandleCalendarDatesRow,
+        dm.ExpectedCalendarDatesCSVRowType,
+        {},
+        set(),
+      ),  # type:ignore
+      'routes.txt': (self._HandleRoutesRow, dm.ExpectedRoutesCSVRowType, {}, set()),  # type:ignore
+      'shapes.txt': (self._HandleShapesRow, dm.ExpectedShapesCSVRowType, {}, set()),  # type:ignore
+      'trips.txt': (self._HandleTripsRow, dm.ExpectedTripsCSVRowType, {}, set()),  # type:ignore
+      'stops.txt': (self._HandleStopsRow, dm.ExpectedStopsCSVRowType, {}, set()),  # type:ignore
+      'stop_times.txt': (self._HandleStopTimesRow, dm.ExpectedStopTimesCSVRowType, {}, set()),  # type:ignore
     }
     # fill in types, derived from the _Expected*CSVRowType TypedDicts
     for file_name, (_, expected, fields, required) in self._file_handlers.items():
@@ -160,6 +172,7 @@ class GTFS:
 
     Args:
       force: (default False) Saves even if no changes to data were detected
+
     """
     if force or self._changed:
       with base.Timer() as tm_save:
@@ -216,6 +229,7 @@ class GTFS:
 
     Raises:
       Error: more than one match or no match
+
     """
     # test empty case
     stop_name_or_id = stop_name_or_id.strip()
@@ -237,21 +251,22 @@ class GTFS:
     if len(matches) > 1:
       # cannot decide between many options
       raise Error(
-          f'Station name {stop_name_or_id!r} matches stations: '
-          f'{", ".join(f"{s}/{self._db.stops[s].name}" for s in sorted(matches))} '
-          '--- Use ID or be more specific')
+        f'Station name {stop_name_or_id!r} matches stations: '
+        f'{", ".join(f"{s}/{self._db.stops[s].name}" for s in sorted(matches))} '
+        '--- Use ID or be more specific'
+      )
     # exactly one real match, so that is the one
     return matches.pop()
 
   def _InvalidateCaches(self) -> None:
     """Clear all caches."""
     for method in (
-        # list cache methods here
-        self.FindRoute,
-        self.FindTrip,
-        self.StopName,
-        self.StopNameTranslator,
-        self.StopIDFromNameFragmentOrID,
+      # list cache methods here
+      self.FindRoute,
+      self.FindTrip,
+      self.StopName,
+      self.StopNameTranslator,
+      self.StopIDFromNameFragmentOrID,
     ):
       method.cache_clear()
 
@@ -271,8 +286,14 @@ class GTFS:
     return services
 
   def FindAgencyRoute(
-      self, agency_name: str, route_type: dm.RouteType, short_name: str, /, *,
-      long_name: str | None = None) -> tuple[dm.Agency | None, dm.Route | None]:
+    self,
+    agency_name: str,
+    route_type: dm.RouteType,
+    short_name: str,
+    /,
+    *,
+    long_name: str | None = None,
+  ) -> tuple[dm.Agency | None, dm.Route | None]:
     """Find a route in an agency, by name.
 
     Args:
@@ -283,6 +304,7 @@ class GTFS:
 
     Returns:
       (Agency, Route) or (None, None) if not found
+
     """
     agency_name = agency_name.strip()
     short_name = short_name.strip()
@@ -304,9 +326,17 @@ class GTFS:
     return (agency, None)
 
   def LoadData(  # pylint: disable=too-many-arguments
-      self, operator: str, link: str, /, *, freshness: int = _DEFAULT_DAYS_FRESHNESS,
-      allow_unknown_file: bool = True, allow_unknown_field: bool = False,
-      force_replace: bool = False, override: str | None = None) -> None:
+    self,
+    operator: str,
+    link: str,
+    /,
+    *,
+    freshness: int = _DEFAULT_DAYS_FRESHNESS,
+    allow_unknown_file: bool = True,
+    allow_unknown_field: bool = False,
+    force_replace: bool = False,
+    override: str | None = None,
+  ) -> None:
     """Downloads and parses GTFS data.
 
     Args:
@@ -318,6 +348,7 @@ class GTFS:
       allow_unknown_field: (default False) If False will raise on unknown field in file
       force_replace: (default False) If True will parse a repeated version of the ZIP file
       override: (default None) If given, this ZIP file path will override the download
+
     """
     # first load the list of GTFS, if needed
     if (age := DAYS_OLD(self._db.files.tm)) > freshness:
@@ -329,20 +360,31 @@ class GTFS:
     if override:
       logging.info('OVERRIDE GTFS source: %s', override)
       self._LoadGTFSSource(
-          operator, link,
-          allow_unknown_file=allow_unknown_file, allow_unknown_field=allow_unknown_field,
-          force_replace=force_replace, override=override)
-    if (not force_replace and operator in self._db.files.files and
-        link in self._db.files.files[operator] and
-        self._db.files.files[operator][link] and
-        (age := DAYS_OLD(self._db.files.files[operator][link].tm)) <= freshness):  # type:ignore
+        operator,
+        link,
+        allow_unknown_file=allow_unknown_file,
+        allow_unknown_field=allow_unknown_field,
+        force_replace=force_replace,
+        override=override,
+      )
+    if (
+      not force_replace
+      and operator in self._db.files.files
+      and link in self._db.files.files[operator]
+      and self._db.files.files[operator][link]
+      and (age := DAYS_OLD(self._db.files.files[operator][link].tm)) <= freshness
+    ):  # type:ignore
       logging.info('GTFS sources are fresh (%0.2f days old) - SKIP', age)
     else:
       logging.info('Parsing GTFS ZIP source (%0.2f days old)', age)
       self._LoadGTFSSource(
-          operator, link,
-          allow_unknown_file=allow_unknown_file, allow_unknown_field=allow_unknown_field,
-          force_replace=force_replace, override=None)
+        operator,
+        link,
+        allow_unknown_file=allow_unknown_file,
+        allow_unknown_field=allow_unknown_field,
+        force_replace=force_replace,
+        override=None,
+      )
 
   def _LoadCSVSources(self) -> None:
     """Loads GTFS official sources from CSV."""
@@ -368,8 +410,10 @@ class GTFS:
     self._db.files.tm = time.time()
     self._changed = True
     logging.info(
-        'Loaded GTFS official sources with %d operators and %d links',
-        len(new_files), sum(len(urls) for urls in new_files.values()))
+      'Loaded GTFS official sources with %d operators and %d links',
+      len(new_files),
+      sum(len(urls) for urls in new_files.values()),
+    )
 
   @contextlib.contextmanager
   def _ParsingSession(self) -> Generator[None, Any, None]:
@@ -387,9 +431,16 @@ class GTFS:
       self._InvalidateCaches()
 
   def _LoadGTFSSource(  # pylint: disable=too-many-arguments,too-many-locals
-      self, operator: str, link: str, /, *,
-      allow_unknown_file: bool = True, allow_unknown_field: bool = False,
-      force_replace: bool = False, override: str | None = None) -> None:
+    self,
+    operator: str,
+    link: str,
+    /,
+    *,
+    allow_unknown_file: bool = True,
+    allow_unknown_field: bool = False,
+    force_replace: bool = False,
+    override: str | None = None,
+  ) -> None:
     """Loads a single GTFS ZIP file and parses all inner data files.
 
     Args:
@@ -403,6 +454,7 @@ class GTFS:
     Raises:
       ParseError: missing files or fields
       ParseImplementationError: unknown file or field (if "allow" is False)
+
     """
     # check that we are asking for a valid and known source
     operator, link = operator.strip(), link.strip()
@@ -419,41 +471,48 @@ class GTFS:
     save_cache_file: bool
     with self._ParsingSession():
       if override:
-        if not os.path.exists(override):
+        if not pathlib.Path(override).exists():
           raise Error(f'Override file does not exist: {override!r}')
-        url_opener = open(override, 'rb')
+        url_opener = pathlib.Path(override).open('rb')
+        save_cache_file = False
+      elif (
+        not force_replace
+        and pathlib.Path(cache_file_path).exists()
+        and (age := DAYS_OLD(pathlib.Path(cache_file_path).stat().st_mtime))
+        <= _DAYS_CACHE_FRESHNESS
+      ):
+        # we will used the cached ZIP
+        logging.warning('Loading from %0.2f days old cache on disk! (use -r to override)', age)
+        url_opener = pathlib.Path(cache_file_path).open('rb')
         save_cache_file = False
       else:
-        if (not force_replace and os.path.exists(cache_file_path) and
-            (age := DAYS_OLD(os.path.getmtime(cache_file_path))) <= _DAYS_CACHE_FRESHNESS):
-          # we will used the cached ZIP
-          logging.warning('Loading from %0.2f days old cache on disk! (use -r to override)', age)
-          url_opener = open(cache_file_path, 'rb')
-          save_cache_file = False
-        else:
-          # we will re-download from the URL
-          url_opener = urllib.request.urlopen(link)
-          save_cache_file = True
+        # we will re-download from the URL
+        url_opener = urllib.request.urlopen(link)
+        save_cache_file = True
       # open from whatever source
       with url_opener as gtfs_zip:
         # get ZIP binary content, and if we got from URL save to cache
         gtfs_zip_bytes: bytes = gtfs_zip.read()
         logging.info(
-            'Loading %r data, %s, from %r%s',
-            operator, base.HumanizedBytes(len(gtfs_zip_bytes)),
-            link if save_cache_file else cache_file_name,
-            ' => SAVING to cache' if save_cache_file else '')
+          'Loading %r data, %s, from %r%s',
+          operator,
+          base.HumanizedBytes(len(gtfs_zip_bytes)),
+          link if save_cache_file else cache_file_name,
+          ' => SAVING to cache' if save_cache_file else '',
+        )
         if save_cache_file:
-          with open(cache_file_path, 'wb') as cache_file_obj:
-            cache_file_obj.write(gtfs_zip_bytes)
+          pathlib.Path(cache_file_path).write_bytes(gtfs_zip_bytes)
         # extract files from ZIP
         for file_name, file_data in _UnzipFiles(io.BytesIO(gtfs_zip_bytes)):
           file_name = file_name.strip()
           location = _TableLocation(operator=operator, link=link, file_name=file_name)
           try:
             self._LoadGTFSFile(
-                location, file_data,
-                allow_unknown_file=allow_unknown_file, allow_unknown_field=allow_unknown_field)
+              location,
+              file_data,
+              allow_unknown_file=allow_unknown_file,
+              allow_unknown_field=allow_unknown_field,
+            )
           except ParseIdenticalVersionError as err:
             if force_replace:
               logging.warning('Replacing existing data: %s', err)
@@ -463,13 +522,19 @@ class GTFS:
           finally:
             done_files.add(file_name)
       # finished loading the files, check that we loaded all required files
-      if (missing_files := dm.REQUIRED_FILES - done_files):
+      if missing_files := dm.REQUIRED_FILES - done_files:
         raise ParseError(f'Missing required files: {operator} {missing_files!r}')
       self._changed = True
 
   def _LoadGTFSFile(  # pylint: disable=too-many-branches,too-many-locals
-      self, location: _TableLocation, file_data: bytes, /, *,
-      allow_unknown_file: bool, allow_unknown_field: bool) -> None:
+    self,
+    location: _TableLocation,
+    file_data: bytes,
+    /,
+    *,
+    allow_unknown_file: bool,
+    allow_unknown_field: bool,
+  ) -> None:
     """Loads a single txt (actually CSV) file and parses all fields, sending rows to handlers.
 
     Args:
@@ -481,13 +546,14 @@ class GTFS:
     Raises:
       ParseError: missing fields
       ParseImplementationError: unknown file or field (if "allow" is False)
+
     """
     # check if we know how to process this file
     file_name: str = location.file_name
     if file_name not in self._file_handlers or not file_data:
       message: str = (
-          f'Unsupported GTFS file: {file_name if file_name else "<empty>"} '
-          f'({base.HumanizedBytes(len(file_data))})')
+        f'Unsupported GTFS file: {file_name or "<empty>"} ({base.HumanizedBytes(len(file_data))})'
+      )
       if allow_unknown_file:
         logging.warning(message)
         return
@@ -497,15 +563,16 @@ class GTFS:
     # get fields data, and process CSV with a dict reader
     file_handler, _, field_types, required_fields = self._file_handlers[file_name]
     i: int = 0
-    for i, row in enumerate(csv.DictReader(
-        io.TextIOWrapper(io.BytesIO(file_data), encoding='utf-8'))):
+    for i, row in enumerate(
+      csv.DictReader(io.TextIOWrapper(io.BytesIO(file_data), encoding='utf-8'))
+    ):
       parsed_row: dict[str, None | str | int | float | bool] = {}
       field_value: str | None
       # process field-by-field
       for field_name, field_value in row.items():
         # strip and nullify the empty value
         field_value = field_value.strip()  # type:ignore
-        field_value = field_value if field_value else None
+        field_value = field_value or None
         if field_name in field_types:
           # known/expected field
           field_type, field_required = field_types[field_name]
@@ -514,24 +581,25 @@ class GTFS:
             if field_required:
               raise ParseError(f'Empty required field: {file_name}/{i} {field_name!r}: {row}')
             parsed_row[field_name] = None
+          # field has a value
+          elif field_type == str:
+            parsed_row[field_name] = field_value  # vanilla string
+          elif field_type == bool:
+            try:
+              parsed_row[field_name] = base.BOOL_FIELD[field_value]  # convert to bool '0'/'1'
+            except KeyError as err:
+              raise ParseError(
+                f'invalid bool value {file_name}/{i}/{field_name}: {field_value!r}'
+              ) from err
+          elif field_type in (int, float):
+            try:
+              parsed_row[field_name] = field_type(field_value)  # convert int/float
+            except ValueError as err:
+              raise ParseError(
+                f'invalid int/float value {file_name}/{i}/{field_name}: {field_value!r}'
+              ) from err
           else:
-            # field has a value
-            if field_type == str:
-              parsed_row[field_name] = field_value  # vanilla string
-            elif field_type == bool:
-              try:
-                parsed_row[field_name] = base.BOOL_FIELD[field_value]  # convert to bool '0'/'1'
-              except KeyError as err:
-                raise ParseError(
-                    f'invalid bool value {file_name}/{i}/{field_name}: {field_value!r}') from err
-            elif field_type in (int, float):
-              try:
-                parsed_row[field_name] = field_type(field_value)  # convert int/float
-              except ValueError as err:
-                raise ParseError(
-                    f'invalid int/float value {file_name}/{i}/{field_name}: {field_value!r}') from err
-            else:
-              raise Error(f'invalid field type {file_name}/{i}/{field_name!r}: {field_type!r}')
+            raise Error(f'invalid field type {file_name}/{i}/{field_name!r}: {field_type!r}')
         else:
           # unknown field, check if we message/raise only in first row
           if not i:
@@ -544,10 +612,10 @@ class GTFS:
           parsed_row[field_name] = field_value
       # we have a row, check for missing required fields
       parsed_row_fields = set(parsed_row.keys())
-      if (missing_required := required_fields - parsed_row_fields):
+      if missing_required := required_fields - parsed_row_fields:
         raise ParseError(f'Missing required fields: {file_name}/{i} {missing_required!r}: {row}')
       # add known fields that are missing (with None as value)
-      for field in (set(field_types.keys()) - parsed_row_fields):
+      for field in set(field_types.keys()) - parsed_row_fields:
         parsed_row[field] = None
       # done: send to row handler
       file_handler(location, i, parsed_row)
@@ -574,7 +642,8 @@ class GTFS:
   #   """
 
   def _HandleFeedInfoRow(
-      self, location: _TableLocation, count: int, row: dm.ExpectedFeedInfoCSVRowType, /) -> None:
+    self, location: _TableLocation, count: int, row: dm.ExpectedFeedInfoCSVRowType, /
+  ) -> None:
     """Handler: "feed_info.txt" Information on the GTFS ZIP file being processed.
 
     (no primary key)
@@ -587,11 +656,13 @@ class GTFS:
     Raises:
       RowError: error parsing this record
       ParseIdenticalVersionError: version is already known/parsed
+
     """
     # there can be only one!
     if count != 0:
       raise RowError(
-          f'feed_info.txt table ({location}) is only supported to have 1 row (got {count}): {row}')
+        f'feed_info.txt table ({location}) is only supported to have 1 row (got {count}): {row}'
+      )
     # check against current version (and log)
     tm: float = time.time()
     current_data: dm.FileMetadata | None = self._db.files.files[location.operator][location.link]
@@ -599,33 +670,50 @@ class GTFS:
     end: datetime.date = base.DATE_OBJ_GTFS(row['feed_end_date'])
     if current_data is None:
       logging.info(
-          'Loading version %r @ %s for %s/%s',
-          row['feed_version'], base.STD_TIME_STRING(tm), location.operator, location.link)
+        'Loading version %r @ %s for %s/%s',
+        row['feed_version'],
+        base.STD_TIME_STRING(tm),
+        location.operator,
+        location.link,
+      )
     else:
-      if (row['feed_version'] == current_data.version and
-          row['feed_publisher_name'] == current_data.publisher and
-          row['feed_lang'] == current_data.language and
-          start == current_data.days.start and
-          end == current_data.days.end):
+      if (
+        row['feed_version'] == current_data.version
+        and row['feed_publisher_name'] == current_data.publisher
+        and row['feed_lang'] == current_data.language
+        and start == current_data.days.start
+        and end == current_data.days.end
+      ):
         # same version of the data!
         # note that since we `raise` we don't update the timestamp, so the timestamp
         # is the time we first processed this version of the ZIP file
         raise ParseIdenticalVersionError(
-            f'{row["feed_version"]} @ {base.STD_TIME_STRING(current_data.tm)} '
-            f'{location.operator} / {location.link}')
+          f'{row["feed_version"]} @ {base.STD_TIME_STRING(current_data.tm)} '
+          f'{location.operator} / {location.link}'
+        )
       logging.info(
-          'Updating version %r @ %s -> %r @ %s for %s/%s',
-          current_data.version, base.STD_TIME_STRING(current_data.tm),
-          row['feed_version'], base.STD_TIME_STRING(tm), location.operator, location.link)
+        'Updating version %r @ %s -> %r @ %s for %s/%s',
+        current_data.version,
+        base.STD_TIME_STRING(current_data.tm),
+        row['feed_version'],
+        base.STD_TIME_STRING(tm),
+        location.operator,
+        location.link,
+      )
     # update
     self._db.files.files[location.operator][location.link] = dm.FileMetadata(
-        tm=tm, publisher=row['feed_publisher_name'], url=row['feed_publisher_url'],
-        language=row['feed_lang'], days=base.DaysRange(start=start, end=end),
-        version=row['feed_version'], email=row['feed_contact_email'])
+      tm=tm,
+      publisher=row['feed_publisher_name'],
+      url=row['feed_publisher_url'],
+      language=row['feed_lang'],
+      days=base.DaysRange(start=start, end=end),
+      version=row['feed_version'],
+      email=row['feed_contact_email'],
+    )
 
   def _HandleAgencyRow(
-      self, unused_location: _TableLocation,
-      unused_count: int, row: dm.ExpectedAgencyCSVRowType, /) -> None:
+    self, unused_location: _TableLocation, unused_count: int, row: dm.ExpectedAgencyCSVRowType, /
+  ) -> None:
     """Handler: "agency.txt" Transit agencies.
 
     pk: agency_id
@@ -637,15 +725,20 @@ class GTFS:
 
     Raises:
       RowError: error parsing this record
+
     """
     # update
     self._db.agencies[row['agency_id']] = dm.Agency(
-        id=row['agency_id'], name=row['agency_name'], url=row['agency_url'],
-        zone=zoneinfo.ZoneInfo(row['agency_timezone']), routes={})
+      id=row['agency_id'],
+      name=row['agency_name'],
+      url=row['agency_url'],
+      zone=zoneinfo.ZoneInfo(row['agency_timezone']),
+      routes={},
+    )
 
   def _HandleCalendarRow(
-      self, unused_location: _TableLocation, unused_count: int,
-      row: dm.ExpectedCalendarCSVRowType, /) -> None:
+    self, unused_location: _TableLocation, unused_count: int, row: dm.ExpectedCalendarCSVRowType, /
+  ) -> None:
     """Handler: "calendar.txt" Service dates specified using a weekly schedule & start/end dates.
 
     pk: service_id
@@ -657,19 +750,32 @@ class GTFS:
 
     Raises:
       RowError: error parsing this record
+
     """
     self._db.calendar[row['service_id']] = dm.CalendarService(
-        id=row['service_id'],
-        week=(row['monday'], row['tuesday'], row['wednesday'],
-              row['thursday'], row['friday'], row['saturday'], row['sunday']),
-        days=base.DaysRange(
-            start=base.DATE_OBJ_GTFS(row['start_date']),
-            end=base.DATE_OBJ_GTFS(row['end_date'])),
-        exceptions={})
+      id=row['service_id'],
+      week=(
+        row['monday'],
+        row['tuesday'],
+        row['wednesday'],
+        row['thursday'],
+        row['friday'],
+        row['saturday'],
+        row['sunday'],
+      ),
+      days=base.DaysRange(
+        start=base.DATE_OBJ_GTFS(row['start_date']), end=base.DATE_OBJ_GTFS(row['end_date'])
+      ),
+      exceptions={},
+    )
 
   def _HandleCalendarDatesRow(
-      self, unused_location: _TableLocation, unused_count: int,
-      row: dm.ExpectedCalendarDatesCSVRowType, /) -> None:
+    self,
+    unused_location: _TableLocation,
+    unused_count: int,
+    row: dm.ExpectedCalendarDatesCSVRowType,
+    /,
+  ) -> None:
     """Handler: "calendar_dates.txt" Exceptions for the services defined in the calendar table.
 
     pk: (calendar/service_id, date) / ref: calendar/service_id
@@ -681,13 +787,15 @@ class GTFS:
 
     Raises:
       RowError: error parsing this record
+
     """
     self._db.calendar[row['service_id']].exceptions[base.DATE_OBJ_GTFS(row['date'])] = (
-        row['exception_type'] == '1')
+      row['exception_type'] == '1'
+    )
 
   def _HandleRoutesRow(
-      self, unused_location: _TableLocation, unused_count: int,
-      row: dm.ExpectedRoutesCSVRowType, /) -> None:
+    self, unused_location: _TableLocation, unused_count: int, row: dm.ExpectedRoutesCSVRowType, /
+  ) -> None:
     """Handler: "routes.txt" Routes: group of trips that are displayed to riders as a single service.
 
     pk: route_id / ref: agency/agency_id
@@ -699,16 +807,24 @@ class GTFS:
 
     Raises:
       RowError: error parsing this record
+
     """
     self._db.agencies[row['agency_id']].routes[row['route_id']] = dm.Route(
-        id=row['route_id'], agency=row['agency_id'], short_name=row['route_short_name'],
-        long_name=row['route_long_name'], route_type=_ROUTE_TYPE_MAP[row['route_type']],
-        description=row['route_desc'], url=row['route_url'],
-        color=row['route_color'], text_color=row['route_text_color'], trips={})
+      id=row['route_id'],
+      agency=row['agency_id'],
+      short_name=row['route_short_name'],
+      long_name=row['route_long_name'],
+      route_type=_ROUTE_TYPE_MAP[row['route_type']],
+      description=row['route_desc'],
+      url=row['route_url'],
+      color=row['route_color'],
+      text_color=row['route_text_color'],
+      trips={},
+    )
 
   def _HandleShapesRow(
-      self, unused_location: _TableLocation, unused_count: int,
-      row: dm.ExpectedShapesCSVRowType, /) -> None:
+    self, unused_location: _TableLocation, unused_count: int, row: dm.ExpectedShapesCSVRowType, /
+  ) -> None:
     """Handler: "shapes.txt" Rules for mapping vehicle travel paths (aka. route alignments).
 
     pk: (shape_id, shape_pt_sequence)
@@ -720,16 +836,20 @@ class GTFS:
 
     Raises:
       RowError: error parsing this record
+
     """
     if row['shape_id'] not in self._db.shapes:
       self._db.shapes[row['shape_id']] = dm.Shape(id=row['shape_id'], points={})
     self._db.shapes[row['shape_id']].points[row['shape_pt_sequence']] = dm.ShapePoint(
-        id=row['shape_id'], seq=row['shape_pt_sequence'],
-        point=base.Point(latitude=row['shape_pt_lat'], longitude=row['shape_pt_lon']),
-        distance=row['shape_dist_traveled'])
+      id=row['shape_id'],
+      seq=row['shape_pt_sequence'],
+      point=base.Point(latitude=row['shape_pt_lat'], longitude=row['shape_pt_lon']),
+      distance=row['shape_dist_traveled'],
+    )
 
   def _HandleTripsRow(
-      self, location: _TableLocation, count: int, row: dm.ExpectedTripsCSVRowType, /) -> None:
+    self, location: _TableLocation, count: int, row: dm.ExpectedTripsCSVRowType, /
+  ) -> None:
     """Handler: "trips.txt" Trips for each route.
 
     A trip is a sequence of two or more stops that occur during a specific time period.
@@ -742,6 +862,7 @@ class GTFS:
 
     Raises:
       RowError: error parsing this record
+
     """
     # check
     agency: dm.Agency | None = self.FindRoute(row['route_id'])
@@ -749,13 +870,21 @@ class GTFS:
       raise RowError(f'agency in row was not found @{count} / {location}: {row}')
     # update
     self._db.agencies[agency.id].routes[row['route_id']].trips[row['trip_id']] = dm.Trip(
-        id=row['trip_id'], route=row['route_id'], agency=agency.id,
-        service=row['service_id'], shape=row['shape_id'], headsign=row['trip_headsign'],
-        name=row['trip_short_name'], block=row['block_id'],
-        direction=row['direction_id'], stops={})
+      id=row['trip_id'],
+      route=row['route_id'],
+      agency=agency.id,
+      service=row['service_id'],
+      shape=row['shape_id'],
+      headsign=row['trip_headsign'],
+      name=row['trip_short_name'],
+      block=row['block_id'],
+      direction=row['direction_id'],
+      stops={},
+    )
 
   def _HandleStopsRow(
-      self, location: _TableLocation, count: int, row: dm.ExpectedStopsCSVRowType, /) -> None:
+    self, location: _TableLocation, count: int, row: dm.ExpectedStopsCSVRowType, /
+  ) -> None:
     """Handler: "stops.txt" Stops where vehicles pick up or drop-off riders.
 
     Also defines stations and station entrances.
@@ -768,22 +897,31 @@ class GTFS:
 
     Raises:
       RowError: error parsing this record
+
     """
     # get data, check
     location_type: dm.LocationType = (
-        _LOCATION_TYPE_MAP[row['location_type']] if row['location_type'] else dm.LocationType.STOP)
+      _LOCATION_TYPE_MAP[row['location_type']] if row['location_type'] else dm.LocationType.STOP
+    )
     if row['parent_station'] and row['parent_station'] not in self._db.stops:
       #  the GTFS spec does not guarantee parents precede children, but for now we will enforce it
       raise RowError(f'parent_station in row was not found @{count} / {location}: {row}')
     # update
     self._db.stops[row['stop_id']] = dm.BaseStop(
-        id=row['stop_id'], parent=row['parent_station'], code=row['stop_code'],
-        name=row['stop_name'], point=base.Point(latitude=row['stop_lat'], longitude=row['stop_lon']),
-        zone=row['zone_id'], description=row['stop_desc'],
-        url=row['stop_url'], location=location_type)
+      id=row['stop_id'],
+      parent=row['parent_station'],
+      code=row['stop_code'],
+      name=row['stop_name'],
+      point=base.Point(latitude=row['stop_lat'], longitude=row['stop_lon']),
+      zone=row['zone_id'],
+      description=row['stop_desc'],
+      url=row['stop_url'],
+      location=location_type,
+    )
 
   def _HandleStopTimesRow(
-      self, location: _TableLocation, count: int, row: dm.ExpectedStopTimesCSVRowType, /) -> None:
+    self, location: _TableLocation, count: int, row: dm.ExpectedStopTimesCSVRowType, /
+  ) -> None:
     """Handler: "stop_times.txt" Times that a vehicle arrives/departs from stops for each trip.
 
     pk: (trips/trip_id, stop_sequence) / ref: stops/stop_id
@@ -795,16 +933,17 @@ class GTFS:
 
     Raises:
       RowError: error parsing this record
+
     """
     # get data, check if empty
     pickup: dm.StopPointType = (
-        _STOP_POINT_TYPE_MAP[row['pickup_type']] if row['pickup_type'] else
-        dm.StopPointType.REGULAR)
+      _STOP_POINT_TYPE_MAP[row['pickup_type']] if row['pickup_type'] else dm.StopPointType.REGULAR
+    )
     dropoff: dm.StopPointType
     if row['drop_off_type'] is not None:
       dropoff = dm.StopPointType(row['drop_off_type'])  # new spelling
     elif row['dropoff_type'] is not None:
-      dropoff = dm.StopPointType(row['dropoff_type'])   # old spelling
+      dropoff = dm.StopPointType(row['dropoff_type'])  # old spelling
     else:
       dropoff = dm.StopPointType.REGULAR
     if row['stop_id'] not in self._db.stops:
@@ -813,15 +952,25 @@ class GTFS:
     if not agency or not route or not trip:
       raise RowError(f'trip_id in row was not found @{count} / {location}: {row}')
     # update
-    self._db.agencies[agency.id].routes[route.id].trips[row['trip_id']].stops[row['stop_sequence']] = dm.Stop(
-        id=row['trip_id'], seq=row['stop_sequence'], stop=row['stop_id'],
-        agency=agency.id, route=route.id,
-        scheduled=dm.ScheduleStop(
-            times=base.DayRange(
-                arrival=base.DayTime.FromHMS(row['arrival_time']),
-                departure=base.DayTime.FromHMS(row['departure_time'])),
-            timepoint=row['timepoint']),
-        headsign=row['stop_headsign'], pickup=pickup, dropoff=dropoff)
+    self._db.agencies[agency.id].routes[route.id].trips[row['trip_id']].stops[
+      row['stop_sequence']
+    ] = dm.Stop(
+      id=row['trip_id'],
+      seq=row['stop_sequence'],
+      stop=row['stop_id'],
+      agency=agency.id,
+      route=route.id,
+      scheduled=dm.ScheduleStop(
+        times=base.DayRange(
+          arrival=base.DayTime.FromHMS(row['arrival_time']),
+          departure=base.DayTime.FromHMS(row['departure_time']),
+        ),
+        timepoint=row['timepoint'],
+      ),
+      headsign=row['stop_headsign'],
+      pickup=pickup,
+      dropoff=dropoff,
+    )
 
   ##################################################################################################
   # GTFS PRETTY PRINTS
@@ -836,83 +985,96 @@ class GTFS:
       yield f'  {agency.url} ({agency.zone})'
       yield ''
       table = prettytable.PrettyTable(
-          [f'{base.BOLD}{base.CYAN}Route{base.NULL}',
-           f'{base.BOLD}{base.CYAN}Name{base.NULL}',
-           f'{base.BOLD}{base.CYAN}Long Name{base.NULL}',
-           f'{base.BOLD}{base.CYAN}Type{base.NULL}',
-           f'{base.BOLD}{base.CYAN}Desc.{base.NULL}',
-           f'{base.BOLD}{base.CYAN}URL{base.NULL}',
-           f'{base.BOLD}{base.CYAN}Color{base.NULL}',
-           f'{base.BOLD}{base.CYAN}Text{base.NULL}',
-           f'{base.BOLD}{base.CYAN}# Trips{base.NULL}'])
+        [
+          f'{base.BOLD}{base.CYAN}Route{base.NULL}',
+          f'{base.BOLD}{base.CYAN}Name{base.NULL}',
+          f'{base.BOLD}{base.CYAN}Long Name{base.NULL}',
+          f'{base.BOLD}{base.CYAN}Type{base.NULL}',
+          f'{base.BOLD}{base.CYAN}Desc.{base.NULL}',
+          f'{base.BOLD}{base.CYAN}URL{base.NULL}',
+          f'{base.BOLD}{base.CYAN}Color{base.NULL}',
+          f'{base.BOLD}{base.CYAN}Text{base.NULL}',
+          f'{base.BOLD}{base.CYAN}# Trips{base.NULL}',
+        ]
+      )
       for route_id in sorted(agency.routes):
         route: dm.Route = agency.routes[route_id]
-        table.add_row([
+        table.add_row(
+          [
             f'{base.BOLD}{base.CYAN}{route.id}{base.NULL}',
             f'{base.BOLD}{base.YELLOW}{route.short_name}{base.NULL}',
             f'{base.BOLD}{base.YELLOW}{route.long_name}{base.NULL}',
             f'{base.BOLD}{route.route_type.name}{base.NULL}',
-            f'{base.BOLD}{route.description if route.description else base.NULL_TEXT}{base.NULL}',
-            f'{base.BOLD}{route.url if route.url else base.NULL_TEXT}{base.NULL}',
-            f'{base.BOLD}{route.color if route.color else base.NULL_TEXT}{base.NULL}',
-            f'{base.BOLD}{route.text_color if route.text_color else base.NULL_TEXT}{base.NULL}',
+            f'{base.BOLD}{route.description or base.NULL_TEXT}{base.NULL}',
+            f'{base.BOLD}{route.url or base.NULL_TEXT}{base.NULL}',
+            f'{base.BOLD}{route.color or base.NULL_TEXT}{base.NULL}',
+            f'{base.BOLD}{route.text_color or base.NULL_TEXT}{base.NULL}',
             f'{base.BOLD}{len(route.trips)}{base.NULL}',
-        ])
+          ]
+        )
       yield from table.get_string().splitlines()  # type:ignore
       if i < n_items - 1:
         yield ''
         yield '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
         yield ''
     yield ''
-    yield (f'{base.MAGENTA}{base.BOLD}Files @ '
-           f'{base.STD_TIME_STRING(self._db.files.tm)}{base.NULL}')
+    yield (f'{base.MAGENTA}{base.BOLD}Files @ {base.STD_TIME_STRING(self._db.files.tm)}{base.NULL}')
     yield ''
     table = prettytable.PrettyTable(
-        [f'{base.BOLD}{base.CYAN}Agency{base.NULL}',
-         f'{base.BOLD}{base.CYAN}URLs / Data{base.NULL}'])
+      [f'{base.BOLD}{base.CYAN}Agency{base.NULL}', f'{base.BOLD}{base.CYAN}URLs / Data{base.NULL}']
+    )
     for agency_name in sorted(self._db.files.files):
       urls = self._db.files.files[agency_name]
       for url in sorted(urls):
         meta: dm.FileMetadata | None = urls[url]
-        table.add_row([
+        table.add_row(
+          [
             f'{base.BOLD}{base.CYAN}{agency_name}{base.NULL}',
             f'{base.BOLD}{url}{base.NULL}',
-        ])
+          ]
+        )
         if meta:
-          table.add_row([
+          table.add_row(
+            [
               '',
               f'Version: {base.BOLD}{base.YELLOW}{meta.version}{base.NULL}\n'
               f'Last load: {base.BOLD}{base.YELLOW}{base.STD_TIME_STRING(meta.tm)}{base.NULL}\n'
-              f'Publisher: {base.BOLD}{meta.publisher if meta.publisher else base.NULL_TEXT}{base.NULL}\n'
-              f'URL: {base.BOLD}{meta.url if meta.url else base.NULL_TEXT}{base.NULL}\n'
-              f'Language: {base.BOLD}{meta.language if meta.language else base.NULL_TEXT}{base.NULL}\n'
+              f'Publisher: {base.BOLD}{meta.publisher or base.NULL_TEXT}{base.NULL}\n'
+              f'URL: {base.BOLD}{meta.url or base.NULL_TEXT}{base.NULL}\n'
+              f'Language: {base.BOLD}{meta.language or base.NULL_TEXT}{base.NULL}\n'
               f'Days range: {base.BOLD}{base.YELLOW}{base.PRETTY_DATE(meta.days.start)} - {base.PRETTY_DATE(meta.days.end)}{base.NULL}\n'
-              f'Mail: {base.BOLD}{meta.email if meta.email else base.NULL_TEXT}{base.NULL}',
-          ])
+              f'Mail: {base.BOLD}{meta.email or base.NULL_TEXT}{base.NULL}',
+            ]
+          )
     yield from table.get_string().splitlines()  # type:ignore
 
   def PrettyPrintCalendar(
-      self, /, *, filter_to: set[int] | None = None) -> Generator[str, None, None]:
+    self, /, *, filter_to: set[int] | None = None
+  ) -> Generator[str, None, None]:
     """Generate a pretty version of calendar data."""
     table = prettytable.PrettyTable(
-        [f'{base.BOLD}{base.CYAN}Service{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Start{base.NULL}',
-         f'{base.BOLD}{base.CYAN}End{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Mon{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Tue{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Wed{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Thu{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Fri{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Sat{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Sun{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Exceptions{base.NULL}'])
+      [
+        f'{base.BOLD}{base.CYAN}Service{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Start{base.NULL}',
+        f'{base.BOLD}{base.CYAN}End{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Mon{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Tue{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Wed{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Thu{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Fri{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Sat{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Sun{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Exceptions{base.NULL}',
+      ]
+    )
     has_data = False
     for service in sorted(self._db.calendar):
       if filter_to is not None and service not in filter_to:
         continue
       has_data = True
       calendar: dm.CalendarService = self._db.calendar[service]
-      table.add_row([
+      table.add_row(
+        [
           f'{base.BOLD}{base.CYAN}{calendar.id}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{base.PRETTY_DATE(calendar.days.start)}{base.NULL}',
           f'{base.BOLD}'
@@ -926,53 +1088,66 @@ class GTFS:
           f'{base.BOLD}{base.PRETTY_BOOL(calendar.week[5])}{base.NULL}',
           f'{base.BOLD}{base.PRETTY_BOOL(calendar.week[6])}{base.NULL}',
           '\n'.join(
-              f'{base.BOLD}{base.PRETTY_DATE(d)} '
-              f'{base.PRETTY_BOOL(calendar.exceptions[d])}{base.NULL}'
-              for d in sorted(calendar.exceptions)) if calendar.exceptions else base.NULL_TEXT,
-      ])
+            f'{base.BOLD}{base.PRETTY_DATE(d)} '
+            f'{base.PRETTY_BOOL(calendar.exceptions[d])}{base.NULL}'
+            for d in sorted(calendar.exceptions)
+          )
+          if calendar.exceptions
+          else base.NULL_TEXT,
+        ]
+      )
     if not has_data:
       raise Error('No calendar data found')
     table.hrules = prettytable.HRuleStyle.ALL
     yield from table.get_string().splitlines()  # type:ignore
 
-  def PrettyPrintStops(
-      self, /, *, filter_to: set[str] | None = None) -> Generator[str, None, None]:
+  def PrettyPrintStops(self, /, *, filter_to: set[str] | None = None) -> Generator[str, None, None]:
     """Generate a pretty version of the stops."""
     table = prettytable.PrettyTable(
-        [f'{base.BOLD}{base.CYAN}Stop{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Code{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Name{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Type{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Location °{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Location{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Zone{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Desc.{base.NULL}',
-         f'{base.BOLD}{base.CYAN}URL{base.NULL}'])
+      [
+        f'{base.BOLD}{base.CYAN}Stop{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Code{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Name{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Type{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Location °{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Location{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Zone{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Desc.{base.NULL}',
+        f'{base.BOLD}{base.CYAN}URL{base.NULL}',
+      ]
+    )
     has_data = False
     for _, stop_id in sorted((s.name, s.id) for s in self._db.stops.values()):
       if filter_to is not None and stop_id not in filter_to:
         continue
       has_data = True
       stop: dm.BaseStop = self._db.stops[stop_id]
-      parent_code = ('' if stop.parent is None else
-                     f'\n{base.BOLD}{base.RED}  \u2514\u2500 {stop.parent}{base.NULL}')  # └─
-      parent_name = ('' if stop.parent is None else
-                     f'\n{base.BOLD}{base.RED}  \u2514\u2500 '  # └─
-                     f'{self._db.stops[stop.parent].name}{base.NULL}')
+      parent_code = (
+        ''
+        if stop.parent is None
+        else f'\n{base.BOLD}{base.RED}  \u2514\u2500 {stop.parent}{base.NULL}'
+      )  # └─
+      parent_name = (
+        ''
+        if stop.parent is None
+        else f'\n{base.BOLD}{base.RED}  \u2514\u2500 '  # └─
+        f'{self._db.stops[stop.parent].name}{base.NULL}'
+      )
       lat, lon = stop.point.ToDMS()
-      table.add_row([
+      table.add_row(
+        [
           f'{base.BOLD}{base.CYAN}{stop.id}{base.NULL}{parent_code}',
           f'{base.BOLD}{stop.code if stop.code and stop.code != "0" else base.NULL_TEXT}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{stop.name}{base.NULL}{parent_name}',
           f'{base.BOLD}{stop.location.name}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{lat}{base.NULL}\n'
-          f'{base.BOLD}{base.YELLOW}{lon}{base.NULL}',
+          f'{base.BOLD}{base.YELLOW}{lat}{base.NULL}\n{base.BOLD}{base.YELLOW}{lon}{base.NULL}',
           f'{base.BOLD}{stop.point.latitude:0.7f}{base.NULL}\n'
           f'{base.BOLD}{stop.point.longitude:0.7f}{base.NULL}',
-          f'{base.BOLD}{stop.zone if stop.zone else base.NULL_TEXT}{base.NULL}',
+          f'{base.BOLD}{stop.zone or base.NULL_TEXT}{base.NULL}',
           f'{base.BOLD}{stop.description if stop.zone else base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{stop.url if stop.url else base.NULL_TEXT}{base.NULL}',
-      ])
+          f'{base.BOLD}{stop.url or base.NULL_TEXT}{base.NULL}',
+        ]
+      )
     if not has_data:
       raise Error('No stop data found')
     table.hrules = prettytable.HRuleStyle.ALL
@@ -986,23 +1161,28 @@ class GTFS:
     yield f'{base.MAGENTA}GTFS Shape ID {base.BOLD}{shape.id}{base.NULL}'
     yield ''
     table = prettytable.PrettyTable(
-        [f'{base.BOLD}{base.CYAN}#{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Distance{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Latitude °{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Longitude °{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Latitude{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Longitude{base.NULL}'])
+      [
+        f'{base.BOLD}{base.CYAN}#{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Distance{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Latitude °{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Longitude °{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Latitude{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Longitude{base.NULL}',
+      ]
+    )
     for seq in range(1, len(shape.points) + 1):
       point: dm.ShapePoint = shape.points[seq]
       lat, lon = point.point.ToDMS()
-      table.add_row([
+      table.add_row(
+        [
           f'{base.BOLD}{base.CYAN}{seq}{base.NULL}',
           f'{base.BOLD}{point.distance:0.2f}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{lat}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{lon}{base.NULL}',
           f'{base.BOLD}{point.point.latitude:0.7f}{base.NULL}',
           f'{base.BOLD}{point.point.longitude:0.7f}{base.NULL}',
-      ])
+        ]
+      )
     yield from table.get_string().splitlines()  # type:ignore
 
   def PrettyPrintTrip(self, /, *, trip_id: str) -> Generator[str, None, None]:
@@ -1016,31 +1196,36 @@ class GTFS:
     yield f'Route:         {base.BOLD}{base.YELLOW}{route.id}{base.NULL}'
     yield f'  Short name:  {base.BOLD}{base.YELLOW}{route.short_name}{base.NULL}'
     yield f'  Long name:   {base.BOLD}{base.YELLOW}{route.long_name}{base.NULL}'
-    yield (f'  Description: {base.BOLD}'
-           f'{route.description if route.description else base.NULL_TEXT}{base.NULL}')
-    yield (f'Direction:     {base.BOLD}{base.YELLOW}'
-           f'{"inbound" if trip.direction else "outbound"}{base.NULL}')
+    yield (f'  Description: {base.BOLD}{route.description or base.NULL_TEXT}{base.NULL}')
+    yield (
+      f'Direction:     {base.BOLD}{base.YELLOW}'
+      f'{"inbound" if trip.direction else "outbound"}{base.NULL}'
+    )
     yield f'Service:       {base.BOLD}{base.YELLOW}{trip.service}{base.NULL}{base.NULL}'
-    yield f'Shape:         {base.BOLD}{trip.shape if trip.shape else base.NULL_TEXT}{base.NULL}'
-    yield f'Headsign:      {base.BOLD}{trip.headsign if trip.headsign else base.NULL_TEXT}{base.NULL}'
-    yield f'Name:          {base.BOLD}{trip.name if trip.name else base.NULL_TEXT}{base.NULL}'
-    yield f'Block:         {base.BOLD}{trip.block if trip.block else base.NULL_TEXT}{base.NULL}'
+    yield f'Shape:         {base.BOLD}{trip.shape or base.NULL_TEXT}{base.NULL}'
+    yield f'Headsign:      {base.BOLD}{trip.headsign or base.NULL_TEXT}{base.NULL}'
+    yield f'Name:          {base.BOLD}{trip.name or base.NULL_TEXT}{base.NULL}'
+    yield f'Block:         {base.BOLD}{trip.block or base.NULL_TEXT}{base.NULL}'
     yield ''
     table = prettytable.PrettyTable(
-        [f'{base.BOLD}{base.CYAN}#{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Stop ID{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Name{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Arrival{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Departure{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Code{base.NULL}',
-         f'{base.BOLD}{base.CYAN}Description{base.NULL}'])
+      [
+        f'{base.BOLD}{base.CYAN}#{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Stop ID{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Name{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Arrival{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Departure{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Code{base.NULL}',
+        f'{base.BOLD}{base.CYAN}Description{base.NULL}',
+      ]
+    )
     for seq in range(1, len(trip.stops) + 1):
       stop: dm.Stop = trip.stops[seq]
       stop_code, stop_name, stop_description = self.StopName(stop.stop)
-      table.add_row([
+      table.add_row(
+        [
           f'{base.BOLD}{base.CYAN}{seq}{base.NULL}',
           f'{base.BOLD}{stop.stop}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{stop_name if stop_name else base.NULL_TEXT}{base.NULL}',
+          f'{base.BOLD}{base.YELLOW}{stop_name or base.NULL_TEXT}{base.NULL}',
           f'{base.BOLD}'
           f'{stop.scheduled.times.arrival.ToHMS() if stop.scheduled.times.arrival else base.NULL_TEXT}'
           f'{base.NULL}',
@@ -1048,8 +1233,9 @@ class GTFS:
           f'{stop.scheduled.times.departure.ToHMS() if stop.scheduled.times.departure else base.NULL_TEXT}'
           f'{base.NULL}',
           f'{base.BOLD}{stop_code}{base.NULL}',
-          f'{base.BOLD}{stop_description if stop_description else base.NULL_TEXT}{base.NULL}',
-      ])
+          f'{base.BOLD}{stop_description or base.NULL_TEXT}{base.NULL}',
+        ]
+      )
     yield from table.get_string().splitlines()  # type:ignore
 
   def PrettyPrintAllDatabase(self) -> Generator[str, None, None]:
@@ -1098,6 +1284,7 @@ def _UnzipFiles(in_file: IO[bytes], /) -> Generator[tuple[str, bytes], None, Non
 
   Raises:
     BadZipFile: ZIP error
+
   """
   with zipfile.ZipFile(in_file, 'r') as zip_ref:
     file_names: list[str] = sorted(zip_ref.namelist())
@@ -1117,39 +1304,66 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name
   command_arg_subparsers = parser.add_subparsers(dest='command')
   # "read" command
   read_parser: argparse.ArgumentParser = command_arg_subparsers.add_parser(
-      'read', help='Read DB from official sources')
+    'read', help='Read DB from official sources'
+  )
   read_parser.add_argument(
-      '-f', '--freshness', type=int, default=_DEFAULT_DAYS_FRESHNESS,
-      help=f'Number of days to cache; 0 == always load (default: {_DEFAULT_DAYS_FRESHNESS})')
+    '-f',
+    '--freshness',
+    type=int,
+    default=_DEFAULT_DAYS_FRESHNESS,
+    help=f'Number of days to cache; 0 == always load (default: {_DEFAULT_DAYS_FRESHNESS})',
+  )
   read_parser.add_argument(
-      '-u', '--unknownfile', type=int, default=1,
-      help='0 == disallows unknown files ; 1 == allows unknown files (default: 1)')
+    '-u',
+    '--unknownfile',
+    type=int,
+    default=1,
+    help='0 == disallows unknown files ; 1 == allows unknown files (default: 1)',
+  )
   read_parser.add_argument(
-      '-i', '--unknownfield', type=int, default=0,
-      help='0 == disallows unknown fields ; 1 == allows unknown fields (default: 0)')
+    '-i',
+    '--unknownfield',
+    type=int,
+    default=0,
+    help='0 == disallows unknown fields ; 1 == allows unknown fields (default: 0)',
+  )
   read_parser.add_argument(
-      '-r', '--replace', type=int, default=0,
-      help='0 == does not load the same version again ; 1 == forces replace version (default: 0)')
+    '-r',
+    '--replace',
+    type=int,
+    default=0,
+    help='0 == does not load the same version again ; 1 == forces replace version (default: 0)',
+  )
   read_parser.add_argument(
-      '-o', '--override', type=str, default='',
-      help='If given, this ZIP file path will override the download (default: empty)')
+    '-o',
+    '--override',
+    type=str,
+    default='',
+    help='If given, this ZIP file path will override the download (default: empty)',
+  )
   # "print" command
   print_parser: argparse.ArgumentParser = command_arg_subparsers.add_parser(
-      'print', help='Print DB')
+    'print', help='Print DB'
+  )
   print_arg_subparsers = print_parser.add_subparsers(dest='print_command')
   print_arg_subparsers.add_parser('basics', help='Print Basic Data')
   print_arg_subparsers.add_parser('calendars', help='Print Calendars/Services')
   print_arg_subparsers.add_parser('stops', help='Print Stops')
   shape_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser(
-      'shape', help='Print Shape')
+    'shape', help='Print Shape'
+  )
   shape_parser.add_argument('-i', '--id', type=str, default='', help='Shape ID (default: "")')
   trip_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser('trip', help='Print Trip')
   trip_parser.add_argument('-i', '--id', type=str, default='', help='Trip ID (default: "")')
   print_arg_subparsers.add_parser('all', help='Print All Data')
   # ALL commands
   parser.add_argument(
-      '-v', '--verbose', action='count', default=0,
-      help='Increase verbosity (use -v, -vv, -vvv, -vvvv for ERR/WARN/INFO/DEBUG output)')
+    '-v',
+    '--verbose',
+    action='count',
+    default=0,
+    help='Increase verbosity (use -v, -vv, -vvv, -vvvv for ERR/WARN/INFO/DEBUG output)',
+  )
   args: argparse.Namespace = parser.parse_args(argv)
   levels: list[int] = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
   logging.basicConfig(level=levels[min(args.verbose, len(levels) - 1)], format=base.LOG_FORMAT)  # type:ignore
@@ -1159,11 +1373,14 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name
   match command:
     case 'read':
       database.LoadData(
-          dm.IRISH_RAIL_OPERATOR, dm.IRISH_RAIL_LINK, freshness=args.freshness,
-          allow_unknown_file=args.unknownfile == 1,
-          allow_unknown_field=args.unknownfield == 1,
-          force_replace=bool(args.replace),
-          override=args.override.strip() if args.override else None)
+        dm.IRISH_RAIL_OPERATOR,
+        dm.IRISH_RAIL_LINK,
+        freshness=args.freshness,
+        allow_unknown_file=args.unknownfile == 1,
+        allow_unknown_field=args.unknownfield == 1,
+        force_replace=bool(args.replace),
+        override=args.override.strip() if args.override else None,
+      )
     case 'print':
       # look at sub-command for print
       print_command = args.print_command.lower().strip() if args.print_command else ''
@@ -1188,10 +1405,10 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name
           for line in database.PrettyPrintAllDatabase():
             print(line)
         case _:
-          raise NotImplementedError()
+          raise NotImplementedError
       print()
     case _:
-      raise NotImplementedError()
+      raise NotImplementedError
   return 0
 
 

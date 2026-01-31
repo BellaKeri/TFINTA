@@ -1,36 +1,42 @@
-#!/usr/bin/env python3
-#
-# Copyright 2025 BellaKeri (BellaKeri@github.com) & Daniel Balparda (balparda@github.com)
-# Apache-2.0 license
-#
-# pylint: disable=invalid-name,protected-access
-# pyright: reportPrivateUsage=false
+# SPDX-FileCopyrightText: 2026 BellaKeri (BellaKeri@github.com) & D. Balparda <balparda@github.com>
+# SPDX-License-Identifier: Apache-2.0
 """gtfs.py unittest."""
 
 from __future__ import annotations
 
 import datetime
+
 # import pdb
 import sys
 
 import pytest
-
 from src.tfinta import tfinta_base as base
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
 __version__: tuple[int, int] = base.__version__  # tests inherit version from module
 
 
-@pytest.mark.parametrize('hms', [
-    '01', '01:01', '01:01:aa', '00:-1:00', '00:00:-1', '00:60:00', '00:00:60',
-])
+@pytest.mark.parametrize(
+  'hms',
+  [
+    '01',
+    '01:01',
+    '01:01:aa',
+    '00:-1:00',
+    '00:00:-1',
+    '00:60:00',
+    '00:00:60',
+  ],
+)
 def test_DayTime_HMSToSeconds_fail(hms: str) -> None:
   """Test."""
   with pytest.raises(base.Error):
     base.DayTime.FromHMS(hms)
 
 
-@pytest.mark.parametrize('hms, sec', [
+@pytest.mark.parametrize(
+  'hms, sec',
+  [
     ('00:00:00', 0),
     ('00:00:01', 1),
     ('00:00:10', 10),
@@ -43,13 +49,16 @@ def test_DayTime_HMSToSeconds_fail(hms: str) -> None:
     ('24:01:01', 86461),
     ('240:33:11', 865991),
     ('666:33:11', 2399591),
-])
+  ],
+)
 def test_DayTime_HMSToSeconds(hms: str, sec: int) -> None:
   """Test."""
   assert base.DayTime.FromHMS(hms).time == sec
 
 
-@pytest.mark.parametrize('sec, hms', [
+@pytest.mark.parametrize(
+  'sec, hms',
+  [
     (0, '00:00:00'),
     (1, '00:00:01'),
     (60, '00:01:00'),
@@ -57,7 +66,8 @@ def test_DayTime_HMSToSeconds(hms: str, sec: int) -> None:
     (86399, '23:59:59'),
     (86400, '24:00:00'),
     (2399591, '666:33:11'),
-])
+  ],
+)
 def test_DayTime_SecondsToHMS(sec: int, hms: str) -> None:
   """Test."""
   assert base.DayTime(time=sec).ToHMS() == hms
@@ -69,7 +79,9 @@ def test_DayTime_fail() -> None:
     base.DayTime(time=-1)
 
 
-@pytest.mark.parametrize('latitude, longitude, dms', [
+@pytest.mark.parametrize(
+  'latitude, longitude, dms',
+  [
     (0, 0, ('0°0′0.00″N', '0°0′0.00″E')),
     (90, 180, ('90°0′0.00″N', '180°0′0.00″E')),
     (89.999999, 179.999999, ('90°0′0.00″N', '180°0′0.00″E')),
@@ -82,18 +94,22 @@ def test_DayTime_fail() -> None:
     (1 / 10, 2 / 100, ('0°6′0.00″N', '0°1′12.00″E')),
     (56.8348294, -34.283768584, ('56°50′5.39″N', '34°17′1.57″W')),
     (-78.837465, 10.38475, ('78°50′14.87″S', '10°23′5.10″E')),
-])
+  ],
+)
 def test_Point_DMS(latitude: float, longitude: float, dms: str) -> None:
   """Test."""
   assert base.Point(latitude=latitude, longitude=longitude).ToDMS() == dms
 
 
-@pytest.mark.parametrize('latitude, longitude', [
+@pytest.mark.parametrize(
+  'latitude, longitude',
+  [
     (90.000001, 0),
     (-90.000001, 0),
     (0, 180.000001),
     (0, -180.000001),
-])
+  ],
+)
 def test_Point_error(latitude: float, longitude: float) -> None:
   """Test."""
   with pytest.raises(base.Error, match='invalid latitude/longitude'):

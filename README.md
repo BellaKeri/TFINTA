@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: 2026 BellaKeri@github.com & D. Balparda <balparda@github.com> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # TFINTA - Transport for Ireland Data
 
 ***"Python library and shell scripts for parsing and displaying*** **Transport for Ireland (TFI/NTA)** ***Rail and DART schedule datasets, both GTFS and realtime"***

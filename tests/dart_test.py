@@ -1,52 +1,46 @@
-#!/usr/bin/env python3
-#
-# Copyright 2025 BellaKeri (BellaKeri@github.com) & Daniel Balparda (balparda@github.com)
-# Apache-2.0 license
-#
-# pylint: disable=invalid-name,protected-access
-# pyright: reportPrivateUsage=false
+# SPDX-FileCopyrightText: 2026 BellaKeri (BellaKeri@github.com) & D. Balparda <balparda@github.com>
+# SPDX-License-Identifier: Apache-2.0
 """dart.py unittest."""
 
 from __future__ import annotations
 
 import datetime
+
 # import pdb
 import sys
-from typing import Generator
 from unittest import mock
 
 import pytest
 import typeguard
+from src.tfinta import dart, gtfs
 
-from src.tfinta import dart
-from src.tfinta import gtfs
 # from src.tfinta import gtfs_data_model as dm
-
 from . import gtfs_data
-
 
 __author__ = 'BellaKeri@github.com , balparda@github.com'
 __version__: tuple[int, int] = dart.__version__  # tests inherit version from module
 
 
 @pytest.fixture
-def gtfs_object() -> Generator[gtfs.GTFS, None, None]:
+def gtfs_object() -> gtfs.GTFS:
   """A GTFS object with all gtfs_data.ZIP_DB_1 data loaded."""
   # create object with all the disk features disabled
   db: gtfs.GTFS
-  with (mock.patch('src.tfinta.gtfs.time.time', autospec=True) as time,
-        mock.patch('src.tfinta.gtfs.os.path.isdir', autospec=True) as is_dir,
-        mock.patch('src.tfinta.gtfs.os.mkdir', autospec=True),
-        mock.patch('src.tfinta.gtfs.os.path.exists', autospec=True) as exists,
-        mock.patch('src.tfinta.tfinta_base.BinSerialize', autospec=True),
-        mock.patch('src.tfinta.tfinta_base.BinDeSerialize', autospec=True)):
+  with (
+    mock.patch('src.tfinta.gtfs.time.time', autospec=True) as time,
+    mock.patch('src.tfinta.gtfs.os.path.isdir', autospec=True) as is_dir,
+    mock.patch('src.tfinta.gtfs.os.mkdir', autospec=True),
+    mock.patch('src.tfinta.gtfs.os.path.exists', autospec=True) as exists,
+    mock.patch('src.tfinta.tfinta_base.BinSerialize', autospec=True),
+    mock.patch('src.tfinta.tfinta_base.BinDeSerialize', autospec=True),
+  ):
     time.return_value = gtfs_data.ZIP_DB_1_TM
     is_dir.return_value = False
     exists.return_value = False
     db = gtfs.GTFS('db/path')
   # monkey-patch the data into the object
   db._db = gtfs_data.ZIP_DB_1
-  yield db
+  return db
 
 
 def test_DART(gtfs_object: gtfs.GTFS) -> None:  # pylint: disable=redefined-outer-name
@@ -63,16 +57,23 @@ def test_DART(gtfs_object: gtfs.GTFS) -> None:  # pylint: disable=redefined-oute
   assert db._dart_trips == gtfs_data.DART_TRIPS_ZIP_1
   with pytest.raises(gtfs.Error), typeguard.suppress_type_checks():
     list(db.PrettyDaySchedule(day=None))  # type: ignore
-  assert gtfs.base.STRIP_ANSI('\n'.join(
-      db.PrettyDaySchedule(day=datetime.date(2025, 8, 4)))) == gtfs_data.TRIPS_SCHEDULE_2025_08_04
+  assert (
+    gtfs.base.STRIP_ANSI('\n'.join(db.PrettyDaySchedule(day=datetime.date(2025, 8, 4))))
+    == gtfs_data.TRIPS_SCHEDULE_2025_08_04
+  )
   with pytest.raises(gtfs.Error):
     list(db.PrettyStationSchedule(stop_id=' \t', day=datetime.date(2025, 8, 4)))
-  assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyStationSchedule(
-      stop_id='8350IR0123', day=datetime.date(2025, 8, 4)))) == gtfs_data.STATION_SCHEDULE_2025_08_04
+  assert (
+    gtfs.base.STRIP_ANSI(
+      '\n'.join(db.PrettyStationSchedule(stop_id='8350IR0123', day=datetime.date(2025, 8, 4)))
+    )
+    == gtfs_data.STATION_SCHEDULE_2025_08_04
+  )
   with pytest.raises(gtfs.Error):
     list(db.PrettyPrintTrip(trip_name=' \t'))
-  assert gtfs.base.STRIP_ANSI('\n'.join(
-      db.PrettyPrintTrip(trip_name='E818'))) == gtfs_data.TRIP_E818
+  assert (
+    gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintTrip(trip_name='E818'))) == gtfs_data.TRIP_E818
+  )
   assert gtfs.base.STRIP_ANSI('\n'.join(db.PrettyPrintAllDatabase())) == gtfs_data.ALL_DATA
 
 
@@ -85,10 +86,14 @@ def test_main_load(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None
   assert dart.main(['read']) == 0
   mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
   db_obj.LoadData.assert_called_once_with(
-      'Iarnród Éireann / Irish Rail',
-      'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip',
-      freshness=10, allow_unknown_file=True, allow_unknown_field=False,
-      force_replace=False, override=None)
+    'Iarnród Éireann / Irish Rail',
+    'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip',
+    freshness=10,
+    allow_unknown_file=True,
+    allow_unknown_field=False,
+    force_replace=False,
+    override=None,
+  )
   mock_dart.assert_not_called()
 
 
@@ -152,7 +157,8 @@ def test_main_print_station(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock
   db_obj.StopIDFromNameFragmentOrID.assert_called_once_with('daly')
   mock_dart.assert_called_once_with(db_obj)
   dart_obj.PrettyStationSchedule.assert_called_once_with(
-      stop_id='bray', day=datetime.date(2025, 8, 4))
+    stop_id='bray', day=datetime.date(2025, 8, 4)
+  )
 
 
 @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
