@@ -7,15 +7,7 @@ from __future__ import annotations
 import io
 import os.path
 import pathlib
-
-# import pdb
 from typing import Any, Self
-
-from src.tfinta import tfinta_base as base
-
-__author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = base.__version__
-
 
 # test dir
 _TEST_DIR: str = os.path.split(__file__)[0]

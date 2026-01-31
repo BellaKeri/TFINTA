@@ -5,20 +5,13 @@
 from __future__ import annotations
 
 import datetime
-
-# import pdb
-import sys
 from unittest import mock
 
 import pytest
 import typeguard
 from src.tfinta import dart, gtfs
 
-# from src.tfinta import gtfs_data_model as dm
 from . import gtfs_data
-
-__author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = dart.__version__  # tests inherit version from module
 
 
 @pytest.fixture
@@ -189,10 +182,3 @@ def test_main_print_all(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) ->
   db_obj.LoadData.assert_not_called()
   mock_dart.assert_called_once_with(db_obj)
   dart_obj.PrettyPrintAllDatabase.assert_called_once_with()
-
-
-if __name__ == '__main__':
-  # run only the tests in THIS file but pass through any extra CLI flags
-  args: list[str] = sys.argv[1:] + [__file__]
-  print(f'pytest {" ".join(args)}')
-  sys.exit(pytest.main(sys.argv[1:] + [__file__]))

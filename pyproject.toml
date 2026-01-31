@@ -56,7 +56,7 @@ dependencies = [
   # development-only dependencies go in the [tool.poetry.group.dev.dependencies] section below
 
   "prettytable>=3.17",
-  "balparda-baselib>=1.11"  # TODO: remove after migration!
+  "balparda-baselib==1.11"  # TODO: remove after migration!
 
 ]
 

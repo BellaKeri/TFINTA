@@ -17,8 +17,6 @@ import io
 import logging
 import os.path
 import pathlib
-
-# import pdb
 import sys
 import time
 import types
@@ -34,10 +32,6 @@ import prettytable
 
 from . import gtfs_data_model as dm
 from . import tfinta_base as base
-
-__author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = base.__version__
-
 
 # defaults
 _DEFAULT_DAYS_FRESHNESS = 10

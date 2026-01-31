@@ -8,15 +8,10 @@ import dataclasses
 import datetime
 import functools
 from collections.abc import Callable
-
-# import pdb
-from typing import Any, Self
+from typing import Self
 
 from balparda_baselib import base as balparda_base
-
-__author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = (1, 9)  # v1.9 - 2025/07/13
-
+from transcrypto.utils import base
 
 # copy useful stuff from balparda_baselib
 
@@ -47,8 +42,8 @@ HumanizedSeconds = balparda_base.HumanizedSeconds
 # data parsing utils
 
 BOOL_FIELD: dict[str, bool] = {'0': False, '1': True}
-_DT_OBJ_GTFS: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(s, '%Y%m%d')
-_DT_OBJ_REALTIME: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(
+_DT_OBJ_GTFS: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(s, '%Y%m%d')  # noqa: DTZ007
+_DT_OBJ_REALTIME: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(  # noqa: DTZ007
   s, '%d %b %Y'
 )
 # _UTC_DATE: Callable[[str], float] = lambda s: _DT_OBJ(s).replace(
@@ -81,7 +76,7 @@ PRETTY_DATE: Callable[[datetime.date | None], str] = lambda d: (
 )  # ·
 
 
-class Error(Exception):
+class Error(base.Error):
   """TFINTA exception."""
 
 
@@ -93,30 +88,49 @@ class DayTime:
   time: int
 
   def __post_init__(self) -> None:
+    """Check construction.
+
+    Raises:
+      Error: if time < 0
+
+    """
     if self.time < 0:
       raise Error(f'invalid time: {self}')
 
-  def __lt__(self, other: Any) -> bool:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, DayTime):
-      raise TypeError(f'invalid DayTime type comparison {self!r} versus {other!r}')
+  def __lt__(self, other: DayTime) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__).
+
+    Args:
+        other (DayTime): Other object to compare against.
+
+    Returns:
+        bool: True if this DayTime is less than the other, False otherwise.
+
+    """
     return self.time < other.time
 
   def ToHMS(self) -> str:
-    """Seconds from midnight to 'HH:MM:SS' representation. Supports any positive integer."""
-    self.__post_init__()
+    """Seconds from midnight to 'HH:MM:SS' representation. Supports any positive integer.
+
+    Returns:
+      str: Time in 'HH:MM:SS' format.
+
+    """
     h, sec = divmod(self.time, 3600)
     m, s = divmod(sec, 60)
     return f'{h:02d}:{m:02d}:{s:02d}'
 
   @classmethod
   def FromHMS(cls, time_str: str, /) -> Self:
-    """Accepts 'H:MM:SS' or 'HH:MM:SS' and returns total seconds since 00:00:00.
+    """Convert 'H:MM:SS' or 'HH:MM:SS' and returns total seconds since 00:00:00.
 
     Supports hours ≥ 0 with no upper bound. Very flexible, will even accept 'H:M:S' for example.
 
     Args:
       time_str: String to convert ('H:MM:SS' or 'HH:MM:SS')
+
+    Returns:
+      DayTime: Corresponding DayTime object.
 
     Raises:
       Error: malformed input
@@ -127,7 +141,7 @@ class DayTime:
       h, m, s = int(h_str), int(m_str), int(s_str)
     except ValueError as err:
       raise Error(f'bad time literal {time_str!r}') from err
-    if not (0 <= m < 60 and 0 <= s < 60):
+    if not (0 <= m < 60 and 0 <= s < 60):  # noqa: PLR2004
       raise Error(f'bad time literal {time_str!r}: minute and second must be 0-59')
     return cls(time=h * 3600 + m * 60 + s)
 
@@ -143,22 +157,32 @@ class DayRange:
   nullable: bool = False  # if False won't allow None values
 
   def __post_init__(self) -> None:
+    """Check construction.
+
+    Raises:
+      Error: if not nullable and arrival or departure is None or if strict and arrival > departure
+
+    """
     if not self.nullable and (self.arrival is None or self.departure is None):
       raise Error(f'this DayRange is "not nullable": {self}')
     if self.strict and self.arrival and self.departure and self.arrival.time > self.departure.time:
       raise Error(f'this DayRange is "strict" and checks that arrival <= departure: {self}')
 
-  def __lt__(self, other: Any) -> bool:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, DayRange):
-      raise TypeError(f'invalid DayRange type comparison {self!r} versus {other!r}')
+  def __lt__(self, other: DayRange) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__).
+
+    Args:
+        other (DayRange): Other object to compare against.
+
+    Returns:
+        bool: True if this DayRange is less than the other, False otherwise.
+
+    """
     if self.departure and other.departure and self.departure != other.departure:
       return self.departure.time < other.departure.time
     if self.arrival and other.arrival and self.arrival != other.arrival:
       return self.arrival.time < other.arrival.time
-    if (self.departure and not other.departure) or (self.arrival and not other.arrival):
-      return True
-    return False
+    return bool((self.departure and not other.departure) or (self.arrival and not other.arrival))
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
@@ -169,12 +193,22 @@ class Point:
   longitude: float  # longitude; -180.0 <= lat <= 180.0 (required)
 
   def __post_init__(self) -> None:
-    if not -90.0 <= self.latitude <= 90.0 or not -180.0 <= self.longitude <= 180.0:
+    """Check construction.
+
+    Raises:
+      Error: if latitude or longitude out of bounds
+
+    """
+    if not -90.0 <= self.latitude <= 90.0 or not -180.0 <= self.longitude <= 180.0:  # noqa: PLR2004
       raise Error(f'invalid latitude/longitude: {self}')
 
   def ToDMS(self) -> tuple[str, str]:
-    """Return latitude and longitude as DMS with Unicode symbols and N/S, E/W."""
-    self.__post_init__()
+    """Return latitude and longitude as DMS with Unicode symbols and N/S, E/W.
+
+    Returns:
+      tuple[str, str]: (latitude DMS, longitude DMS)
+
+    """
 
     def _conv(deg_float: float, pos: str, neg: str, /) -> str:
       d: float = abs(deg_float)
@@ -182,14 +216,14 @@ class Point:
       total_min: float = (d - degrees) * 60.0
       minutes = int(total_min)
       seconds: float = round((total_min - minutes) * 60.0, 2)  # 0.01 sec precision = 60cm or less
-      if seconds >= 60.0:  # handle carry-over for seconds → minutes
+      if seconds >= 60.0:  # handle carry-over for seconds → minutes  # noqa: PLR2004
         seconds = 0.0
         minutes += 1
-      if minutes >= 60:  # handle carry-over for minutes → degrees
+      if minutes >= 60:  # handle carry-over for minutes → degrees  # noqa: PLR2004
         minutes = 0
         degrees += 1
       hemisphere: str = pos if deg_float >= 0 else neg
-      return f'{degrees}°{minutes}′{seconds:0.2f}″{hemisphere}'
+      return f'{degrees}°{minutes}′{seconds:0.2f}″{hemisphere}'  # noqa: RUF001
 
     return (_conv(self.latitude, 'N', 'S'), _conv(self.longitude, 'E', 'W'))
 
@@ -203,13 +237,25 @@ class DaysRange:
   end: datetime.date
 
   def __post_init__(self) -> None:
+    """Check construction.
+
+    Raises:
+      Error: if start > end
+
+    """
     if self.start > self.end:
       raise Error(f'invalid dates: {self}')
 
-  def __lt__(self, other: Any) -> bool:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, DaysRange):
-      raise TypeError(f'invalid DaysRange type comparison {self!r} versus {other!r}')
+  def __lt__(self, other: DaysRange) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__).
+
+    Args:
+        other (DaysRange): Other object to compare against.
+
+    Returns:
+        bool: True if this DaysRange is less than the other, False otherwise.
+
+    """
     if self.start != other.start:
       return self.start < other.start
     return self.end < other.end

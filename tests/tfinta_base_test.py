@@ -6,14 +6,8 @@ from __future__ import annotations
 
 import datetime
 
-# import pdb
-import sys
-
 import pytest
 from src.tfinta import tfinta_base as base
-
-__author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = base.__version__  # tests inherit version from module
 
 
 @pytest.mark.parametrize(
@@ -121,10 +115,3 @@ def test_DaysRange_error() -> None:
   base.DaysRange(start=datetime.date(2000, 1, 1), end=datetime.date(2010, 1, 1))
   with pytest.raises(base.Error, match='invalid dates'):
     base.DaysRange(start=datetime.date(2010, 1, 1), end=datetime.date(2000, 1, 1))
-
-
-if __name__ == '__main__':
-  # run only the tests in THIS file but pass through any extra CLI flags
-  args: list[str] = sys.argv[1:] + [__file__]
-  print(f'pytest {" ".join(args)}')
-  sys.exit(pytest.main(sys.argv[1:] + [__file__]))

@@ -9,21 +9,15 @@ import collections
 import copy
 import datetime
 import logging
-
-# import pdb
 import sys
 from collections.abc import Generator
-from typing import TypeVar
+from typing import Any
 
 import prettytable
 
 from . import gtfs
 from . import gtfs_data_model as dm
 from . import tfinta_base as base
-
-__author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = base.__version__
-
 
 # defaults
 _DEFAULT_DAYS_FRESHNESS = 10
@@ -33,15 +27,17 @@ class Error(gtfs.Error):
   """DART exception."""
 
 
-_KEY = TypeVar('_KEY')
-_VALUE = TypeVar('_VALUE')
+def SortedItems[K: Any, V](d: dict[K, V], /) -> Generator[tuple[K, V], None, None]:
+  """Behaves like dict.items() but gets (key, value) pairs sorted by keys.
 
+  Args:
+      d: dictionary to get sorted items from
 
-def SortedItems(d: dict[_KEY, _VALUE], /) -> Generator[tuple[_KEY, _VALUE], None, None]:
-  """Behaves like dict.items() but gets (key, value) pairs sorted by keys."""
-  # migrate to def SortedItems[K: Any, V: Any](d: dict[K, V]) -> Generator[tuple[K, V], None, None]
-  # as soon as pylance can process PEP 695 syntax
-  for key in sorted(d.keys()):  # type: ignore
+  Yields:
+      key, value pairs sorted by keys
+
+  """
+  for key in sorted(d):
     yield (key, d[key])
 
 

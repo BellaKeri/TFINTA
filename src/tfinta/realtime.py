@@ -13,8 +13,6 @@ import datetime
 import functools
 import html
 import logging
-
-# import pdb
 import sys
 import time
 import types
@@ -29,10 +27,6 @@ import prettytable
 
 from . import realtime_data_model as dm
 from . import tfinta_base as base
-
-__author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = base.__version__
-
 
 # globals
 _TFI_REALTIME_URL = 'https://api.irishrail.ie/realtime/realtime.asmx'

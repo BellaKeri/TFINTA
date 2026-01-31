@@ -8,16 +8,11 @@ import collections
 import datetime
 import io
 import pathlib
-
-# import pdb
 import zipfile
 import zoneinfo
 
 from src.tfinta import gtfs_data_model as dm
 from src.tfinta import tfinta_base as base
-
-__author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = base.__version__
 
 
 def ZipDirBytes(src_dir: pathlib.Path, /) -> bytes:

@@ -7,9 +7,6 @@ from __future__ import annotations
 import datetime
 import os.path
 import pathlib
-
-# import pdb
-import sys
 from unittest import mock
 
 import pytest
@@ -18,10 +15,6 @@ from src.tfinta import gtfs
 from src.tfinta import gtfs_data_model as dm
 
 from . import gtfs_data, util
-
-__author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = gtfs.__version__  # tests inherit version from module
-
 
 # mock test files
 _OPERATOR_CSV_PATH: str = os.path.join(util.DATA_DIR, 'GTFS Operator Files - 20250621.csv')
@@ -377,10 +370,3 @@ def test_main_print_all(mock_gtfs: mock.MagicMock) -> None:
   mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
   db_obj.LoadData.assert_not_called()
   db_obj.PrettyPrintAllDatabase.assert_called_once_with()
-
-
-if __name__ == '__main__':
-  # run only the tests in THIS file but pass through any extra CLI flags
-  args: list[str] = sys.argv[1:] + [__file__]
-  print(f'pytest {" ".join(args)}')
-  sys.exit(pytest.main(sys.argv[1:] + [__file__]))

@@ -13,15 +13,9 @@ import enum
 import functools
 import zoneinfo
 from collections.abc import Callable
-
-# import pdb
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from . import tfinta_base as base
-
-__author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = base.__version__
-
 
 ####################################################################################################
 # BASIC CONSTANTS
@@ -78,7 +72,7 @@ class FileMetadata:
 
 
 class ExpectedFeedInfoCSVRowType(TypedDict):
-  """feed_info.txt"""
+  """feed_info.txt."""
 
   feed_publisher_name: str
   feed_publisher_url: str
@@ -93,13 +87,25 @@ class LocationType(enum.Enum):
   """Location type."""
 
   # https://gtfs.org/documentation/schedule/reference/?utm_source=chatgpt.com#stopstxt
-  STOP = 0  # (or empty) - Stop (or Platform). A location where passengers board or disembark from a transit vehicle. Is called a platform when defined within a parent_station
-  STATION = 1  # A physical structure or area that contains one or more platform
-  ENTRANCE_EXIT = 2  # A location where passengers can enter or exit a station from the street. If an entrance/exit belongs to multiple stations, it may be linked by pathways to both, but the data provider must pick one of them as parent
-  STATION_NODE = 3  # A location within a station, not matching any other location_type, that may be used to link together pathways define in pathways.txt
-  BOARDING_AREA = (
-    4  # A specific location on a platform, where passengers can board and/or alight vehicles
-  )
+
+  # (or empty) - Stop (or Platform). A location where passengers board or disembark
+  # from a transit vehicle. Is called a platform when defined within a parent_station
+  STOP = 0
+
+  # A physical structure or area that contains one or more platform
+  STATION = 1
+
+  # A location where passengers can enter or exit a station from the street.
+  # If an entrance/exit belongs to multiple stations, it may be linked by pathways to both,
+  # but the data provider must pick one of them as parent
+  ENTRANCE_EXIT = 2
+
+  # A location within a station, not matching any other location_type, that may be used to
+  # link together pathways define in pathways.txt
+  STATION_NODE = 3
+
+  # A specific location on a platform, where passengers can board and/or alight vehicles
+  BOARDING_AREA = 4
 
 
 @functools.total_ordering
@@ -117,15 +123,21 @@ class BaseStop:  # stops.txt
   url: str | None = None  # stops.txt/stop_url
   parent: str | None = None  # stops.txt/parent_station -> stops.txt/stop_id
 
-  def __lt__(self, other: Any) -> bool:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, BaseStop):
-      raise TypeError(f'invalid BaseStop type comparison {self!r} versus {other!r}')
+  def __lt__(self, other: BaseStop) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__).
+
+    Args:
+      other (BaseStop): other to compare against
+
+    Returns:
+      bool: True if this BaseStop is less than the other, False otherwise.
+
+    """
     return self.name < other.name
 
 
 class ExpectedStopsCSVRowType(TypedDict):
-  """stops.txt"""
+  """stops.txt."""
 
   stop_id: str
   parent_station: str | None
@@ -162,13 +174,26 @@ STOP_TYPE_STR: dict[StopPointType, str] = {
 class ScheduleStop:
   """A timetable entry, with arrival & departure. Sortable (by departure first then arrival)."""
 
-  times: base.DayRange  # stop_times.txt/arrival_time+departure_time - seconds from midnight, to represent 'HH:MM:SS' (required)
-  timepoint: bool = True  # stop_times.txt/timepoint (required) - False==Times are considered approximate; True==Times are considered exact
+  # stop_times.txt/arrival_time+departure_time - seconds from midnight,
+  # to represent 'HH:MM:SS' (required)
+  times: base.DayRange
+  # stop_times.txt/timepoint (required) - False==Times are considered approximate;
+  # True==(Times are considered exact)
+  timepoint: bool = True
 
-  def __lt__(self, other: Any) -> bool:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, ScheduleStop):
-      raise TypeError(f'invalid ScheduleStop type comparison: {self!r} versus {other!r}')
+  def __lt__(self, other: ScheduleStop) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__).
+
+    Args:
+      other (ScheduleStop): other to compare against
+
+    Returns:
+      bool: True if this ScheduleStop is less than the other, False otherwise.
+
+    Raises:
+      TypeError: if other.timepoint != self.timepoint
+
+    """
     if self.timepoint != other.timepoint:
       raise TypeError(f'invalid mixed timepoint ScheduleStop comparison: {self!r} versus {other!r}')
     return self.times < other.times
@@ -183,16 +208,14 @@ class Stop:  # stop_times.txt
   stop: str  # stop_times.txt/stop_id                 (required) -> stops.txt/stop_id
   agency: int  # <<INFERRED>> -> agency.txt/agency_id
   route: str  # <<INFERRED>> -> routes.txt/route_id
-  scheduled: (
-    ScheduleStop  # stop_times.txt/arrival_time+departure_time+timepoint - arrival & departure
-  )
+  scheduled: ScheduleStop  # stop_times.txt/arrival_time+departure_time+timepoint - arrival & depart
   headsign: str | None = None  # stop_times.txt/stop_headsign
   pickup: StopPointType = StopPointType.REGULAR  # stop_times.txt/pickup_type
   dropoff: StopPointType = StopPointType.REGULAR  # stop_times.txt/drop_off_type
 
 
 class ExpectedStopTimesCSVRowType(TypedDict):
-  """stop_times.txt"""
+  """stop_times.txt."""
 
   trip_id: str
   stop_sequence: int
@@ -223,15 +246,21 @@ class Trip:
   headsign: str | None = None  # trips.txt/trip_headsign
   name: str | None = None  # trips.txt/trip_short_name
 
-  def __lt__(self, other: Any) -> bool:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, Trip):
-      raise TypeError(f'invalid Trip type comparison {self!r} versus {other!r}')
+  def __lt__(self, other: Trip) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__).
+
+    Args:
+      other (Trip): other to compare against
+
+    Returns:
+      bool: True if this Trip is less than the other, False otherwise.
+
+    """
     return self.id < other.id  # we will sort only by ID for now!!
 
 
 class ExpectedTripsCSVRowType(TypedDict):
-  """trips.txt"""
+  """trips.txt."""
 
   trip_id: str
   route_id: str
@@ -247,13 +276,18 @@ class RouteType(enum.Enum):
   """Route type."""
 
   # https://gtfs.org/documentation/schedule/reference/?utm_source=chatgpt.com#routestxt
-  LIGHT_RAIL = 0  # Tram, Streetcar, Light rail. Any light rail or street level system within a metropolitan area
+
+  # Tram, Streetcar, Light rail. Any light rail or street level system within a metropolitan area
+  LIGHT_RAIL = 0
   SUBWAY = 1  # Subway, Metro. Any underground rail system within a metropolitan area
   RAIL = 2  # Used for intercity or long-distance travel
   BUS = 3  # Used for short- and long-distance bus routes
   FERRY = 4  # Used for short- and long-distance boat service
-  CABLE_TRAM = 5  # Used for street-level rail cars where the cable runs beneath the vehicle (e.g., cable car in San Francisco)
-  AERIAL_LIFT = 6  # Aerial lift, suspended cable car (e.g., gondola lift, aerial tramway). Cable transport where cabins, cars, gondolas or open chairs are suspended by means of one or more cables
+  CABLE_TRAM = 5  # Used for street-level rail cars where the cable runs beneath the vehicle
+  # Aerial lift, suspended cable car (e.g., gondola lift, aerial tramway).
+  # Cable transport where cabins, cars, gondolas or open chairs are suspended by
+  # means of one or more cables
+  AERIAL_LIFT = 6
   FUNICULAR = 7  # Any rail system designed for steep inclines
   TROLLEYBUS = 11  # Electric buses that draw power from overhead wires using poles
   MONORAIL = 12  # Railway in which the track consists of a single rail or a beam
@@ -366,16 +400,14 @@ class Route:
   trips: dict[str, Trip]  # {trips.txt/trip_id: Trip}
   description: str | None = None  # routes.txt/route_desc
   url: str | None = None  # routes.txt/route_url
-  color: str | None = (
-    None  # routes.txt/route_color: encoded as a six-digit hexadecimal number (https://htmlcolorcodes.com)
-  )
-  text_color: str | None = (
-    None  # routes.txt/route_text_color: encoded as a six-digit hexadecimal number
-  )
+  # routes.txt/route_color: encoded as a six-digit hexadecimal number (https://htmlcolorcodes.com)
+  color: str | None = None
+  # routes.txt/route_text_color: encoded as a six-digit hexadecimal number
+  text_color: str | None = None
 
 
 class ExpectedRoutesCSVRowType(TypedDict):
-  """routes.txt"""
+  """routes.txt."""
 
   route_id: str
   agency_id: int
@@ -395,14 +427,13 @@ class Agency:
   id: int  # (PK) agency.txt/agency_id (required)
   name: str  # agency.txt/agency_name    (required)
   url: str  # agency.txt/agency_url     (required)
-  zone: (
-    zoneinfo.ZoneInfo
-  )  # agency.txt/agency_timezone: TZ timezone from the https://www.iana.org/time-zones (required)
+  # agency.txt/agency_timezone: TZ timezone from the https://www.iana.org/time-zones (required)
+  zone: zoneinfo.ZoneInfo
   routes: dict[str, Route]  # {routes.txt/route_id: Route}
 
 
 class ExpectedAgencyCSVRowType(TypedDict):
-  """agency.txt"""
+  """agency.txt."""
 
   agency_id: int
   agency_name: str
@@ -422,7 +453,7 @@ class CalendarService:
 
 
 class ExpectedCalendarCSVRowType(TypedDict):
-  """calendar.txt"""
+  """calendar.txt."""
 
   service_id: int
   monday: bool
@@ -437,7 +468,7 @@ class ExpectedCalendarCSVRowType(TypedDict):
 
 
 class ExpectedCalendarDatesCSVRowType(TypedDict):
-  """calendar_dates.txt"""
+  """calendar_dates.txt."""
 
   service_id: int
   date: str
@@ -455,18 +486,30 @@ class ShapePoint:
   distance: float  # shapes.txt/shape_dist_traveled    (required)
 
   def __post_init__(self) -> None:
+    """Check construction.
+
+    Raises:
+      Error: if distance < 0.0
+
+    """
     if self.distance < 0.0:
       raise base.Error(f'invalid distance: {self}')
 
-  def __lt__(self, other: Any) -> bool:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, ShapePoint):
-      raise TypeError(f'invalid ShapePoint type comparison {self!r} versus {other!r}')
+  def __lt__(self, other: ShapePoint) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__).
+
+    Args:
+      other (ShapePoint): other to compare against
+
+    Returns:
+      bool: True if this ShapePoint is less than the other, False otherwise.
+
+    """
     return self.seq < other.seq  # we will sort only by ID for now!!
 
 
 class ExpectedShapesCSVRowType(TypedDict):
-  """shapes.txt"""
+  """shapes.txt."""
 
   shape_id: str
   shape_pt_sequence: int
@@ -520,10 +563,16 @@ class TrackStop:
   pickup: StopPointType = StopPointType.REGULAR  # stop_times.txt/pickup_type
   dropoff: StopPointType = StopPointType.REGULAR  # stop_times.txt/drop_off_type
 
-  def __lt__(self, other: Any) -> bool:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, TrackStop):
-      raise TypeError(f'invalid TrackStop type comparison {self!r} versus {other!r}')
+  def __lt__(self, other: TrackStop) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__).
+
+    Args:
+      other (TrackStop): other to compare against
+
+    Returns:
+      bool: True if this TrackStop is less than the other, False otherwise.
+
+    """
     return self.name < other.name
 
 
@@ -536,10 +585,16 @@ class Schedule:
   stops: tuple[TrackStop]  # (tuple so it is hashable!)
   times: tuple[ScheduleStop]  # (tuple so it is hashable!)
 
-  def __lt__(self, other: Any) -> bool:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, Schedule):
-      raise TypeError(f'invalid Schedule type comparison {self!r} versus {other!r}')
+  def __lt__(self, other: Schedule) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__).
+
+    Args:
+      other (Schedule): other to compare against
+
+    Returns:
+      bool: True if this Schedule is less than the other, False otherwise.
+
+    """
     if self.direction != other.direction:
       return self.direction < other.direction
     if self.stops[0] != other.stops[0]:

@@ -12,15 +12,9 @@ import datetime
 import enum
 import functools
 from collections.abc import Callable
-
-# import pdb
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from . import tfinta_base as base
-
-__author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = base.__version__
-
 
 ####################################################################################################
 # BASIC CONSTANTS
@@ -48,15 +42,21 @@ class Station(RealtimeRPCData):
   location: base.Point | None = None
   alias: str | None = None
 
-  def __lt__(self, other: Any) -> bool:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, Station):
-      raise TypeError(f'invalid Station type comparison {self!r} versus {other!r}')
+  def __lt__(self, other: Station) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__).
+
+    Args:
+        other (Any): Other object to compare against.
+
+    Returns:
+        bool: True if this Station is less than the other, False otherwise.
+
+    """
     return self.description < other.description
 
 
 class ExpectedStationXMLRowType(TypedDict):
-  """getAllStationsXML/objStation"""
+  """getAllStationsXML/objStation."""
 
   StationId: int
   StationCode: str
@@ -99,17 +99,23 @@ class RunningTrain(RealtimeRPCData):
   message: str
   position: base.Point | None
 
-  def __lt__(self, other: Any) -> bool:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, RunningTrain):
-      raise TypeError(f'invalid RunningTrain type comparison {self!r} versus {other!r}')
+  def __lt__(self, other: RunningTrain) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__).
+
+    Args:
+        other (Any): Other object to compare against.
+
+    Returns:
+        bool: True if this RunningTrain is less than the other, False otherwise.
+
+    """
     if self.status != other.status:
       return self.status.value > other.status.value  # note the reversal
     return self.code < other.code
 
 
 class ExpectedRunningTrainXMLRowType(TypedDict):
-  """getCurrentTrainsXML/objTrainPositions"""
+  """getCurrentTrainsXML/objTrainPositions."""
 
   TrainCode: str
   TrainStatus: str  # 'R'==running; 'N'==not yet running
@@ -177,10 +183,16 @@ class StationLineQueryData(RealtimeRPCData):
   station_code: str
   day: datetime.date
 
-  def __lt__(self, other: Any) -> bool:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, StationLineQueryData):
-      raise TypeError(f'invalid StationLineQueryData type comparison {self!r} versus {other!r}')
+  def __lt__(self, other: StationLineQueryData) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__).
+
+    Args:
+        other (Any): Other object to compare against.
+
+    Returns:
+        bool: True if this StationLineQueryData is less than the other, False otherwise.
+
+    """
     if self.station_name != other.station_name:
       return self.station_name < other.station_name
     return self.tm_server < other.tm_server
@@ -208,10 +220,16 @@ class StationLine(RealtimeRPCData):
   train_type: TrainType = TrainType.UNKNOWN
   last_location: str | None = None
 
-  def __lt__(self, other: Any) -> bool:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, StationLine):
-      raise TypeError(f'invalid StationLine type comparison {self!r} versus {other!r}')
+  def __lt__(self, other: StationLine) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__).
+
+    Args:
+        other (Any): Other object to compare against.
+
+    Returns:
+        bool: True if this StationLine is less than the other, False otherwise.
+
+    """
     if self.due_in != other.due_in:
       return self.due_in < other.due_in
     if self.expected != other.expected:
@@ -220,7 +238,7 @@ class StationLine(RealtimeRPCData):
 
 
 class ExpectedStationLineXMLRowType(TypedDict):
-  """getStationDataByCodeXML/objStationData"""
+  """getStationDataByCodeXML/objStationData."""
 
   Servertime: str
   Traincode: str
@@ -272,10 +290,16 @@ class TrainStopQueryData(RealtimeRPCData):
   destination_code: str
   destination_name: str
 
-  def __lt__(self, other: Any) -> bool:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, TrainStopQueryData):
-      raise TypeError(f'invalid TrainStopQueryData type comparison {self!r} versus {other!r}')
+  def __lt__(self, other: TrainStopQueryData) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__).
+
+    Args:
+        other (Any): Other object to compare against.
+
+    Returns:
+        bool: True if this TrainStopQueryData is less than the other, False otherwise.
+
+    """
     if self.origin_name != other.origin_name:
       return self.origin_name < other.origin_name
     if self.destination_name != other.destination_name:
@@ -300,15 +324,21 @@ class TrainStop(RealtimeRPCData):
   expected: base.DayRange
   actual: base.DayRange
 
-  def __lt__(self, other: Any) -> bool:
-    """Less than. Makes sortable (b/c base class already defines __eq__)."""
-    if not isinstance(other, TrainStop):
-      raise TypeError(f'invalid TrainStop type comparison {self!r} versus {other!r}')
+  def __lt__(self, other: TrainStop) -> bool:
+    """Less than. Makes sortable (b/c base class already defines __eq__).
+
+    Args:
+        other (Any): Other object to compare against.
+
+    Returns:
+        bool: True if this TrainStop is less than the other, False otherwise.
+
+    """
     return self.station_order < other.station_order
 
 
 class ExpectedTrainStopXMLRowType(TypedDict):
-  """getTrainMovementsXML/objTrainMovements"""
+  """getTrainMovementsXML/objTrainMovements."""
 
   TrainCode: str
   TrainDate: str

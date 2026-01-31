@@ -6,9 +6,6 @@ from __future__ import annotations
 
 import datetime
 import os.path
-
-# import pdb
-import sys
 from collections.abc import Callable, Generator
 from typing import Self
 from unittest import mock
@@ -20,10 +17,6 @@ from src.tfinta import realtime_data_model as dm
 from src.tfinta import tfinta_base as base
 
 from . import realtime_data, util
-
-__author__ = 'BellaKeri@github.com , balparda@github.com'
-__version__: tuple[int, int] = realtime.__version__  # tests inherit version from module
-
 
 _REALTIME_DIR: str = os.path.join(util.DATA_DIR, 'realtime')
 
@@ -154,10 +147,3 @@ def test_main_print_train(mock_realtime: mock.MagicMock) -> None:
   assert realtime.main(['print', 'train', '-c', 'E108', '-d', '20250701']) == 0
   mock_realtime.assert_called_once_with()
   db_obj.PrettyPrintTrain.assert_called_once_with(train_code='E108', day=datetime.date(2025, 7, 1))
-
-
-if __name__ == '__main__':
-  # run only the tests in THIS file but pass through any extra CLI flags
-  args: list[str] = sys.argv[1:] + [__file__]
-  print(f'pytest {" ".join(args)}')
-  sys.exit(pytest.main(sys.argv[1:] + [__file__]))
