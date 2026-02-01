@@ -319,7 +319,7 @@ class GTFS:
           return (agency, route)
     return (agency, None)
 
-  def LoadData(  # pylint: disable=too-many-arguments
+  def LoadData(
     self,
     operator: str,
     link: str,
@@ -424,7 +424,7 @@ class GTFS:
       self.Save()
       self._InvalidateCaches()
 
-  def _LoadGTFSSource(  # pylint: disable=too-many-arguments,too-many-locals
+  def _LoadGTFSSource(
     self,
     operator: str,
     link: str,
@@ -520,7 +520,7 @@ class GTFS:
         raise ParseError(f'Missing required files: {operator} {missing_files!r}')
       self._changed = True
 
-  def _LoadGTFSFile(  # pylint: disable=too-many-branches,too-many-locals
+  def _LoadGTFSFile(
     self,
     location: _TableLocation,
     file_data: bytes,
@@ -1291,7 +1291,7 @@ def _UnzipFiles(in_file: IO[bytes], /) -> Generator[tuple[str, bytes], None, Non
         yield (file_name, file_data.read())
 
 
-def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name
+def main(argv: list[str] | None = None) -> int:
   """Main entry point."""
   # parse the input arguments, add subparser for `command`
   parser: argparse.ArgumentParser = argparse.ArgumentParser()

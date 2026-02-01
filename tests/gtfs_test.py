@@ -26,7 +26,7 @@ _ZIP_DIR_1: str = os.path.join(util.DATA_DIR, 'zip_1')
 @mock.patch('src.tfinta.gtfs.urllib.request.urlopen', autospec=True)
 @mock.patch('src.tfinta.tfinta_base.BinSerialize', autospec=True)
 @mock.patch('src.tfinta.tfinta_base.BinDeSerialize', autospec=True)
-def test_GTFS_load_and_parse_from_net(  # pylint: disable=too-many-locals,too-many-statements
+def test_GTFS_load_and_parse_from_net(
   deserialize: mock.MagicMock,
   serialize: mock.MagicMock,
   urlopen: mock.MagicMock,

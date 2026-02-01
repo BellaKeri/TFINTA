@@ -36,7 +36,7 @@ def gtfs_object() -> gtfs.GTFS:
   return db
 
 
-def test_DART(gtfs_object: gtfs.GTFS) -> None:  # pylint: disable=redefined-outer-name
+def test_DART(gtfs_object: gtfs.GTFS) -> None:
   """Test."""
   with typeguard.suppress_type_checks():
     with pytest.raises(gtfs.Error):

@@ -78,7 +78,7 @@ class _FakeDate(datetime.date):
 )
 @mock.patch('src.tfinta.realtime.time.time', autospec=True)
 @mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
-def test_RealtimeRail_StationsCall(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+def test_RealtimeRail_StationsCall(
   mock_open: mock.MagicMock,
   mock_time: mock.MagicMock,
   call_names: list[tuple[str, realtime._PossibleRPCArgs]],

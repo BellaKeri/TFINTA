@@ -208,9 +208,7 @@ class RealtimeRail:
 
   def _CallRPC(
     self, rpc_name: str, args: _PossibleRPCArgs, /
-  ) -> tuple[  # pylint: disable=too-many-locals,too-many-branches
-    float, list[dm.RealtimeRPCData]
-  ]:
+  ) -> tuple[float, list[dm.RealtimeRPCData]]:
     """Call RPC and send rows to parsers."""
     # get fields definition and compute URL
     row_handler, _, row_xml_tag, row_types, row_required = self._file_handlers[rpc_name]
@@ -851,7 +849,7 @@ class RealtimeRail:
     yield from table.get_string().splitlines()  # type:ignore
 
 
-def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,too-many-locals
+def main(argv: list[str] | None = None) -> int:
   """Main entry point."""
   # parse the input arguments, add subparser for `command`
   parser: argparse.ArgumentParser = argparse.ArgumentParser()

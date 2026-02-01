@@ -66,7 +66,7 @@ dependencies = [
 # console scripts that will be installed when installing the package;
 # if you change/add a line here also edit [tool.poetry.scripts] below and re-run `poetry sync`
 
-dart = "tfinta.dart:main"
+dart = "tfinta.dart:Run"
 gtfs = "tfinta.gtfs:main"
 realtime = "tfinta.realtime:main"
 
@@ -76,7 +76,7 @@ realtime = "tfinta.realtime:main"
 # poetry/poetry-core still relies on this section for wheel entry points in some versions;
 # keep this in sync with [project.scripts] above
 
-dart = "tfinta.dart:main"
+dart = "tfinta.dart:Run"
 gtfs = "tfinta.gtfs:main"
 realtime = "tfinta.realtime:main"
 

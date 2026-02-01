@@ -4,23 +4,45 @@
 
 from __future__ import annotations
 
-import argparse
 import collections
 import copy
+import dataclasses
 import datetime
-import logging
-import sys
 from collections.abc import Generator
 from typing import Any
 
+import click
 import prettytable
+import typer
+from rich import console as rich_console
+from transcrypto.cli import clibase
 
-from . import gtfs
+# from transcrypto.utils import base
+from transcrypto.utils import logging as tc_logging
+
+from . import __version__, gtfs
 from . import gtfs_data_model as dm
 from . import tfinta_base as base
 
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class DARTConfig(clibase.CLIConfig):
+  """CLI global context, storing the configuration.
+
+  Attributes:
+      database: GTFS database object
+
+  """
+
+  database: gtfs.GTFS
+
+
 # defaults
 _DEFAULT_DAYS_FRESHNESS = 10
+_TODAY: datetime.date = datetime.date.today()
+_TODAY_INT = int(_TODAY.strftime('%Y%m%d'))
+_MIN_DATE = 20000101
+_MAX_DATE = 21991231
 
 
 class Error(gtfs.Error):
@@ -96,7 +118,7 @@ class DART:
     return dm.Schedule(
       direction=trip.direction,
       stops=stops,
-      times=tuple(  # type:ignore
+      times=tuple(
         # this way guarantees we hit every int (seq)
         trip.stops[i].scheduled
         for i in range(1, len(trip.stops) + 1)
@@ -238,7 +260,7 @@ class DART:
 
   def PrettyStationSchedule(
     self, /, *, stop_id: str, day: datetime.date
-  ) -> Generator[str, None, None]:  # pylint: disable=too-many-locals
+  ) -> Generator[str, None, None]:
     """Generate a pretty version of a DART station (stop) day's schedule."""
     stop_id = stop_id.strip()
     if not day or not stop_id:
@@ -301,7 +323,7 @@ class DART:
       last_departure = tm.times.departure.time if tm.times.departure else 0
     yield from table.get_string().splitlines()  # type:ignore
 
-  def PrettyPrintTrip(self, /, *, trip_name: str) -> Generator[str, None, None]:  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
+  def PrettyPrintTrip(self, /, *, trip_name: str) -> Generator[str, None, None]:
     """Generate a pretty version of a train (physical) trip, may be 2 Trips."""
     # get the trips for this name
     trip_name = trip_name.strip()
@@ -429,7 +451,7 @@ class DART:
           )
       table.add_row(table_row)
     table.hrules = prettytable.HRuleStyle.ALL
-    yield from table.get_string().splitlines()  # type:ignore
+    yield from table.get_string().splitlines()
 
   def PrettyPrintAllDatabase(self) -> Generator[str, None, None]:
     """Print everything in the database."""
@@ -450,134 +472,229 @@ class DART:
       yield ''
 
 
-def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,too-many-locals
-  """Main entry point."""
-  # parse the input arguments, add subparser for `command`
-  parser: argparse.ArgumentParser = argparse.ArgumentParser()
-  command_arg_subparsers = parser.add_subparsers(dest='command')
-  # "read" command
-  read_parser: argparse.ArgumentParser = command_arg_subparsers.add_parser(
-    'read', help='Read DB from official sources'
-  )
-  read_parser.add_argument(
-    '-f',
-    '--freshness',
-    type=int,
-    default=_DEFAULT_DAYS_FRESHNESS,
-    help=f'Number of days to cache; 0 == always load (default: {_DEFAULT_DAYS_FRESHNESS})',
-  )
-  read_parser.add_argument(
-    '-r',
-    '--replace',
-    type=int,
-    default=0,
-    help='0 == does not load the same version again ; 1 == forces replace version (default: 0)',
-  )
-  # "print" command
-  print_parser: argparse.ArgumentParser = command_arg_subparsers.add_parser(
-    'print', help='Print DB'
-  )
-  print_arg_subparsers = print_parser.add_subparsers(dest='print_command')
-  print_arg_subparsers.add_parser('calendars', help='Print Calendars/Services')
-  print_arg_subparsers.add_parser('stops', help='Print Stops')
-  trips_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser(
-    'trips', help='Print Trips'
-  )
-  trips_parser.add_argument(
-    '-d',
-    '--day',
-    type=str,
-    default='',
-    help='day to consider in "YYYYMMDD" format (default: TODAY/NOW)',
-  )
-  station_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser(
-    'station', help='Print Station Chart'
-  )
-  station_parser.add_argument(
-    '-s',
-    '--station',
-    type=str,
-    default='',
-    help='station to print chart for; finds by ID (stops.txt/stop_id) or by name (stop_name)',
-  )
-  station_parser.add_argument(
-    '-d',
-    '--day',
-    type=str,
-    default='',
-    help='day to consider in "YYYYMMDD" format (default: TODAY/NOW)',
-  )
-  trip_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser(
-    'trip', help='Print DART Trip'
-  )
-  trip_parser.add_argument(
-    '-c', '--code', type=str, default='', help='DART train code, like "E108" for example'
-  )
-  _: argparse.ArgumentParser = print_arg_subparsers.add_parser('all', help='Print All Data')
-  # ALL commands
-  parser.add_argument(
+# CLI app setup, this is an important object and can be imported elsewhere and called
+app = typer.Typer(
+  add_completion=True,
+  no_args_is_help=True,
+  help='dart: CLI for Dublin DART rail services.',  # keep in sync with Main().help
+  epilog=(
+    'Example:\n\n\n\n'
+    '# --- Randomness ---\n\n'
+    'poetry run transcrypto random bits 16\n\n'
+    'poetry run transcrypto random int 1000 2000\n\n'
+    'poetry run transcrypto random bytes 32\n\n'
+    'poetry run transcrypto random prime 64\n\n\n\n'
+    '# --- Markdown ---\n\n'
+    'poetry run transcrypto markdown > transcrypto.md\n\n'
+  ),
+)
+
+
+def Run() -> None:
+  """Run the CLI."""
+  app()
+
+
+@app.callback(
+  invoke_without_command=True,  # have only one; this is the "constructor"
+  help='dart: CLI for Dublin DART rail services.',  # keep message in sync with app.help
+)
+@clibase.CLIErrorGuard
+def Main(  # documentation is help/epilog/args # noqa: D103
+  *,
+  ctx: click.Context,  # global context
+  version: bool = typer.Option(False, '--version', help='Show version and exit.'),
+  verbose: int = typer.Option(
+    0,
     '-v',
     '--verbose',
-    action='count',
-    default=0,
-    help='Increase verbosity (use -v, -vv, -vvv, -vvvv for ERR/WARN/INFO/DEBUG output)',
+    count=True,
+    help='Verbosity (nothing=ERROR, -v=WARNING, -vv=INFO, -vvv=DEBUG).',
+    min=0,
+    max=3,
+  ),
+  color: bool | None = typer.Option(
+    None,
+    '--color/--no-color',
+    help=(
+      'Force enable/disable colored output (respects NO_COLOR env var if not provided). '
+      'Defaults to having colors.'  # state default because None default means docs don't show it
+    ),
+  ),
+) -> None:
+  if version:
+    typer.echo(__version__)
+    raise typer.Exit(0)
+  # initialize logging and get console
+  console: rich_console.Console
+  console, verbose, color = tc_logging.InitLogging(
+    verbose,
+    color=color,
+    include_process=False,
   )
-  args: argparse.Namespace = parser.parse_args(argv)
-  levels: list[int] = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
-  logging.basicConfig(level=levels[min(args.verbose, len(levels) - 1)], format=base.LOG_FORMAT)  # type:ignore
-  command = args.command.lower().strip() if args.command else ''
-  database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
-  # look at main command
-  match command:
-    case 'read':
-      database.LoadData(
-        dm.IRISH_RAIL_OPERATOR,
-        dm.IRISH_RAIL_LINK,
-        allow_unknown_file=True,
-        allow_unknown_field=False,
-        freshness=args.freshness,
-        force_replace=bool(args.replace),
-        override=None,
-      )
-    case 'print':
-      # look at sub-command for print
-      print_command = args.print_command.lower().strip() if args.print_command else ''
-      dart = DART(database)
-      print()
-      match print_command:
-        case 'calendars':
-          for line in dart.PrettyPrintCalendar():
-            print(line)
-        case 'stops':
-          for line in dart.PrettyPrintStops():
-            print(line)
-        case 'trips':
-          # trips for a day
-          for line in dart.PrettyDaySchedule(
-            day=base.DATE_OBJ_GTFS(args.day) if args.day else datetime.date.today()
-          ):
-            print(line)
-        case 'station':
-          # station chart for a day
-          for line in dart.PrettyStationSchedule(
-            stop_id=database.StopIDFromNameFragmentOrID(args.station),
-            day=base.DATE_OBJ_GTFS(args.day) if args.day else datetime.date.today(),
-          ):
-            print(line)
-        case 'trip':
-          # DART trip
-          for line in dart.PrettyPrintTrip(trip_name=args.code):
-            print(line)
-        case 'all':
-          for line in dart.PrettyPrintAllDatabase():
-            print(line)
-        case _:
-          raise NotImplementedError
-      print()
-    case _:
-      raise NotImplementedError
-  return 0
+  # check a few things
+  if not (_MIN_DATE < _TODAY_INT < _MAX_DATE):
+    raise Error(f'invalid TODAY date {_TODAY_INT}: not in {_MIN_DATE}..{_MAX_DATE}')
+  # create context with the arguments we received.
+  ctx.obj = DARTConfig(
+    console=console,
+    verbose=verbose,
+    color=color,
+    database=gtfs.GTFS(gtfs.DEFAULT_DATA_DIR),
+  )
 
 
-if __name__ == '__main__':
-  sys.exit(main())
+@app.command(
+  'read',
+  help='Read DB from official sources',
+  epilog=(
+    'Example:\n\n\n\n$ poetry run transcrypto markdown > transcrypto.md\n\n<<saves CLI doc>>'
+  ),
+)
+@clibase.CLIErrorGuard
+def ReadCommand(  # documentation is help/epilog/args # noqa: D103
+  *,
+  ctx: typer.Context,
+  freshness: int = typer.Option(
+    _DEFAULT_DAYS_FRESHNESS,
+    '-f',
+    '--freshness',
+    min=0,
+    help='Number of days to cache; 0 == always load',
+  ),
+  replace: bool = typer.Option(
+    False,
+    '--replace/--no-replace',
+    help='Force replace DB version. Defaults to not loading the same version again.',
+  ),
+) -> None:
+  config: DARTConfig = ctx.obj
+  config.database.LoadData(
+    dm.IRISH_RAIL_OPERATOR,
+    dm.IRISH_RAIL_LINK,
+    allow_unknown_file=True,
+    allow_unknown_field=False,
+    freshness=freshness,
+    force_replace=replace,
+    override=None,
+  )
+
+
+random_app = typer.Typer(
+  no_args_is_help=True,
+  help='Print DB',
+)
+app.add_typer(random_app, name='print')
+
+
+@random_app.command(
+  'all',
+  help='Random integer with exact bit length = `bits` (MSB will be 1).',
+  epilog=('Example:\n\n\n\n$ poetry run transcrypto random bits 16\n\n36650'),
+)
+@clibase.CLIErrorGuard
+def PrintAll(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+  config: DARTConfig = ctx.obj
+  for line in DART(config.database).PrettyPrintAllDatabase():
+    config.console.print(line)
+
+
+@random_app.command(
+  'calendars',
+  help='Print Calendars/Services.',
+  epilog=('Example:\n\n\n\n$ poetry run transcrypto random bits 16\n\n36650'),
+)
+@clibase.CLIErrorGuard
+def PrintCalendars(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+  config: DARTConfig = ctx.obj
+  for line in DART(config.database).PrettyPrintCalendar():
+    config.console.print(line)
+
+
+@random_app.command(
+  'stops',
+  help='Print Stops.',
+  epilog=('Example:\n\n\n\n$ poetry run transcrypto random bits 16\n\n36650'),
+)
+@clibase.CLIErrorGuard
+def PrintStops(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+  config: DARTConfig = ctx.obj
+  for line in DART(config.database).PrettyPrintStops():
+    config.console.print(line)
+
+
+@random_app.command(
+  'trips',
+  help='Print Trips.',
+  epilog=('Example:\n\n\n\n$ poetry run transcrypto random bits 16\n\n36650'),
+)
+@clibase.CLIErrorGuard
+def PrintTrips(  # documentation is help/epilog/args # noqa: D103
+  *,
+  ctx: typer.Context,
+  day: int = typer.Argument(
+    _TODAY_INT,
+    min=_MIN_DATE,
+    max=_MAX_DATE,
+    help='Day to consider in "YYYYMMDD" format (default: TODAY/NOW).',
+  ),
+) -> None:
+  config: DARTConfig = ctx.obj
+  for line in DART(config.database).PrettyDaySchedule(day=base.DATE_OBJ_GTFS(str(day))):
+    config.console.print(line)
+
+
+@random_app.command(
+  'station',
+  help='Print Station Chart.',
+  epilog=('Example:\n\n\n\n$ poetry run transcrypto random bits 16\n\n36650'),
+)
+@clibase.CLIErrorGuard
+def PrintStation(  # documentation is help/epilog/args # noqa: D103
+  *,
+  ctx: typer.Context,
+  station: str = typer.Argument(
+    ..., help='Station to print chart for; finds by ID (stops.txt/stop_id) or by name (stop_name)'
+  ),
+  day: int = typer.Argument(
+    _TODAY_INT,
+    min=_MIN_DATE,
+    max=_MAX_DATE,
+    help='Day to consider in "YYYYMMDD" format (default: TODAY/NOW).',
+  ),
+) -> None:
+  config: DARTConfig = ctx.obj
+  for line in DART(config.database).PrettyStationSchedule(
+    stop_id=config.database.StopIDFromNameFragmentOrID(station),
+    day=base.DATE_OBJ_GTFS(str(day)),
+  ):
+    config.console.print(line)
+
+
+@random_app.command(
+  'trip',
+  help='Print DART Trip.',
+  epilog=('Example:\n\n\n\n$ poetry run transcrypto random bits 16\n\n36650'),
+)
+@clibase.CLIErrorGuard
+def PrintTrip(  # documentation is help/epilog/args # noqa: D103
+  *,
+  ctx: typer.Context,
+  train: str = typer.Argument(..., help='DART train code, like "E108" for example'),
+) -> None:
+  config: DARTConfig = ctx.obj
+  for line in DART(config.database).PrettyPrintTrip(trip_name=train):
+    config.console.print(line)
+
+
+@app.command(
+  'markdown',
+  help='Emit Markdown docs for the CLI (see README.md section "Creating a New Version").',
+  epilog=(
+    'Example:\n\n\n\n$ poetry run transcrypto markdown > transcrypto.md\n\n<<saves CLI doc>>'
+  ),
+)
+@clibase.CLIErrorGuard
+def Markdown(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+  config: DARTConfig = ctx.obj
+  config.console.print(clibase.GenerateTyperHelpMarkdown(app, prog_name='dart'))

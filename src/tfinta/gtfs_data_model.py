@@ -582,8 +582,8 @@ class Schedule:
   """A track scheduled (timed) route. A track + timetable, basically. Sortable."""
 
   direction: bool  # trips.txt/direction_id (required)
-  stops: tuple[TrackStop]  # (tuple so it is hashable!)
-  times: tuple[ScheduleStop]  # (tuple so it is hashable!)
+  stops: tuple[TrackStop, ...]  # (tuple so it is hashable!)
+  times: tuple[ScheduleStop, ...]  # (tuple so it is hashable!)
 
   def __lt__(self, other: Schedule) -> bool:
     """Less than. Makes sortable (b/c base class already defines __eq__).
