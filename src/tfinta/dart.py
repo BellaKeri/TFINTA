@@ -8,6 +8,7 @@ import collections
 import copy
 import dataclasses
 import datetime
+import operator
 from collections.abc import Generator
 from typing import Any
 
@@ -16,8 +17,6 @@ import prettytable
 import typer
 from rich import console as rich_console
 from transcrypto.cli import clibase
-
-# from transcrypto.utils import base
 from transcrypto.utils import logging as tc_logging
 
 from . import __version__, gtfs
@@ -25,21 +24,24 @@ from . import gtfs_data_model as dm
 from . import tfinta_base as base
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class DARTConfig(clibase.CLIConfig):
+@dataclasses.dataclass(kw_only=True, slots=True)
+class DARTConfig:
   """CLI global context, storing the configuration.
 
   Attributes:
-      database: GTFS database object
+      database: GTFS database object (None if not needed)
 
   """
 
-  database: gtfs.GTFS
+  console: rich_console.Console
+  verbose: int
+  color: bool | None
+  database: gtfs.GTFS | None = None
 
 
 # defaults
 _DEFAULT_DAYS_FRESHNESS = 10
-_TODAY: datetime.date = datetime.date.today()
+_TODAY: datetime.date = datetime.datetime.now(tz=datetime.UTC).date()
 _TODAY_INT = int(_TODAY.strftime('%Y%m%d'))
 _MIN_DATE = 20000101
 _MAX_DATE = 21991231
@@ -67,7 +69,15 @@ class DART:
   """Dublin DART."""
 
   def __init__(self, gtfs_obj: gtfs.GTFS, /) -> None:
-    """Constructor."""
+    """Construct.
+
+    Args:
+        gtfs_obj: GTFS database object
+
+    Raises:
+        Error: if the GTFS object is invalid or missing DART route
+
+    """
     # get DB
     if not gtfs_obj:
       raise Error('Empty GTFS object (database)')
@@ -86,25 +96,31 @@ class DART:
       if not trip.name:
         raise Error(f'empty trip name: {trip.id}')
       schedule: dm.Schedule = self.ScheduleFromTrip(trip)
-      if (n_stops := len(schedule.stops)) < 2 or len(schedule.times) < 2:
+      if (n_stops := len(schedule.stops)) < 2 or len(schedule.times) < 2:  # noqa: PLR2004
         raise Error(f'trip {trip.id} has fewer than 2 stops: {n_stops}')
       trains.setdefault(trip.name, []).append((trip.service, schedule, trip))
     # get train code names and find an ordering
-    trip_names: list[tuple[dm.Schedule, str]] = list(
+    trip_names: list[tuple[dm.Schedule, str]] = [
       (min(s for _, s, _ in tr), n) for n, tr in trains.items()
-    )
+    ]
     trip_names.sort()
     # create ordered dict to preserve sorted train codes
     self._dart_trips: collections.OrderedDict[str, list[tuple[int, dm.Schedule, dm.Trip]]] = (
       collections.OrderedDict()
     )
     for _, name in trip_names:
-      self._dart_trips[name] = sorted(
-        trains[name], key=lambda t: (t[1], t[0])
-      )  # also sort the values!
+      self._dart_trips[name] = sorted(trains[name], key=operator.itemgetter(1, 0))  # also sort!
 
   def ScheduleFromTrip(self, trip: dm.Trip, /) -> dm.Schedule:
-    """Builds a schedule object from this particular trip."""
+    """Build a schedule object from this particular trip.
+
+    Args:
+        trip: trip to build schedule from
+
+    Returns:
+        schedule object for this trip
+
+    """
     stops: tuple[dm.TrackStop] = tuple(
       dm.TrackStop(  # type:ignore
         stop=trip.stops[i].stop,
@@ -126,17 +142,30 @@ class DART:
     )
 
   def Services(self) -> set[int]:
-    """Set of all DART services."""
+    """Set of all DART services.
+
+    Returns:
+        set of all service IDs
+
+    """
     return {t.service for t in self._dart_route.trips.values()}
 
   def ServicesForDay(self, day: datetime.date, /) -> set[int]:
-    """Set of DART services for a single day."""
+    """Set of DART services for a single day.
+
+    Args:
+        day: day to get services for
+
+    Returns:
+        set of service IDs for this day
+
+    """
     return self._gtfs.ServicesForDay(day).intersection(self.Services())
 
   def WalkTrains(
     self, /, *, filter_services: set[int] | None = None
   ) -> Generator[tuple[dm.Schedule, str, list[tuple[int, dm.Schedule, dm.Trip]]], None, None]:
-    """Iterates over actual physical DART trains in a sensible order.
+    """Iterate over actual physical DART trains in a sensible order.
 
     DART behaves oddly:
     (1) After you group by the obvious things a single train will do (agnostic, endpoint, track)
@@ -147,6 +176,14 @@ class DART:
         Schedules (i.e. timetables); they may start the same and diverge (usually by 2 to 10 min)
         or they may start diverged and converge; this is why the "canonical" Schedule will be
         the "min()" of the schedules, i.e. the first to depart, the "smaller" in time
+
+    Args:
+        filter_services: set of service IDs to filter to (None == all)
+
+    Yields:
+        tuple of
+        (canonical Schedule, train code name, list of (service ID, Schedule, Trip) in this train)
+
     """
     # collect the trains that are actually running today
     filtered_trains: list[tuple[dm.Schedule, str, list[tuple[int, dm.Schedule, dm.Trip]]]] = []
@@ -160,7 +197,7 @@ class DART:
         (
           min(s for _, s, _ in filtered_trips),
           name,
-          sorted(filtered_trips, key=lambda t: (t[1], t[0])),
+          sorted(filtered_trips, key=operator.itemgetter(1, 0)),
         )
       )
     yield from sorted(
@@ -179,7 +216,20 @@ class DART:
   ) -> dict[
     tuple[str, dm.ScheduleStop], tuple[str, dm.Schedule, list[tuple[int, dm.Schedule, dm.Trip]]]
   ]:
-    """Data for trains in a `stop` for a specific `day`."""
+    """Get data for trains in a `stop` for a specific `day`.
+
+    Args:
+        stop_id: stop ID to get schedule for
+        day: day to get schedule for
+
+    Returns:
+        dictionary keyed by (destination stop ID, ScheduleStop) with values of
+        (train code name, Schedule, list of (service ID, Schedule, Trip) in this train)
+
+    Raises:
+        Error: if the stop ID is invalid
+
+    """
     station: dict[
       tuple[str, dm.ScheduleStop], tuple[str, dm.Schedule, list[tuple[int, dm.Schedule, dm.Trip]]]
     ] = {}
@@ -199,11 +249,21 @@ class DART:
   ##################################################################################################
 
   def PrettyPrintCalendar(self) -> Generator[str, None, None]:
-    """Generate a pretty version of calendar data."""
+    """Generate a pretty version of calendar data.
+
+    Yields:
+        lines of the pretty-printed results
+
+    """
     yield from self._gtfs.PrettyPrintCalendar(filter_to=self.Services())
 
   def PrettyPrintStops(self) -> Generator[str, None, None]:
-    """Generate a pretty version of the stops."""
+    """Generate a pretty version of the stops.
+
+    Yields:
+        lines of the pretty-printed results
+
+    """
     all_stops: set[str] = {
       stop.stop
       for _, _, trips in self.WalkTrains()
@@ -213,90 +273,103 @@ class DART:
     yield from self._gtfs.PrettyPrintStops(filter_to=all_stops)
 
   def PrettyDaySchedule(self, /, *, day: datetime.date) -> Generator[str, None, None]:
-    """Generate a pretty version of a DART day's schedule."""
+    """Generate a pretty version of a DART day's schedule.
+
+    Args:
+        day: day to get schedule for
+
+    Yields:
+        lines of the pretty-printed results
+
+    Raises:
+        Error: if the day is invalid
+
+    """
     if not day:
       raise Error('empty day')
-    yield f'{base.BOLD}{base.MAGENTA}DART Schedule{base.NULL}'
+    yield '[bold magenta]DART Schedule[/]'
     yield ''
-    yield (
-      f'Day:      {base.BOLD}{base.YELLOW}{day}{base.NULL} '
-      f'{base.BOLD}({base.DAY_NAME[day.weekday()]}){base.NULL}'
-    )
+    yield (f'Day:      [bold yellow]{day}[/] [bold]({base.DAY_NAME[day.weekday()]})[/]')
     day_services: set[int] = self.ServicesForDay(day)
-    yield (
-      f'Services: {base.BOLD}{base.YELLOW}'
-      f'{", ".join(str(s) for s in sorted(day_services))}{base.NULL}'
-    )
+    yield (f'Services: [bold yellow]{", ".join(str(s) for s in sorted(day_services))}[/]')
     yield ''
     table = prettytable.PrettyTable(
       [
-        f'{base.BOLD}{base.CYAN}N/S{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Train{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Start{base.NULL}',
-        f'{base.BOLD}{base.CYAN}End{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Depart Time{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Service/Trip Codes/{base.NULL}'
-        f'{base.RED}[\u2605Alt.Times]{base.NULL}',
+        '[bold cyan]N/S[/]',
+        '[bold cyan]Train[/]',
+        '[bold cyan]Start[/]',
+        '[bold cyan]End[/]',
+        '[bold cyan]Depart Time[/]',
+        '[bold cyan]Service/Trip Codes/[/][red][★Alt.Times][/]',
       ]
     )  # ★
     for schedule, name, trips_in_train in self.WalkTrains(filter_services=day_services):
       trip_codes: str = ', '.join(
-        f'{s}/{t.id}{"" if sc == schedule else f"/{base.RED}[★]{base.NULL}{base.BOLD}"}'
-        for s, sc, t in trips_in_train
+        f'{s}/{t.id}{"" if sc == schedule else "/[red][★][/][bold]"}' for s, sc, t in trips_in_train
       )
       table.add_row(
-        [  # type: ignore
-          f'{base.BOLD}{dm.DART_DIRECTION(schedule)}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{name}{base.NULL}',
-          f'{base.BOLD}{schedule.stops[0].name}{base.NULL}',
-          f'{base.BOLD}{schedule.stops[-1].name}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}'
-          f'{schedule.times[0].times.departure.ToHMS() if schedule.times[0].times.departure else base.NULL_TEXT}'
-          f'{base.NULL}',
-          f'{base.BOLD}{trip_codes}{base.NULL}',
+        [
+          f'[bold]{dm.DART_DIRECTION(schedule)}[/]',
+          f'[bold yellow]{name}[/]',
+          f'[bold]{schedule.stops[0].name}[/]',
+          f'[bold]{schedule.stops[-1].name}[/]',
+          (
+            '[bold yellow]'
+            f'{
+              schedule.times[0].times.departure.ToHMS()
+              if schedule.times[0].times.departure
+              else "∅"
+            }'
+            f'[/][bold]{trip_codes}[/]'
+          ),
         ]
       )
-    yield from table.get_string().splitlines()  # type:ignore
+    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
   def PrettyStationSchedule(
     self, /, *, stop_id: str, day: datetime.date
   ) -> Generator[str, None, None]:
-    """Generate a pretty version of a DART station (stop) day's schedule."""
+    """Generate a pretty version of a DART station (stop) day's schedule.
+
+    Args:
+        stop_id: stop ID to get schedule for
+        day: day to get schedule for
+
+    Yields:
+        lines of the pretty-printed results
+
+    Raises:
+        Error: if the stop ID is invalid
+
+    """
     stop_id = stop_id.strip()
     if not day or not stop_id:
       raise Error('empty stop/day')
     stop_name: str = self._gtfs.StopNameTranslator(stop_id)
-    yield (f'{base.MAGENTA}DART Schedule for Station {base.BOLD}{stop_name} - {stop_id}{base.NULL}')
+    yield (f'[magenta]DART Schedule for Station [bold]{stop_name} - {stop_id}[/]')
     yield ''
-    yield (
-      f'Day:          {base.BOLD}{base.YELLOW}{day}{base.NULL} '
-      f'{base.BOLD}({base.DAY_NAME[day.weekday()]}){base.NULL}'
-    )
+    yield (f'Day:          [bold yellow]{day}[/] [bold]({base.DAY_NAME[day.weekday()]})[/]')
     day_services: set[int] = self.ServicesForDay(day)
-    yield (
-      f'Services:     {base.BOLD}{base.YELLOW}'
-      f'{", ".join(str(s) for s in sorted(day_services))}{base.NULL}'
-    )
+    yield (f'Services:     [bold yellow]{", ".join(str(s) for s in sorted(day_services))}[/]')
     day_dart_schedule: dict[
       tuple[str, dm.ScheduleStop], tuple[str, dm.Schedule, list[tuple[int, dm.Schedule, dm.Trip]]]
     ] = self.StationSchedule(stop_id, day)
     destinations: set[str] = {self._gtfs.StopNameTranslator(k[0]) for k in day_dart_schedule}
-    yield f'Destinations: {base.BOLD}{base.YELLOW}{", ".join(sorted(destinations))}{base.NULL}'
+    yield f'Destinations: [bold yellow]{", ".join(sorted(destinations))}[/]'
     yield ''
     table = prettytable.PrettyTable(
       [
-        f'{base.BOLD}{base.CYAN}N/S{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Train{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Destination{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Arrival{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Departure{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Service/Trip Codes/{base.NULL}'
-        f'{base.RED}[\u2605Alt.Times]{base.NULL}',
+        '[bold cyan]N/S[/]',
+        '[bold cyan]Train[/]',
+        '[bold cyan]Destination[/]',
+        '[bold cyan]Arrival[/]',
+        '[bold cyan]Departure[/]',
+        '[bold cyan]Service/Trip Codes/[/][red][★Alt.Times][/]',
       ]
     )  # ★
     last_arrival: int = 0
     last_departure: int = 0
-    for dest, tm in sorted(day_dart_schedule.keys(), key=lambda k: (k[1], k[0])):
+    for dest, tm in sorted(day_dart_schedule.keys(), key=operator.itemgetter(1, 0)):
       name, schedule, trips_in_train = day_dart_schedule[dest, tm]
       if (tm.times.arrival and tm.times.arrival.time < last_arrival) or (
         tm.times.departure and tm.times.departure.time < last_departure
@@ -304,27 +377,36 @@ class DART:
         # make sure both arrival and departures are strictly moving forward
         raise Error(f'time moved backwards in schedule @ {dest} / {tm}')
       trip_codes: str = ', '.join(
-        f'{s}/{t.id}{"" if sc == schedule else f"/{base.RED}[★]{base.NULL}{base.BOLD}"}'
+        f'{s}/{t.id}{"" if sc == schedule else "/[red][★][/][bold]"}'
         for s, sc, t in sorted(trips_in_train)
       )
       table.add_row(
-        [  # type: ignore
-          f'{base.BOLD}{dm.DART_DIRECTION(trips_in_train[0][2])}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{name}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{schedule.stops[-1].name}{base.NULL}',
-          f'{base.BOLD}'
-          f'{tm.times.arrival.ToHMS() if tm.times.arrival else base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}'
-          f'{tm.times.departure.ToHMS() if tm.times.departure else base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{trip_codes}{base.NULL}',
+        [
+          f'[bold]{dm.DART_DIRECTION(trips_in_train[0][2])}[/]',
+          f'[bold yellow]{name}[/]',
+          f'[bold yellow]{schedule.stops[-1].name}[/]',
+          f'[bold]{tm.times.arrival.ToHMS() if tm.times.arrival else "∅"}[/]',
+          f'[bold yellow]{tm.times.departure.ToHMS() if tm.times.departure else "∅"}[/]',
+          f'[bold]{trip_codes}[/]',
         ]
       )
       last_arrival = tm.times.arrival.time if tm.times.arrival else 0
       last_departure = tm.times.departure.time if tm.times.departure else 0
-    yield from table.get_string().splitlines()  # type:ignore
+    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
-  def PrettyPrintTrip(self, /, *, trip_name: str) -> Generator[str, None, None]:
-    """Generate a pretty version of a train (physical) trip, may be 2 Trips."""
+  def PrettyPrintTrip(self, /, *, trip_name: str) -> Generator[str, None, None]:  # noqa: C901, PLR0912, PLR0915
+    """Generate a pretty version of a train (physical) trip, may be 2 Trips.
+
+    Args:
+        trip_name: trip name/code to pretty print
+
+    Yields:
+        lines of the pretty-printed results
+
+    Raises:
+        Error: if the trip name is invalid
+
+    """
     # get the trips for this name
     trip_name = trip_name.strip()
     trains: list[tuple[int, dm.Schedule, dm.Trip]] = self._dart_trips.get(trip_name, [])
@@ -339,7 +421,7 @@ class DART:
     for _, _, trip in trains:
       if (len_trip := len(trip.stops)) > n_stops:
         n_stops, min_stop, max_stop = len_trip, trip.stops[1].stop, trip.stops[len_trip].stop
-    yield f'{base.MAGENTA}DART Trip {base.BOLD}{trip_name}{base.NULL}'
+    yield f'[magenta]DART Trip [bold]{trip_name}[/]'
     yield ''
     # check for unexpected things that should not happen and pad trips that are shorter
     padded_trips: list[dm.Trip] = []
@@ -381,80 +463,63 @@ class DART:
     agency, route, _ = self._gtfs.FindTrip(trips[0].id)
     if not agency or not route:
       raise Error(f'trip id {trips[0].id!r} was not found ({trip_name!r})')
-    yield f'Agency:        {base.BOLD}{base.YELLOW}{agency.name}{base.NULL}'
-    yield f'Route:         {base.BOLD}{base.YELLOW}{route.id}{base.NULL}'
-    yield f'  Short name:  {base.BOLD}{base.YELLOW}{route.short_name}{base.NULL}'
-    yield f'  Long name:   {base.BOLD}{base.YELLOW}{route.long_name}{base.NULL}'
-    yield (f'  Description: {base.BOLD}{route.description or base.NULL_TEXT}{base.NULL}')
-    yield (
-      f'Headsign:      {base.BOLD}{trips[0].headsign if trips[0].headsign else base.NULL_TEXT}'
-      f'{base.NULL}'
-    )
+    yield f'Agency:        [bold yellow]{agency.name}[/]'
+    yield f'Route:         [bold yellow]{route.id}[/]'
+    yield f'  Short name:  [bold yellow]{route.short_name}[/]'
+    yield f'  Long name:   [bold yellow]{route.long_name}[/]'
+    yield (f'  Description: [bold]{route.description or "∅"}[/]')
+    yield (f'Headsign:      [bold]{trips[0].headsign or "∅"}[/]')
     yield ''
     table = prettytable.PrettyTable(
-      [f'{base.BOLD}{base.CYAN}Trip ID{base.NULL}']
-      + [f'{base.BOLD}{base.MAGENTA}{t.id}{base.NULL}' for t in trips]
+      ['[bold cyan]Trip ID[/]'] + [f'[bold magenta]{t.id}[/]' for t in trips]
     )
     # add the properties that are variable
-    table.add_row(
-      [f'{base.BOLD}{base.CYAN}Service{base.NULL}']
-      + [f'{base.BOLD}{base.YELLOW}{trip.service}{base.NULL}' for trip in trips]
-    )
+    table.add_row(['[bold cyan]Service[/]'] + [f'[bold yellow]{trip.service}[/]' for trip in trips])
     table.add_row(
       # direction can vary, example 'E725'
-      [f'{base.BOLD}{base.CYAN}N/S{base.NULL}']
-      + [f'{base.BOLD}{dm.DART_DIRECTION(trip)}{base.NULL}' for trip in trips]
+      ['[bold cyan]N/S[/]'] + [f'[bold]{dm.DART_DIRECTION(trip)}[/]' for trip in trips]
     )
     table.add_row(
-      [f'{base.BOLD}{base.CYAN}Shape{base.NULL}']
-      + [
-        (f'{base.BOLD}{trip.shape}{base.NULL}' if trip.shape else base.NULL_TEXT) for trip in trips
-      ]
+      ['[bold cyan]Shape[/]']
+      + [(f'[bold]{trip.shape}[/]' if trip.shape else '∅') for trip in trips]
     )
     table.add_row(
-      [f'{base.BOLD}{base.CYAN}Block{base.NULL}']
-      + [
-        (
-          f'{base.BOLD}{base.LIMITED_TEXT(trip.block, 10)}{base.NULL}'
-          if trip.block
-          else base.NULL_TEXT
-        )
-        for trip in trips
-      ]
+      ['[bold cyan]Block[/]']
+      + [(f'[bold]{base.LIMITED_TEXT(trip.block, 10)}[/]' if trip.block else '∅') for trip in trips]
     )
     table.add_row(
-      [f'{base.BOLD}{base.CYAN}#{base.NULL}']
-      + [
-        f'{base.BOLD}{base.CYAN}Stop{base.NULL}\n'
-        f'{base.BOLD}{base.CYAN}Dropoff{base.NULL}\n'
-        f'{base.BOLD}{base.CYAN}Pickup{base.NULL}'
-      ]
-      * len(trips)
+      ['[bold cyan]#[/]']
+      + ['[bold cyan]Stop[/]\n[bold cyan]Dropoff[/]\n[bold cyan]Pickup[/]'] * len(trips)
     )
     # add the stops
     for seq in range(1, n_stops + 1):
-      table_row: list[str] = [f'{base.BOLD}{base.CYAN}{seq}{base.NULL}']
+      table_row: list[str] = [f'[bold cyan]{seq}[/]']
       for trip in trips:
         stop: dm.Stop = trip.stops[seq]
         if stop == dm.NULL_STOP:
-          table_row.append(f'\n{base.BOLD}{base.RED}\u2717{base.NULL}')  # ✗
+          table_row.append('\n[bold red]\u2717[/]')  # ✗
         else:
           table_row.append(
-            f'{base.BOLD}{base.YELLOW}'
-            f'{base.LIMITED_TEXT(self._gtfs.StopNameTranslator(stop.stop), 10)}{base.NULL}\n'
-            f'{base.BOLD}'
-            f'{stop.scheduled.times.arrival.ToHMS() if stop.scheduled.times.arrival else base.NULL_TEXT}'
-            f'{dm.STOP_TYPE_STR[stop.dropoff]}{base.NULL}\n'
-            f'{base.BOLD}'
-            f'{stop.scheduled.times.departure.ToHMS() if stop.scheduled.times.departure else base.NULL_TEXT}'
-            f'{dm.STOP_TYPE_STR[stop.pickup]}{base.NULL}'
+            f'[bold yellow]'
+            f'{base.LIMITED_TEXT(self._gtfs.StopNameTranslator(stop.stop), 10)}[/]\n'
+            f'[bold]'
+            f'{stop.scheduled.times.arrival.ToHMS() if stop.scheduled.times.arrival else "∅"}'
+            f'{dm.STOP_TYPE_STR[stop.dropoff]}[/]\n'
+            f'[bold]'
+            f'{stop.scheduled.times.departure.ToHMS() if stop.scheduled.times.departure else "∅"}'
+            f'{dm.STOP_TYPE_STR[stop.pickup]}[/]'
           )
       table.add_row(table_row)
     table.hrules = prettytable.HRuleStyle.ALL
-    yield from table.get_string().splitlines()
+    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
   def PrettyPrintAllDatabase(self) -> Generator[str, None, None]:
-    """Print everything in the database."""
+    """Print everything in the database.
+
+    Yields:
+        lines of the pretty-printed results
+
+    """
     yield '██ ✿ CALENDAR ✿ ███████████████████████████████████████████████████████████████████'
     yield ''
     yield from self.PrettyPrintCalendar()
@@ -472,6 +537,22 @@ class DART:
       yield ''
 
 
+def _GetDatabase(config: DARTConfig) -> gtfs.GTFS:
+  """Get or initialize the database on demand.
+
+  Args:
+      config: CLI configuration
+
+  Returns:
+      GTFS database object
+
+  """
+  if config.database is None:
+    # Lazy initialization - create a new config with the database
+    config.database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
+  return config.database
+
+
 # CLI app setup, this is an important object and can be imported elsewhere and called
 app = typer.Typer(
   add_completion=True,
@@ -479,13 +560,14 @@ app = typer.Typer(
   help='dart: CLI for Dublin DART rail services.',  # keep in sync with Main().help
   epilog=(
     'Example:\n\n\n\n'
-    '# --- Randomness ---\n\n'
-    'poetry run transcrypto random bits 16\n\n'
-    'poetry run transcrypto random int 1000 2000\n\n'
-    'poetry run transcrypto random bytes 32\n\n'
-    'poetry run transcrypto random prime 64\n\n\n\n'
-    '# --- Markdown ---\n\n'
-    'poetry run transcrypto markdown > transcrypto.md\n\n'
+    '# --- Read DART data ---\n\n'
+    'poetry run dart read\n\n\n\n'
+    '# --- Print schedules ---\n\n'
+    'poetry run dart print trips 20260201\n\n'
+    'poetry run dart print station Tara 20260201\n\n'
+    'poetry run dart print trip E108\n\n\n\n'
+    '# --- Generate documentation ---\n\n'
+    'poetry run dart markdown > dart.md\n\n'
   ),
 )
 
@@ -540,16 +622,13 @@ def Main(  # documentation is help/epilog/args # noqa: D103
     console=console,
     verbose=verbose,
     color=color,
-    database=gtfs.GTFS(gtfs.DEFAULT_DATA_DIR),
   )
 
 
 @app.command(
   'read',
   help='Read DB from official sources',
-  epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto markdown > transcrypto.md\n\n<<saves CLI doc>>'
-  ),
+  epilog=('Example:\n\n\n\n$ poetry run dart read\n\n<<loads latest DART data>>'),
 )
 @clibase.CLIErrorGuard
 def ReadCommand(  # documentation is help/epilog/args # noqa: D103
@@ -569,7 +648,7 @@ def ReadCommand(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: DARTConfig = ctx.obj
-  config.database.LoadData(
+  _GetDatabase(config).LoadData(
     dm.IRISH_RAIL_OPERATOR,
     dm.IRISH_RAIL_LINK,
     allow_unknown_file=True,
@@ -589,44 +668,46 @@ app.add_typer(random_app, name='print')
 
 @random_app.command(
   'all',
-  help='Random integer with exact bit length = `bits` (MSB will be 1).',
-  epilog=('Example:\n\n\n\n$ poetry run transcrypto random bits 16\n\n36650'),
+  help='Print all database information.',
+  epilog=('Example:\n\n\n\n$ poetry run dart print all\n\n<<prints all DART data>>'),
 )
 @clibase.CLIErrorGuard
 def PrintAll(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: DARTConfig = ctx.obj
-  for line in DART(config.database).PrettyPrintAllDatabase():
+  for line in DART(_GetDatabase(config)).PrettyPrintAllDatabase():
     config.console.print(line)
 
 
 @random_app.command(
   'calendars',
   help='Print Calendars/Services.',
-  epilog=('Example:\n\n\n\n$ poetry run transcrypto random bits 16\n\n36650'),
+  epilog=('Example:\n\n\n\n$ poetry run dart print calendars\n\n<<prints DART service calendars>>'),
 )
 @clibase.CLIErrorGuard
 def PrintCalendars(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: DARTConfig = ctx.obj
-  for line in DART(config.database).PrettyPrintCalendar():
+  for line in DART(_GetDatabase(config)).PrettyPrintCalendar():
     config.console.print(line)
 
 
 @random_app.command(
   'stops',
   help='Print Stops.',
-  epilog=('Example:\n\n\n\n$ poetry run transcrypto random bits 16\n\n36650'),
+  epilog=('Example:\n\n\n\n$ poetry run dart print stops\n\n<<prints all DART stations>>'),
 )
 @clibase.CLIErrorGuard
 def PrintStops(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: DARTConfig = ctx.obj
-  for line in DART(config.database).PrettyPrintStops():
+  for line in DART(_GetDatabase(config)).PrettyPrintStops():
     config.console.print(line)
 
 
 @random_app.command(
   'trips',
   help='Print Trips.',
-  epilog=('Example:\n\n\n\n$ poetry run transcrypto random bits 16\n\n36650'),
+  epilog=(
+    'Example:\n\n\n\n$ poetry run dart print trips 20260201\n\n<<prints all trips for 2026-02-01>>'
+  ),
 )
 @clibase.CLIErrorGuard
 def PrintTrips(  # documentation is help/epilog/args # noqa: D103
@@ -640,14 +721,18 @@ def PrintTrips(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: DARTConfig = ctx.obj
-  for line in DART(config.database).PrettyDaySchedule(day=base.DATE_OBJ_GTFS(str(day))):
+  for line in DART(_GetDatabase(config)).PrettyDaySchedule(day=base.DATE_OBJ_GTFS(str(day))):
     config.console.print(line)
 
 
 @random_app.command(
   'station',
   help='Print Station Chart.',
-  epilog=('Example:\n\n\n\n$ poetry run transcrypto random bits 16\n\n36650'),
+  epilog=(
+    'Example:\n\n\n\n'
+    '$ poetry run dart print station Tara 20260201\n\n'
+    '<<prints Tara Street station schedule>>'
+  ),
 )
 @clibase.CLIErrorGuard
 def PrintStation(  # documentation is help/epilog/args # noqa: D103
@@ -664,8 +749,9 @@ def PrintStation(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: DARTConfig = ctx.obj
-  for line in DART(config.database).PrettyStationSchedule(
-    stop_id=config.database.StopIDFromNameFragmentOrID(station),
+  db: gtfs.GTFS = _GetDatabase(config)
+  for line in DART(db).PrettyStationSchedule(
+    stop_id=db.StopIDFromNameFragmentOrID(station),
     day=base.DATE_OBJ_GTFS(str(day)),
   ):
     config.console.print(line)
@@ -674,7 +760,7 @@ def PrintStation(  # documentation is help/epilog/args # noqa: D103
 @random_app.command(
   'trip',
   help='Print DART Trip.',
-  epilog=('Example:\n\n\n\n$ poetry run transcrypto random bits 16\n\n36650'),
+  epilog=('Example:\n\n\n\n$ poetry run dart print trip E108\n\n<<prints details for train E108>>'),
 )
 @clibase.CLIErrorGuard
 def PrintTrip(  # documentation is help/epilog/args # noqa: D103
@@ -683,16 +769,14 @@ def PrintTrip(  # documentation is help/epilog/args # noqa: D103
   train: str = typer.Argument(..., help='DART train code, like "E108" for example'),
 ) -> None:
   config: DARTConfig = ctx.obj
-  for line in DART(config.database).PrettyPrintTrip(trip_name=train):
+  for line in DART(_GetDatabase(config)).PrettyPrintTrip(trip_name=train):
     config.console.print(line)
 
 
 @app.command(
   'markdown',
   help='Emit Markdown docs for the CLI (see README.md section "Creating a New Version").',
-  epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto markdown > transcrypto.md\n\n<<saves CLI doc>>'
-  ),
+  epilog=('Example:\n\n\n\n$ poetry run dart markdown > dart.md\n\n<<saves CLI doc>>'),
 )
 @clibase.CLIErrorGuard
 def Markdown(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103

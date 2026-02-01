@@ -31,8 +31,8 @@ precommit:
 	poetry run pre-commit run --all-files
 
 docs:
-	@echo "Generating mycli.md"
-	poetry run mycli markdown > mycli.md
+	@echo "Generating dart.md"
+	poetry run dart markdown > dart.md
 
 req:
 	poetry export --format requirements.txt --without-hashes --output requirements.txt
