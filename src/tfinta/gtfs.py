@@ -7,7 +7,6 @@ See: https://gtfs.org/documentation/schedule/reference/
 
 from __future__ import annotations
 
-import argparse
 import contextlib
 import csv
 import dataclasses
@@ -17,25 +16,38 @@ import io
 import logging
 import os.path
 import pathlib
-import sys
 import time
 import types
 import urllib.request
 import zipfile
 import zoneinfo
-from collections.abc import Callable, Generator
+from collections import abc
 from typing import IO, Any, get_args, get_type_hints
 
+import click
 import prettytable
+import typer
+from rich import console as rich_console
+from transcrypto.cli import clibase
+from transcrypto.utils import logging as tc_logging
 
+from . import __version__
 from . import gtfs_data_model as dm
 from . import tfinta_base as base
+
+# TODO: use less of os.path.join and more of pathlib.Path for path manipulations
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class GTFSConfig(clibase.CLIConfig):
+  """CLI global context, storing the configuration."""
+
 
 # defaults
 _DEFAULT_DAYS_FRESHNESS = 10
 _DAYS_CACHE_FRESHNESS = 1
 _SECONDS_IN_DAY = 60 * 60 * 24
-DAYS_OLD: Callable[[float], float] = lambda t: (time.time() - t) / _SECONDS_IN_DAY
+DAYS_OLD: abc.Callable[[float], float] = lambda t: (time.time() - t) / _SECONDS_IN_DAY
 DEFAULT_DATA_DIR: str = base.MODULE_PRIVATE_DIR(__file__, '.tfinta-data')
 _DB_FILE_NAME = 'transit.db'
 
@@ -80,7 +92,7 @@ class _TableLocation:
 
 
 # useful aliases
-type _GTFSRowHandler[T: dm.BaseCVSRowType] = Callable[[_TableLocation, int, T], None]
+type _GTFSRowHandler[T: dm.BaseCVSRowType] = abc.Callable[[_TableLocation, int, T], None]
 
 
 class GTFS:
@@ -104,7 +116,7 @@ class GTFS:
     if not pathlib.Path(self._dir_path).is_dir():
       pathlib.Path(self._dir_path).mkdir()
       logging.info('Created data directory: %s', self._dir_path)
-    self._db_path: str = os.path.join(self._dir_path, _DB_FILE_NAME)
+    self._db_path: str = os.path.join(self._dir_path, _DB_FILE_NAME)  # noqa: PTH118
     self._db: dm.GTFSData
     self._changed = False
     # load DB, or create if new
@@ -150,14 +162,14 @@ class GTFS:
     # fill in types, derived from the _Expected*CSVRowType TypedDicts
     for file_name, (_, expected, fields, required) in self._file_handlers.items():
       for field, type_descriptor in get_type_hints(expected).items():
-        if type_descriptor in (str, int, float, bool):
+        if type_descriptor in {str, int, float, bool}:
           # no optional, so field is required
           required.add(field)
           fields[field] = (type_descriptor, True)
         else:
           # it is optional and something else, so find out which
           field_args = get_args(type_descriptor)
-          if len(field_args) != 2:
+          if len(field_args) != 2:  # noqa: PLR2004
             raise Error(f'incorrect type len {file_name}/{field}: {field_args!r}')
           field_type = field_args[0] if field_args[1] == types.NoneType else field_args[1]
           if field_type not in {str, int, float, bool}:
@@ -179,47 +191,94 @@ class GTFS:
       self._changed = False
       logging.info('Saved DB to %r (%s)', self._db_path, tm_save.readable)
 
-  @functools.lru_cache(maxsize=_MEDIUM_CACHE)  # remember to update self._InvalidateCaches()
+  # TODO: refactor to not depend on self, as this may lead to memory leaks if not careful
+  @functools.lru_cache(  # noqa: B019
+    maxsize=_MEDIUM_CACHE
+  )  # remember to update self._InvalidateCaches()
   def FindRoute(self, route_id: str, /) -> dm.Agency | None:
-    """Find route by finding its Agency."""
+    """Find route by finding its Agency.
+
+    Args:
+      route_id: Route ID to search for
+
+    Returns:
+      Agency containing the route, or None if not found
+
+    """
     for agency in self._db.agencies.values():
       if route_id in agency.routes:
         return agency
     return None
 
-  @functools.lru_cache(maxsize=_LARGE_CACHE)  # remember to update self._InvalidateCaches()
+  @functools.lru_cache(  # noqa: B019
+    maxsize=_LARGE_CACHE
+  )  # remember to update self._InvalidateCaches()
   def FindTrip(self, trip_id: str, /) -> tuple[dm.Agency | None, dm.Route | None, dm.Trip | None]:
-    """Find route by finding its Agency & Route. Return (agency, route, trip)."""
+    """Find trip by finding its Agency & Route.
+
+    Args:
+      trip_id: Trip ID to search for
+
+    Returns:
+      Tuple of (Agency, Route, Trip) or (None, None, None) if not found
+
+    """
     for agency in self._db.agencies.values():
       for route in agency.routes.values():
         if trip_id in route.trips:
           return (agency, route, route.trips[trip_id])
     return (None, None, None)
 
-  @functools.lru_cache(maxsize=_SMALL_CACHE)  # remember to update self._InvalidateCaches()
+  @functools.lru_cache(  # noqa: B019
+    maxsize=_SMALL_CACHE
+  )  # remember to update self._InvalidateCaches()
   def StopName(self, stop_id: str, /) -> tuple[str | None, str | None, str | None]:
-    """Gets (code, name, description) for a Stop object of `id`."""
+    """Get (code, name, description) for a Stop object of given ID.
+
+    Args:
+      stop_id: Stop ID to look up
+
+    Returns:
+      Tuple of (code, name, description) or (None, None, None) if not found
+
+    """
     if stop_id not in self._db.stops:
       return (None, None, None)
     stop: dm.BaseStop = self._db.stops[stop_id]
     return (stop.code, stop.name, stop.description)
 
-  @functools.lru_cache(maxsize=_SMALL_CACHE)  # remember to update self._InvalidateCaches()
+  @functools.lru_cache(  # noqa: B019
+    maxsize=_SMALL_CACHE
+  )  # remember to update self._InvalidateCaches()
   def StopNameTranslator(self, stop_id: str, /) -> str:
-    """Translates a stop ID into a name. If not found raises."""
+    """Translate a stop ID into a name.
+
+    Args:
+      stop_id: Stop ID to translate
+
+    Returns:
+      Stop name
+
+    Raises:
+      Error: If stop ID is not found
+
+    """
     name: str | None = self.StopName(stop_id)[1]
     if not name:
       raise Error(f'Invalid stop code found: {stop_id}')
     return name
 
-  @functools.lru_cache(maxsize=_SMALL_CACHE)  # remember to update self._InvalidateCaches()
+  @functools.lru_cache(  # noqa: B019
+    maxsize=_SMALL_CACHE
+  )  # remember to update self._InvalidateCaches()
   def StopIDFromNameFragmentOrID(self, stop_name_or_id: str, /) -> str:
-    """Searches for `stop_id` based on either an ID (verifies exists) or stop name.
+    """Search for stop_id based on either an ID (verifies exists) or stop name.
 
     If searching by name, will search for a case-insensitive partial match that is UNIQUE.
 
     Args:
-      stop_name_or_id: either a stop_id (case-sensitive) or a partial station name match (case-insensitive)
+      stop_name_or_id: either a stop_id (case-sensitive) or a
+          partial station name match (case-insensitive)
 
     Returns:
       stop_id if found unique match; None otherwise
@@ -268,7 +327,12 @@ class GTFS:
       method.cache_clear()
 
   def ServicesForDay(self, day: datetime.date, /) -> set[int]:
-    """Return set[int] of services active (available/running/operating) on this day."""
+    """Return set[int] of services active (available/running/operating) on this day.
+
+    Returns:
+        Set of service IDs active on this day
+
+    """
     weekday: int = day.weekday()
     services: set[int] = set()
     # go over available services
@@ -334,7 +398,7 @@ class GTFS:
     force_replace: bool = False,
     override: str | None = None,
   ) -> None:
-    """Downloads and parses GTFS data.
+    """Download and parse GTFS data.
 
     Args:
       operator: Operator for GTFS file
@@ -384,13 +448,18 @@ class GTFS:
       )
 
   def _LoadCSVSources(self) -> None:
-    """Loads GTFS official sources from CSV."""
+    """Load GTFS official sources from CSV.
+
+    Raises:
+      Error: on invalid CSV format or missing operators
+
+    """
     # get the file and parse it
     new_files: dict[str, dict[str, dm.FileMetadata | None]] = {}
-    with urllib.request.urlopen(dm.OFFICIAL_GTFS_CSV) as gtfs_csv:
+    with urllib.request.urlopen(dm.OFFICIAL_GTFS_CSV) as gtfs_csv:  # noqa: S310
       text_csv = io.TextIOWrapper(gtfs_csv, encoding='utf-8')
       for i, row in enumerate(csv.reader(text_csv)):
-        if len(row) != 2:
+        if len(row) != 2:  # noqa: PLR2004
           raise Error(f'Unexpected row in GTFS CSV list: {row!r}')
         if not i:
           if row != ['Operator', 'Link']:
@@ -413,7 +482,7 @@ class GTFS:
     )
 
   @contextlib.contextmanager
-  def _ParsingSession(self) -> Generator[None, Any, None]:
+  def _ParsingSession(self) -> abc.Generator[None, Any, None]:
     """Context manager that invalidates caches before/after a parsing block."""
     self._InvalidateCaches()  # fresh start
     try:
@@ -423,11 +492,11 @@ class GTFS:
       self._InvalidateCaches()
       raise  # propagate the original error
     finally:
-      # success path – still clear once more for safety
+      # success path - still clear once more for safety
       self.Save()
       self._InvalidateCaches()
 
-  def _LoadGTFSSource(
+  def _LoadGTFSSource(  # noqa: C901
     self,
     operator: str,
     link: str,
@@ -438,7 +507,7 @@ class GTFS:
     force_replace: bool = False,
     override: str | None = None,
   ) -> None:
-    """Loads a single GTFS ZIP file and parses all inner data files.
+    """Load a single GTFS ZIP file and parse all inner data files.
 
     Args:
       operator: Operator for GTFS file
@@ -449,8 +518,8 @@ class GTFS:
       override: (default None) If given, this ZIP file path will override the download
 
     Raises:
+      Error: on invalid operator or URL
       ParseError: missing files or fields
-      ParseImplementationError: unknown file or field (if "allow" is False)
 
     """
     # check that we are asking for a valid and known source
@@ -462,15 +531,16 @@ class GTFS:
       raise Error(f'invalid URL {link!r}')
     # load ZIP from URL
     done_files: set[str] = set()
-    file_name: str
+    clean_file_name: str
     cache_file_name: str = link.replace('://', '__').replace('/', '_')
-    cache_file_path: str = os.path.join(self._dir_path, cache_file_name)
+    cache_file_path: str = os.path.join(self._dir_path, cache_file_name)  # noqa: PTH118
     save_cache_file: bool
+    url_opener: abc.Callable[[], IO[bytes]]
     with self._ParsingSession():
       if override:
         if not pathlib.Path(override).exists():
           raise Error(f'Override file does not exist: {override!r}')
-        url_opener = pathlib.Path(override).open('rb')
+        url_opener = lambda: pathlib.Path(override).open('rb')  # noqa: SIM115
         save_cache_file = False
       elif (
         not force_replace
@@ -480,14 +550,14 @@ class GTFS:
       ):
         # we will used the cached ZIP
         logging.warning('Loading from %0.2f days old cache on disk! (use -r to override)', age)
-        url_opener = pathlib.Path(cache_file_path).open('rb')
+        url_opener = lambda: pathlib.Path(cache_file_path).open('rb')  # noqa: SIM115
         save_cache_file = False
       else:
         # we will re-download from the URL
-        url_opener = urllib.request.urlopen(link)
+        url_opener = lambda: urllib.request.urlopen(link)  # noqa: S310
         save_cache_file = True
       # open from whatever source
-      with url_opener as gtfs_zip:
+      with url_opener() as gtfs_zip:
         # get ZIP binary content, and if we got from URL save to cache
         gtfs_zip_bytes: bytes = gtfs_zip.read()
         logging.info(
@@ -501,8 +571,8 @@ class GTFS:
           pathlib.Path(cache_file_path).write_bytes(gtfs_zip_bytes)
         # extract files from ZIP
         for file_name, file_data in _UnzipFiles(io.BytesIO(gtfs_zip_bytes)):
-          file_name = file_name.strip()
-          location = _TableLocation(operator=operator, link=link, file_name=file_name)
+          clean_file_name = file_name.strip()
+          location = _TableLocation(operator=operator, link=link, file_name=clean_file_name)
           try:
             self._LoadGTFSFile(
               location,
@@ -517,13 +587,13 @@ class GTFS:
             logging.warning('Version already known (will SKIP): %s', err)
             return
           finally:
-            done_files.add(file_name)
+            done_files.add(clean_file_name)
       # finished loading the files, check that we loaded all required files
       if missing_files := dm.REQUIRED_FILES - done_files:
         raise ParseError(f'Missing required files: {operator} {missing_files!r}')
       self._changed = True
 
-  def _LoadGTFSFile(
+  def _LoadGTFSFile(  # noqa: C901, PLR0912
     self,
     location: _TableLocation,
     file_data: bytes,
@@ -532,7 +602,7 @@ class GTFS:
     allow_unknown_file: bool,
     allow_unknown_field: bool,
   ) -> None:
-    """Loads a single txt (actually CSV) file and parses all fields, sending rows to handlers.
+    """Load a single txt (actually CSV) file and parse all fields, sending rows to handlers.
 
     Args:
       location: (operator, link, file_name)
@@ -541,6 +611,7 @@ class GTFS:
       allow_unknown_field: If False will raise on unknown field in file
 
     Raises:
+      Error: on invalid file data
       ParseError: missing fields
       ParseImplementationError: unknown file or field (if "allow" is False)
 
@@ -563,37 +634,36 @@ class GTFS:
     for i, row in enumerate(
       csv.DictReader(io.TextIOWrapper(io.BytesIO(file_data), encoding='utf-8'))
     ):
-      parsed_row: dict[str, None | str | int | float | bool] = {}
-      field_value: str | None
+      parsed_row: dm.ExpectedRowData = {}
+      clean_field_value: str | None
       # process field-by-field
       for field_name, field_value in row.items():
         # strip and nullify the empty value
-        field_value = field_value.strip()  # type:ignore
-        field_value = field_value or None
+        clean_field_value = field_value.strip() or None
         if field_name in field_types:
           # known/expected field
           field_type, field_required = field_types[field_name]
-          if field_value is None:
+          if clean_field_value is None:
             # field is empty
             if field_required:
               raise ParseError(f'Empty required field: {file_name}/{i} {field_name!r}: {row}')
             parsed_row[field_name] = None
           # field has a value
-          elif field_type == str:
-            parsed_row[field_name] = field_value  # vanilla string
-          elif field_type == bool:
+          elif field_type is str:
+            parsed_row[field_name] = clean_field_value  # vanilla string
+          elif field_type is bool:
             try:
-              parsed_row[field_name] = base.BOOL_FIELD[field_value]  # convert to bool '0'/'1'
+              parsed_row[field_name] = base.BOOL_FIELD[clean_field_value]  # convert to bool '0'/'1'
             except KeyError as err:
               raise ParseError(
-                f'invalid bool value {file_name}/{i}/{field_name}: {field_value!r}'
+                f'invalid bool value {file_name}/{i}/{field_name}: {clean_field_value!r}'
               ) from err
-          elif field_type in (int, float):
+          elif field_type in {int, float}:
             try:
-              parsed_row[field_name] = field_type(field_value)  # convert int/float
+              parsed_row[field_name] = field_type(clean_field_value)  # convert int/float
             except ValueError as err:
               raise ParseError(
-                f'invalid int/float value {file_name}/{i}/{field_name}: {field_value!r}'
+                f'invalid int/float value {file_name}/{i}/{field_name}: {clean_field_value!r}'
               ) from err
           else:
             raise Error(f'invalid field type {file_name}/{i}/{field_name!r}: {field_type!r}')
@@ -606,9 +676,9 @@ class GTFS:
             else:
               raise ParseImplementationError(message)
           # if allowed, then place as nullable string
-          parsed_row[field_name] = field_value
+          parsed_row[field_name] = clean_field_value
       # we have a row, check for missing required fields
-      parsed_row_fields = set(parsed_row.keys())
+      parsed_row_fields: set[str] = set(parsed_row.keys())
       if missing_required := required_fields - parsed_row_fields:
         raise ParseError(f'Missing required fields: {file_name}/{i} {missing_required!r}: {row}')
       # add known fields that are missing (with None as value)
@@ -641,7 +711,7 @@ class GTFS:
   def _HandleFeedInfoRow(
     self, location: _TableLocation, count: int, row: dm.ExpectedFeedInfoCSVRowType, /
   ) -> None:
-    """Handler: "feed_info.txt" Information on the GTFS ZIP file being processed.
+    """Handle: "feed_info.txt" Information on the GTFS ZIP file being processed.
 
     (no primary key)
 
@@ -709,9 +779,13 @@ class GTFS:
     )
 
   def _HandleAgencyRow(
-    self, unused_location: _TableLocation, unused_count: int, row: dm.ExpectedAgencyCSVRowType, /
+    self,
+    location: _TableLocation,  # noqa: ARG002
+    count: int,  # noqa: ARG002
+    row: dm.ExpectedAgencyCSVRowType,
+    /,
   ) -> None:
-    """Handler: "agency.txt" Transit agencies.
+    """Handle: "agency.txt" Transit agencies.
 
     pk: agency_id
 
@@ -719,9 +793,6 @@ class GTFS:
       location: _TableLocation info on current GTFS table
       count: row count, starting on 0
       row: the row as a dict {field_name: Optional[field_data]}
-
-    Raises:
-      RowError: error parsing this record
 
     """
     # update
@@ -734,9 +805,13 @@ class GTFS:
     )
 
   def _HandleCalendarRow(
-    self, unused_location: _TableLocation, unused_count: int, row: dm.ExpectedCalendarCSVRowType, /
+    self,
+    location: _TableLocation,  # noqa: ARG002
+    count: int,  # noqa: ARG002
+    row: dm.ExpectedCalendarCSVRowType,
+    /,
   ) -> None:
-    """Handler: "calendar.txt" Service dates specified using a weekly schedule & start/end dates.
+    """Handle: "calendar.txt" Service dates specified using a weekly schedule & start/end dates.
 
     pk: service_id
 
@@ -744,9 +819,6 @@ class GTFS:
       location: _TableLocation info on current GTFS table
       count: row count, starting on 0
       row: the row as a dict {field_name: Optional[field_data]}
-
-    Raises:
-      RowError: error parsing this record
 
     """
     self._db.calendar[row['service_id']] = dm.CalendarService(
@@ -768,12 +840,12 @@ class GTFS:
 
   def _HandleCalendarDatesRow(
     self,
-    unused_location: _TableLocation,
-    unused_count: int,
+    location: _TableLocation,  # noqa: ARG002
+    count: int,  # noqa: ARG002
     row: dm.ExpectedCalendarDatesCSVRowType,
     /,
   ) -> None:
-    """Handler: "calendar_dates.txt" Exceptions for the services defined in the calendar table.
+    """Handle: "calendar_dates.txt" Exceptions for the services defined in the calendar table.
 
     pk: (calendar/service_id, date) / ref: calendar/service_id
 
@@ -782,18 +854,19 @@ class GTFS:
       count: row count, starting on 0
       row: the row as a dict {field_name: Optional[field_data]}
 
-    Raises:
-      RowError: error parsing this record
-
     """
     self._db.calendar[row['service_id']].exceptions[base.DATE_OBJ_GTFS(row['date'])] = (
       row['exception_type'] == '1'
     )
 
   def _HandleRoutesRow(
-    self, unused_location: _TableLocation, unused_count: int, row: dm.ExpectedRoutesCSVRowType, /
+    self,
+    location: _TableLocation,  # noqa: ARG002
+    count: int,  # noqa: ARG002
+    row: dm.ExpectedRoutesCSVRowType,
+    /,
   ) -> None:
-    """Handler: "routes.txt" Routes: group of trips that are displayed to riders as a single service.
+    """Handle: "routes.txt" Routes: group of trips that are displayed to riders as a single service.
 
     pk: route_id / ref: agency/agency_id
 
@@ -801,9 +874,6 @@ class GTFS:
       location: _TableLocation info on current GTFS table
       count: row count, starting on 0
       row: the row as a dict {field_name: Optional[field_data]}
-
-    Raises:
-      RowError: error parsing this record
 
     """
     self._db.agencies[row['agency_id']].routes[row['route_id']] = dm.Route(
@@ -820,9 +890,13 @@ class GTFS:
     )
 
   def _HandleShapesRow(
-    self, unused_location: _TableLocation, unused_count: int, row: dm.ExpectedShapesCSVRowType, /
+    self,
+    location: _TableLocation,  # noqa: ARG002
+    count: int,  # noqa: ARG002
+    row: dm.ExpectedShapesCSVRowType,
+    /,
   ) -> None:
-    """Handler: "shapes.txt" Rules for mapping vehicle travel paths (aka. route alignments).
+    """Handle: "shapes.txt" Rules for mapping vehicle travel paths (aka. route alignments).
 
     pk: (shape_id, shape_pt_sequence)
 
@@ -830,9 +904,6 @@ class GTFS:
       location: _TableLocation info on current GTFS table
       count: row count, starting on 0
       row: the row as a dict {field_name: Optional[field_data]}
-
-    Raises:
-      RowError: error parsing this record
 
     """
     if row['shape_id'] not in self._db.shapes:
@@ -847,7 +918,7 @@ class GTFS:
   def _HandleTripsRow(
     self, location: _TableLocation, count: int, row: dm.ExpectedTripsCSVRowType, /
   ) -> None:
-    """Handler: "trips.txt" Trips for each route.
+    """Handle: "trips.txt" Trips for each route.
 
     A trip is a sequence of two or more stops that occur during a specific time period.
     pk: trip_id / ref: routes.route_id, calendar.service_id, shapes.shape_id
@@ -882,7 +953,7 @@ class GTFS:
   def _HandleStopsRow(
     self, location: _TableLocation, count: int, row: dm.ExpectedStopsCSVRowType, /
   ) -> None:
-    """Handler: "stops.txt" Stops where vehicles pick up or drop-off riders.
+    """Handle: "stops.txt" Stops where vehicles pick up or drop-off riders.
 
     Also defines stations and station entrances.
     pk: stop_id / self-ref: parent_station=stop/stop_id
@@ -919,7 +990,7 @@ class GTFS:
   def _HandleStopTimesRow(
     self, location: _TableLocation, count: int, row: dm.ExpectedStopTimesCSVRowType, /
   ) -> None:
-    """Handler: "stop_times.txt" Times that a vehicle arrives/departs from stops for each trip.
+    """Handle: "stop_times.txt" Times that a vehicle arrives/departs from stops for each trip.
 
     pk: (trips/trip_id, stop_sequence) / ref: stops/stop_id
 
@@ -973,8 +1044,13 @@ class GTFS:
   # GTFS PRETTY PRINTS
   ##################################################################################################
 
-  def PrettyPrintBasics(self) -> Generator[str, None, None]:
-    """Generate a pretty version of basic DB data: Versions, agencies routes."""
+  def PrettyPrintBasics(self) -> abc.Generator[str, None, None]:
+    """Generate a pretty version of basic DB data: Versions, agencies routes.
+
+    Yields:
+        Lines of pretty-printed data
+
+    """
     n_items: int = len(self._db.agencies)
     for i, agency_id in enumerate(sorted(self._db.agencies)):
       agency: dm.Agency = self._db.agencies[agency_id]
@@ -1050,8 +1126,16 @@ class GTFS:
 
   def PrettyPrintCalendar(
     self, /, *, filter_to: set[int] | None = None
-  ) -> Generator[str, None, None]:
-    """Generate a pretty version of calendar data."""
+  ) -> abc.Generator[str, None, None]:
+    """Generate a pretty version of calendar data.
+
+    Yields:
+        Lines of pretty-printed data
+
+    Raises:
+        Error: if no calendar data is found
+
+    """
     table = prettytable.PrettyTable(
       [
         f'{base.BOLD}{base.CYAN}Service{base.NULL}',
@@ -1077,9 +1161,15 @@ class GTFS:
         [
           f'{base.BOLD}{base.CYAN}{calendar.id}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{base.PRETTY_DATE(calendar.days.start)}{base.NULL}',
-          f'{base.BOLD}'
-          f'{base.PRETTY_DATE(calendar.days.end if calendar.days.end != calendar.days.start else None)}'
-          f'{base.NULL}',
+          (
+            f'{base.BOLD}'
+            f'{
+              base.PRETTY_DATE(
+                calendar.days.end if calendar.days.end != calendar.days.start else None
+              )
+            }'
+            f'{base.NULL}'
+          ),
           f'{base.BOLD}{base.PRETTY_BOOL(calendar.week[0])}{base.NULL}',
           f'{base.BOLD}{base.PRETTY_BOOL(calendar.week[1])}{base.NULL}',
           f'{base.BOLD}{base.PRETTY_BOOL(calendar.week[2])}{base.NULL}',
@@ -1101,8 +1191,18 @@ class GTFS:
     table.hrules = prettytable.HRuleStyle.ALL
     yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
-  def PrettyPrintStops(self, /, *, filter_to: set[str] | None = None) -> Generator[str, None, None]:
-    """Generate a pretty version of the stops."""
+  def PrettyPrintStops(
+    self, /, *, filter_to: set[str] | None = None
+  ) -> abc.Generator[str, None, None]:
+    """Generate a pretty version of the stops.
+
+    Yields:
+        Lines of pretty-printed data
+
+    Raises:
+        Error: if no stops data is found
+
+    """
     table = prettytable.PrettyTable(
       [
         f'{base.BOLD}{base.CYAN}Stop{base.NULL}',
@@ -1137,12 +1237,16 @@ class GTFS:
       table.add_row(
         [
           f'{base.BOLD}{base.CYAN}{stop.id}{base.NULL}{parent_code}',
-          f'{base.BOLD}{stop.code if stop.code and stop.code != "0" else base.NULL_TEXT}{base.NULL}',
+          f'{base.BOLD}{stop.code if stop.code and stop.code != "0" else base.NULL_TEXT}{
+            base.NULL
+          }',
           f'{base.BOLD}{base.YELLOW}{stop.name}{base.NULL}{parent_name}',
           f'{base.BOLD}{stop.location.name}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{lat}{base.NULL}\n{base.BOLD}{base.YELLOW}{lon}{base.NULL}',
-          f'{base.BOLD}{stop.point.latitude:0.7f}{base.NULL}\n'
-          f'{base.BOLD}{stop.point.longitude:0.7f}{base.NULL}',
+          (
+            f'{base.BOLD}{stop.point.latitude:0.7f}{base.NULL}\n'
+            f'{base.BOLD}{stop.point.longitude:0.7f}{base.NULL}'
+          ),
           f'{base.BOLD}{stop.zone or base.NULL_TEXT}{base.NULL}',
           f'{base.BOLD}{stop.description if stop.zone else base.NULL_TEXT}{base.NULL}',
           f'{base.BOLD}{stop.url or base.NULL_TEXT}{base.NULL}',
@@ -1153,8 +1257,16 @@ class GTFS:
     table.hrules = prettytable.HRuleStyle.ALL
     yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
-  def PrettyPrintShape(self, /, *, shape_id: str) -> Generator[str, None, None]:
-    """Generate a pretty version of a shape."""
+  def PrettyPrintShape(self, /, *, shape_id: str) -> abc.Generator[str, None, None]:
+    """Generate a pretty version of a shape.
+
+    Yields:
+        Lines of pretty-printed data
+
+    Raises:
+        Error: if shape id is not found
+
+    """
     shape: dm.Shape | None = self._db.shapes.get(shape_id.strip(), None)
     if not shape_id.strip() or not shape:
       raise Error(f'shape id {shape_id!r} was not found')
@@ -1185,8 +1297,16 @@ class GTFS:
       )
     yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
-  def PrettyPrintTrip(self, /, *, trip_id: str) -> Generator[str, None, None]:
-    """Generate a pretty version of a Trip."""
+  def PrettyPrintTrip(self, /, *, trip_id: str) -> abc.Generator[str, None, None]:
+    """Generate a pretty version of a Trip.
+
+    Yields:
+        Lines of pretty-printed data
+
+    Raises:
+        Error: if trip id is not found
+
+    """
     agency, route, trip = self.FindTrip(trip_id)
     if not agency or not route or not trip:
       raise Error(f'trip id {trip_id!r} was not found')
@@ -1226,20 +1346,37 @@ class GTFS:
           f'{base.BOLD}{base.CYAN}{seq}{base.NULL}',
           f'{base.BOLD}{stop.stop}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{stop_name or base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}'
-          f'{stop.scheduled.times.arrival.ToHMS() if stop.scheduled.times.arrival else base.NULL_TEXT}'
-          f'{base.NULL}',
-          f'{base.BOLD}'
-          f'{stop.scheduled.times.departure.ToHMS() if stop.scheduled.times.departure else base.NULL_TEXT}'
-          f'{base.NULL}',
+          (
+            f'{base.BOLD}'
+            f'{
+              stop.scheduled.times.arrival.ToHMS()
+              if stop.scheduled.times.arrival
+              else base.NULL_TEXT
+            }'
+            f'{base.NULL}'
+          ),
+          (
+            f'{base.BOLD}'
+            f'{
+              stop.scheduled.times.departure.ToHMS()
+              if stop.scheduled.times.departure
+              else base.NULL_TEXT
+            }'
+            f'{base.NULL}'
+          ),
           f'{base.BOLD}{stop_code}{base.NULL}',
           f'{base.BOLD}{stop_description or base.NULL_TEXT}{base.NULL}',
         ]
       )
     yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
-  def PrettyPrintAllDatabase(self) -> Generator[str, None, None]:
-    """Print everything in the database."""
+  def PrettyPrintAllDatabase(self) -> abc.Generator[str, None, None]:
+    """Print everything in the database.
+
+    Yields:
+        Lines of pretty-printed data
+
+    """
     yield '██ ✿ BASIC DATA ✿ █████████████████████████████████████████████████████████████████'
     yield ''
     yield from self.PrettyPrintBasics()
@@ -1259,7 +1396,7 @@ class GTFS:
       yield from self.PrettyPrintShape(shape_id=shape_id)
       if i < n_shapes - 1:
         yield ''
-        yield '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+        yield '━' * 83
         yield ''
     yield ''
     yield '██ ✿ TRIPS ✿ ██████████████████████████████████████████████████████████████████████'
@@ -1269,21 +1406,18 @@ class GTFS:
         for trip in sorted(t.id for t in self._db.agencies[agency].routes[route].trips.values()):
           yield from self.PrettyPrintTrip(trip_id=trip)
           yield ''
-          yield '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+          yield '━' * 83
           yield ''
 
 
-def _UnzipFiles(in_file: IO[bytes], /) -> Generator[tuple[str, bytes], None, None]:
-  """Unzips `in_file` bytes buffer. Manages multiple files, preserving case-sensitive _LOAD_ORDER.
+def _UnzipFiles(in_file: IO[bytes], /) -> abc.Generator[tuple[str, bytes], None, None]:
+  """Unzip `in_file` bytes buffer. Manages multiple files, preserving case-sensitive _LOAD_ORDER.
 
   Args:
     in_file: bytes buffer (io.BytesIO for example) with ZIP data
 
   Yields:
     (file_name, file_data_bytes)
-
-  Raises:
-    BadZipFile: ZIP error
 
   """
   with zipfile.ZipFile(in_file, 'r') as zip_ref:
@@ -1297,120 +1431,233 @@ def _UnzipFiles(in_file: IO[bytes], /) -> Generator[tuple[str, bytes], None, Non
         yield (file_name, file_data.read())
 
 
-def main(argv: list[str] | None = None) -> int:
-  """Main entry point."""
-  # parse the input arguments, add subparser for `command`
-  parser: argparse.ArgumentParser = argparse.ArgumentParser()
-  command_arg_subparsers = parser.add_subparsers(dest='command')
-  # "read" command
-  read_parser: argparse.ArgumentParser = command_arg_subparsers.add_parser(
-    'read', help='Read DB from official sources'
-  )
-  read_parser.add_argument(
-    '-f',
-    '--freshness',
-    type=int,
-    default=_DEFAULT_DAYS_FRESHNESS,
-    help=f'Number of days to cache; 0 == always load (default: {_DEFAULT_DAYS_FRESHNESS})',
-  )
-  read_parser.add_argument(
-    '-u',
-    '--unknownfile',
-    type=int,
-    default=1,
-    help='0 == disallows unknown files ; 1 == allows unknown files (default: 1)',
-  )
-  read_parser.add_argument(
-    '-i',
-    '--unknownfield',
-    type=int,
-    default=0,
-    help='0 == disallows unknown fields ; 1 == allows unknown fields (default: 0)',
-  )
-  read_parser.add_argument(
-    '-r',
-    '--replace',
-    type=int,
-    default=0,
-    help='0 == does not load the same version again ; 1 == forces replace version (default: 0)',
-  )
-  read_parser.add_argument(
-    '-o',
-    '--override',
-    type=str,
-    default='',
-    help='If given, this ZIP file path will override the download (default: empty)',
-  )
-  # "print" command
-  print_parser: argparse.ArgumentParser = command_arg_subparsers.add_parser(
-    'print', help='Print DB'
-  )
-  print_arg_subparsers = print_parser.add_subparsers(dest='print_command')
-  print_arg_subparsers.add_parser('basics', help='Print Basic Data')
-  print_arg_subparsers.add_parser('calendars', help='Print Calendars/Services')
-  print_arg_subparsers.add_parser('stops', help='Print Stops')
-  shape_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser(
-    'shape', help='Print Shape'
-  )
-  shape_parser.add_argument('-i', '--id', type=str, default='', help='Shape ID (default: "")')
-  trip_parser: argparse.ArgumentParser = print_arg_subparsers.add_parser('trip', help='Print Trip')
-  trip_parser.add_argument('-i', '--id', type=str, default='', help='Trip ID (default: "")')
-  print_arg_subparsers.add_parser('all', help='Print All Data')
-  # ALL commands
-  parser.add_argument(
+# CLI app setup, this is an important object and can be imported elsewhere and called
+app = typer.Typer(
+  add_completion=True,
+  no_args_is_help=True,
+  help='gtfs: CLI for GTFS (General Transit Feed Specification) data.',
+  # keep in sync with Main().help
+  epilog=(
+    'Example:\n\n\n\n'
+    '# --- Read GTFS data ---\n\n'
+    'poetry run gtfs read\n\n\n\n'
+    '# --- Print data ---\n\n'
+    'poetry run gtfs print basics\n\n'
+    'poetry run gtfs print trip 8001_17410\n\n\n\n'
+    '# --- Generate documentation ---\n\n'
+    'poetry run gtfs markdown > gtfs.md\n\n'
+  ),
+)
+
+
+def Run() -> None:
+  """Run the CLI."""
+  app()
+
+
+@app.callback(
+  invoke_without_command=True,  # have only one; this is the "constructor"
+  help='gtfs: CLI for GTFS (General Transit Feed Specification) data.',
+  # keep message in sync with app.help
+)
+@clibase.CLIErrorGuard
+def Main(  # documentation is help/epilog/args # noqa: D103
+  *,
+  ctx: click.Context,  # global context
+  version: bool = typer.Option(False, '--version', help='Show version and exit.'),
+  verbose: int = typer.Option(
+    0,
     '-v',
     '--verbose',
-    action='count',
-    default=0,
-    help='Increase verbosity (use -v, -vv, -vvv, -vvvv for ERR/WARN/INFO/DEBUG output)',
+    count=True,
+    help='Verbosity (nothing=ERROR, -v=WARNING, -vv=INFO, -vvv=DEBUG).',
+    min=0,
+    max=3,
+  ),
+  color: bool | None = typer.Option(
+    None,
+    '--color/--no-color',
+    help=(
+      'Force enable/disable colored output (respects NO_COLOR env var if not provided). '
+      'Defaults to having colors.'  # state default because None default means docs don't show it
+    ),
+  ),
+) -> None:
+  if version:
+    typer.echo(__version__)
+    raise typer.Exit(0)
+  # initialize logging and get console
+  console: rich_console.Console
+  console, verbose, color = tc_logging.InitLogging(
+    verbose,
+    color=color,
+    include_process=False,
   )
-  args: argparse.Namespace = parser.parse_args(argv)
-  levels: list[int] = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
-  logging.basicConfig(level=levels[min(args.verbose, len(levels) - 1)], format=base.LOG_FORMAT)
-  command = args.command.lower().strip() if args.command else ''
+  # create context with the arguments we received.
+  ctx.obj = GTFSConfig(
+    console=console,
+    verbose=verbose,
+    color=color,
+  )
+
+
+@app.command(
+  'read',
+  help='Read DB from official sources',
+  epilog=('Example:\n\n\n\n$ poetry run gtfs read\n\n<<loads latest GTFS data>>'),
+)
+@clibase.CLIErrorGuard
+def ReadCommand(  # documentation is help/epilog/args # noqa: D103
+  *,
+  ctx: typer.Context,
+  freshness: int = typer.Option(
+    _DEFAULT_DAYS_FRESHNESS,
+    '-f',
+    '--freshness',
+    min=0,
+    help='Number of days to cache; 0 == always load',
+  ),
+  allow_unknown_file: bool = typer.Option(
+    True,
+    '--allow-unknown-file/--no-allow-unknown-file',
+    help='Allow unknown files in GTFS ZIP. Defaults to allowing unknown files.',
+  ),
+  allow_unknown_field: bool = typer.Option(
+    False,
+    '--allow-unknown-field/--no-allow-unknown-field',
+    help='Allow unknown fields in GTFS files. Defaults to not allowing unknown fields.',
+  ),
+  replace: bool = typer.Option(
+    False,
+    '--replace/--no-replace',
+    help='Force replace DB version. Defaults to not loading the same version again.',
+  ),
+  override: str = typer.Option(
+    '',
+    '-o',
+    '--override',
+    help='Override ZIP file path (instead of downloading)',
+  ),
+) -> None:
+  config: GTFSConfig = ctx.obj
   database = GTFS(DEFAULT_DATA_DIR)
-  # look at main command
-  match command:
-    case 'read':
-      database.LoadData(
-        dm.IRISH_RAIL_OPERATOR,
-        dm.IRISH_RAIL_LINK,
-        freshness=args.freshness,
-        allow_unknown_file=args.unknownfile == 1,
-        allow_unknown_field=args.unknownfield == 1,
-        force_replace=bool(args.replace),
-        override=args.override.strip() if args.override else None,
-      )
-    case 'print':
-      # look at sub-command for print
-      print_command = args.print_command.lower().strip() if args.print_command else ''
-      print()
-      match print_command:
-        case 'basics':
-          for line in database.PrettyPrintBasics():
-            print(line)
-        case 'calendars':
-          for line in database.PrettyPrintCalendar():
-            print(line)
-        case 'stops':
-          for line in database.PrettyPrintStops():
-            print(line)
-        case 'shape':
-          for line in database.PrettyPrintShape(shape_id=args.id):
-            print(line)
-        case 'trip':
-          for line in database.PrettyPrintTrip(trip_id=args.id):
-            print(line)
-        case 'all':
-          for line in database.PrettyPrintAllDatabase():
-            print(line)
-        case _:
-          raise NotImplementedError
-      print()
-    case _:
-      raise NotImplementedError
-  return 0
+  database.LoadData(
+    dm.IRISH_RAIL_OPERATOR,
+    dm.IRISH_RAIL_LINK,
+    allow_unknown_file=allow_unknown_file,
+    allow_unknown_field=allow_unknown_field,
+    freshness=freshness,
+    force_replace=replace,
+    override=override.strip() if override else None,
+  )
+  config.console.print('[bold green]GTFS database loaded successfully[/]')
 
 
-if __name__ == '__main__':
-  sys.exit(main())
+print_app = typer.Typer(
+  no_args_is_help=True,
+  help='Print DB',
+)
+app.add_typer(print_app, name='print')
+
+
+@print_app.command(
+  'all',
+  help='Print all database information.',
+  epilog=('Example:\n\n\n\n$ poetry run gtfs print all\n\n<<prints all GTFS data>>'),
+)
+@clibase.CLIErrorGuard
+def PrintAll(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+  config: GTFSConfig = ctx.obj
+  database = GTFS(DEFAULT_DATA_DIR)
+  for line in database.PrettyPrintAllDatabase():
+    config.console.print(line)
+
+
+@print_app.command(
+  'basics',
+  help='Print Basic Data.',
+  epilog=('Example:\n\n\n\n$ poetry run gtfs print basics\n\n<<prints basic GTFS data>>'),
+)
+@clibase.CLIErrorGuard
+def PrintBasics(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+  config: GTFSConfig = ctx.obj
+  database = GTFS(DEFAULT_DATA_DIR)
+  for line in database.PrettyPrintBasics():
+    config.console.print(line)
+
+
+@print_app.command(
+  'calendars',
+  help='Print Calendars/Services.',
+  epilog=('Example:\n\n\n\n$ poetry run gtfs print calendars\n\n<<prints GTFS service calendars>>'),
+)
+@clibase.CLIErrorGuard
+def PrintCalendars(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+  config: GTFSConfig = ctx.obj
+  database = GTFS(DEFAULT_DATA_DIR)
+  for line in database.PrettyPrintCalendar():
+    config.console.print(line)
+
+
+@print_app.command(
+  'stops',
+  help='Print Stops.',
+  epilog=('Example:\n\n\n\n$ poetry run gtfs print stops\n\n<<prints all GTFS stops>>'),
+)
+@clibase.CLIErrorGuard
+def PrintStops(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+  config: GTFSConfig = ctx.obj
+  database = GTFS(DEFAULT_DATA_DIR)
+  for line in database.PrettyPrintStops():
+    config.console.print(line)
+
+
+@print_app.command(
+  'shape',
+  help='Print Shape.',
+  epilog=(
+    'Example:\n\n\n\n$ poetry run gtfs print shape 38002\n\n<<prints details for shape 38002>>'
+  ),
+)
+@clibase.CLIErrorGuard
+def PrintShape(  # documentation is help/epilog/args # noqa: D103
+  *,
+  ctx: typer.Context,
+  shape_id: str = typer.Argument(..., help='Shape ID to print'),
+) -> None:
+  config: GTFSConfig = ctx.obj
+  database = GTFS(DEFAULT_DATA_DIR)
+  for line in database.PrettyPrintShape(shape_id=shape_id):
+    config.console.print(line)
+
+
+@print_app.command(
+  'trip',
+  help='Print GTFS Trip.',
+  epilog=(
+    'Example:\n\n\n\n'
+    '$ poetry run gtfs print trip 8001_17410\n\n'
+    '<<prints details for trip 8001_17410>>'
+  ),
+)
+@clibase.CLIErrorGuard
+def PrintTrip(  # documentation is help/epilog/args # noqa: D103
+  *,
+  ctx: typer.Context,
+  trip_id: str = typer.Argument(..., help='Trip ID to print'),
+) -> None:
+  config: GTFSConfig = ctx.obj
+  database = GTFS(DEFAULT_DATA_DIR)
+  for line in database.PrettyPrintTrip(trip_id=trip_id):
+    config.console.print(line)
+
+
+@app.command(
+  'markdown',
+  help='Emit Markdown docs for the CLI (see README.md section "Creating a New Version").',
+  epilog=('Example:\n\n\n\n$ poetry run gtfs markdown > gtfs.md\n\n<<saves CLI doc>>'),
+)
+@clibase.CLIErrorGuard
+def Markdown(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+  config: GTFSConfig = ctx.obj
+  config.console.print(clibase.GenerateTyperHelpMarkdown(app, prog_name='gtfs'))

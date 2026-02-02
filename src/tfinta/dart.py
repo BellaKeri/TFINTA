@@ -9,7 +9,7 @@ import copy
 import dataclasses
 import datetime
 import operator
-from collections.abc import Generator
+from collections import abc
 
 import click
 import prettytable
@@ -139,7 +139,7 @@ class DART:
 
   def WalkTrains(
     self, /, *, filter_services: set[int] | None = None
-  ) -> Generator[tuple[dm.Schedule, str, list[tuple[int, dm.Schedule, dm.Trip]]], None, None]:
+  ) -> abc.Generator[tuple[dm.Schedule, str, list[tuple[int, dm.Schedule, dm.Trip]]], None, None]:
     """Iterate over actual physical DART trains in a sensible order.
 
     DART behaves oddly:
@@ -223,7 +223,7 @@ class DART:
   # DART PRETTY PRINTS
   ##################################################################################################
 
-  def PrettyPrintCalendar(self) -> Generator[str, None, None]:
+  def PrettyPrintCalendar(self) -> abc.Generator[str, None, None]:
     """Generate a pretty version of calendar data.
 
     Yields:
@@ -232,7 +232,7 @@ class DART:
     """
     yield from self._gtfs.PrettyPrintCalendar(filter_to=self.Services())
 
-  def PrettyPrintStops(self) -> Generator[str, None, None]:
+  def PrettyPrintStops(self) -> abc.Generator[str, None, None]:
     """Generate a pretty version of the stops.
 
     Yields:
@@ -247,7 +247,7 @@ class DART:
     }
     yield from self._gtfs.PrettyPrintStops(filter_to=all_stops)
 
-  def PrettyDaySchedule(self, /, *, day: datetime.date) -> Generator[str, None, None]:
+  def PrettyDaySchedule(self, /, *, day: datetime.date) -> abc.Generator[str, None, None]:
     """Generate a pretty version of a DART day's schedule.
 
     Args:
@@ -303,7 +303,7 @@ class DART:
 
   def PrettyStationSchedule(
     self, /, *, stop_id: str, day: datetime.date
-  ) -> Generator[str, None, None]:
+  ) -> abc.Generator[str, None, None]:
     """Generate a pretty version of a DART station (stop) day's schedule.
 
     Args:
@@ -369,7 +369,7 @@ class DART:
       last_departure = tm.times.departure.time if tm.times.departure else 0
     yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
-  def PrettyPrintTrip(self, /, *, trip_name: str) -> Generator[str, None, None]:  # noqa: C901, PLR0912, PLR0915
+  def PrettyPrintTrip(self, /, *, trip_name: str) -> abc.Generator[str, None, None]:  # noqa: C901, PLR0912, PLR0915
     """Generate a pretty version of a train (physical) trip, may be 2 Trips.
 
     Args:
@@ -488,7 +488,7 @@ class DART:
     table.hrules = prettytable.HRuleStyle.ALL
     yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
-  def PrettyPrintAllDatabase(self) -> Generator[str, None, None]:
+  def PrettyPrintAllDatabase(self) -> abc.Generator[str, None, None]:
     """Print everything in the database.
 
     Yields:

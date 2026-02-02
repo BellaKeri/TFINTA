@@ -7,26 +7,37 @@ See: https://api.irishrail.ie/realtime/
 
 from __future__ import annotations
 
-import argparse
 import copy
+import dataclasses
 import datetime
 import functools
 import html
 import logging
-import sys
 import time
 import types
 import urllib.error
 import urllib.request
-import xml.dom.minidom
-from collections.abc import Callable, Generator
-from typing import get_args as GetTypeArgs
-from typing import get_type_hints as GetTypeHints
+import xml.dom.minidom  # noqa: S408
+from collections import abc
+from typing import Any, cast, get_args, get_type_hints
 
+import click
 import prettytable
+import typer
+from rich import console as rich_console
+from transcrypto.cli import clibase
+from transcrypto.utils import logging as tc_logging
 
+from . import __version__
+from . import gtfs_data_model as gdm
 from . import realtime_data_model as dm
 from . import tfinta_base as base
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class RealtimeConfig(clibase.CLIConfig):
+  """CLI global context, storing the configuration."""
+
 
 # globals
 _TFI_REALTIME_URL = 'https://api.irishrail.ie/realtime/realtime.asmx'
@@ -37,9 +48,31 @@ _DEFAULT_TIMEOUT = 10.0
 _SMALL_CACHE = 1 << 10  # 1024
 
 # useful aliases
-_PossibleRPCArgs = dict[str, str | datetime.date]
-_ExpectedRowData = dict[str, None | str | int | float | bool]
-_RealtimeRowHandler = Callable[[_PossibleRPCArgs, _ExpectedRowData], dm.RealtimeRPCData]
+type _PossibleRPCArgs = dict[str, str | datetime.date]
+type _RealtimeRowHandler[T: gdm.ExpectedRowData] = abc.Callable[
+  [_PossibleRPCArgs, T], dm.RealtimeRPCData
+]
+
+# defaults
+_TODAY: datetime.date = datetime.datetime.now(tz=datetime.UTC).date()
+_TODAY_INT = int(_TODAY.strftime('%Y%m%d'))
+_MIN_DATE = 20000101
+_MAX_DATE = 21991231
+
+
+_RPC_CALLS: dict[str, abc.Callable[[_PossibleRPCArgs], str]] = {
+  'stations': lambda _: f'{_TFI_REALTIME_URL}/getAllStationsXML',
+  'running': lambda _: f'{_TFI_REALTIME_URL}/getCurrentTrainsXML',
+  'station': lambda station_data: (
+    f'{_TFI_REALTIME_URL}/getStationDataByCodeXML?StationCode={
+      str(station_data["station_code"]).strip()
+    }'
+  ),
+  'train': lambda train_data: (
+    f'{_TFI_REALTIME_URL}/getTrainMovementsXML?TrainId={str(train_data["train_code"]).strip()}'
+    f'&TrainDate={cast("datetime.date", train_data["date"]).strftime("%d%%20%b%%20%Y").lower()}'
+  ),
+}
 
 
 class Error(base.Error):
@@ -54,23 +87,57 @@ class RowError(ParseError):
   """Exception parsing a XML RPC row."""
 
 
+def _LoadXMLFromURL(url: str, /, timeout: float = _DEFAULT_TIMEOUT) -> xml.dom.minidom.Document:
+  """Get URL data.
+
+  Args:
+      url (str): URL to load
+      timeout (float): timeout in seconds
+
+  Returns:
+      xml.dom.minidom.Document: parsed XML document
+
+  Raises:
+      Error: error loading URL
+
+  """
+  # get URL, do backoff and retries
+  errors: list[str] = []
+  backoff = 1.0
+  for attempt in range(1, _N_RETRIES + 1):
+    try:
+      with urllib.request.urlopen(url, timeout=timeout) as url_data:  # noqa: S310
+        data = url_data.read()
+      # XML errors will bubble up
+      logging.info('Loaded %s from %s', base.HumanizedBytes(len(data)), url)
+      return xml.dom.minidom.parseString(data)  # noqa: S318
+    except urllib.error.HTTPError as err:
+      if 500 <= err.code < 600:  # 5xx → retry, 4xx → fail immediately  # noqa: PLR2004
+        errors.append(f'HTTP {err.code} {err.reason}')
+        logging.warning('attempt #%d: %r', attempt, err)
+      else:
+        raise Error(f'HTTP error loading {url!r}') from err
+    except (TimeoutError, urllib.error.URLError) as err:  # network glitch or timeout
+      errors.append(str(err))
+      logging.warning('attempt #%d: %r', attempt, err)
+    # if we get here, we'll retry (if attempts remain)
+    if attempt < _N_RETRIES:
+      time.sleep(backoff)
+      backoff *= 2  # exponential backoff
+  # all retries exhausted
+  raise Error(f'Too many retries ({_N_RETRIES}) loading {url!r}: {"; ".join(errors)}')
+
+
 class RealtimeRail:
   """Irish Rail Realtime."""
 
-  _RPC_CALLS: dict[str, Callable[..., str]] = {
-    'stations': lambda: f'{_TFI_REALTIME_URL}/getAllStationsXML',
-    'running': lambda: f'{_TFI_REALTIME_URL}/getCurrentTrainsXML',
-    'station': lambda station_code: (  # type:ignore
-      f'{_TFI_REALTIME_URL}/getStationDataByCodeXML?StationCode={station_code.strip()}'
-    ),  # type:ignore
-    'train': lambda train_code, day: (  # type:ignore
-      f'{_TFI_REALTIME_URL}/getTrainMovementsXML?TrainId={train_code.strip()}'  # type:ignore
-      f'&TrainDate={day.strftime("%d%%20%b%%20%Y").lower()}'
-    ),  # type:ignore
-  }
-
   def __init__(self) -> None:
-    """Constructor."""
+    """Construct.
+
+    Raises:
+        Error: error initializing realtime object
+
+    """
     self._latest = dm.LatestData(
       stations={},
       running_trains={},
@@ -83,12 +150,10 @@ class RealtimeRail:
     self._file_handlers: dict[
       str,
       tuple[
-        _RealtimeRowHandler,
+        _RealtimeRowHandler[Any],
         type,
         str,
-        dict[  # type: ignore
-          str, tuple[type, bool]
-        ],
+        dict[str, tuple[type, bool]],
         set[str],
       ],
     ] = {
@@ -96,28 +161,28 @@ class RealtimeRail:
       #                  {field: (type, required?)}, {required1, required2, ...})}
       'stations': (
         self._HandleStationXMLRow,
-        dm.ExpectedStationXMLRowType,  # type: ignore
+        dm.ExpectedStationXMLRowType,
         'objStation',
         {},
         set(),
       ),
       'running': (
         self._HandleRunningTrainXMLRow,
-        dm.ExpectedRunningTrainXMLRowType,  # type: ignore
+        dm.ExpectedRunningTrainXMLRowType,
         'objTrainPositions',
         {},
         set(),
       ),
       'station': (
         self._HandleStationLineXMLRow,
-        dm.ExpectedStationLineXMLRowType,  # type: ignore
+        dm.ExpectedStationLineXMLRowType,
         'objStationData',
         {},
         set(),
       ),
       'train': (
         self._HandleTrainStationXMLRow,
-        dm.ExpectedTrainStopXMLRowType,  # type: ignore
+        dm.ExpectedTrainStopXMLRowType,
         'objTrainMovements',
         {},
         set(),
@@ -126,25 +191,38 @@ class RealtimeRail:
     # fill in types, derived from the _Expected*CSVRowType TypedDicts
     for rpc_name, handlers in self._file_handlers.items():
       _, expected, _, fields, required = handlers
-      for field, type_descriptor in GetTypeHints(expected).items():
-        if type_descriptor in (str, int, float, bool):
+      for field, type_descriptor in get_type_hints(expected).items():
+        if type_descriptor in {str, int, float, bool}:
           # no optional, so field is required
           required.add(field)
           fields[field] = (type_descriptor, True)
         else:
           # it is optional and something else, so find out which
-          field_args = GetTypeArgs(type_descriptor)
-          if len(field_args) != 2:
+          field_args = get_args(type_descriptor)
+          if len(field_args) != 2:  # noqa: PLR2004
             raise Error(f'incorrect type len {rpc_name}/{field}: {field_args!r}')
           field_type = field_args[0] if field_args[1] == types.NoneType else field_args[1]
-          if field_type not in (str, int, float, bool):
+          if field_type not in {str, int, float, bool}:
             raise Error(f'incorrect type {rpc_name}/{field}: {field_args!r}')
           fields[field] = (field_type, False)
     logging.info('Created realtime object')
 
-  @functools.lru_cache(maxsize=_SMALL_CACHE)  # remember to update self._InvalidateCaches()
+  @functools.lru_cache(  # noqa: B019
+    maxsize=_SMALL_CACHE
+  )  # remember to update self._InvalidateCaches()
   def StationCodeFromNameFragmentOrCode(self, code: str, /) -> str:
-    """If given a valid station code uses that, else searches for station (case-insensitive)."""
+    """If given a valid station code uses that, else searches for station (case-insensitive).
+
+    Args:
+        code (str): station code or fragment of station description/alias
+
+    Returns:
+        str: the station code
+
+    Raises:
+        Error: station code/description not found or ambiguous
+
+    """
     # lazy fetch stations, if needed
     if self._latest.stations_tm is None or not self._latest.stations:
       self.StationsCall()
@@ -176,46 +254,29 @@ class RealtimeRail:
     ):
       method.cache_clear()
 
-  def _LoadXMLFromURL(
-    self, url: str, /, timeout: float = _DEFAULT_TIMEOUT
-  ) -> xml.dom.minidom.Document:
-    """Get URL data."""
-    # get URL, do backoff and retries
-    errors: list[str] = []
-    backoff = 1.0
-    for attempt in range(1, _N_RETRIES + 1):
-      try:
-        with urllib.request.urlopen(url, timeout=timeout) as url_data:
-          data = url_data.read()
-        # XML errors will bubble up
-        logging.info('Loaded %s from %s', base.HumanizedBytes(len(data)), url)
-        return xml.dom.minidom.parseString(data)
-      except urllib.error.HTTPError as err:
-        if 500 <= err.code < 600:  # 5xx → retry, 4xx → fail immediately
-          errors.append(f'HTTP {err.code} {err.reason}')
-          logging.warning('attempt #%d: %r', attempt, err)
-        else:
-          raise Error(f'HTTP error loading {url!r}') from err
-      except (TimeoutError, urllib.error.URLError) as err:  # network glitch or timeout
-        errors.append(str(err))
-        logging.warning('attempt #%d: %r', attempt, err)
-      # if we get here, we'll retry (if attempts remain)
-      if attempt < _N_RETRIES:
-        time.sleep(backoff)
-        backoff *= 2  # exponential backoff
-    # all retries exhausted
-    raise Error(f'Too many retries ({_N_RETRIES}) loading {url!r}: {"; ".join(errors)}')
-
-  def _CallRPC(
+  def _CallRPC(  # noqa: C901, PLR0912
     self, rpc_name: str, args: _PossibleRPCArgs, /
   ) -> tuple[float, list[dm.RealtimeRPCData]]:
-    """Call RPC and send rows to parsers."""
+    """Call RPC and send rows to parsers.
+
+    Args:
+        rpc_name (str): name of the RPC to call
+        args (_PossibleRPCArgs): arguments for the RPC call
+
+    Returns:
+        tuple[float, list[dm.RealtimeRPCData]]: timestamp of data retrieval, list of parsed rows
+
+    Raises:
+        ParseError: error parsing XML data
+        Error: error calling RPC
+
+    """
     # get fields definition and compute URL
     row_handler, _, row_xml_tag, row_types, row_required = self._file_handlers[rpc_name]
-    url: str = RealtimeRail._RPC_CALLS[rpc_name](**args)
+    url: str = _RPC_CALLS[rpc_name](args)
     # call external URL
     tm_now: float = time.time()
-    xml_obj: xml.dom.minidom.Document = self._LoadXMLFromURL(url)
+    xml_obj: xml.dom.minidom.Document = _LoadXMLFromURL(url)
     # divide XML into rows and start parsing
     xml_elements = list(xml_obj.getElementsByTagName(row_xml_tag))
     parsed_rows: list[dm.RealtimeRPCData] = []
@@ -224,7 +285,7 @@ class RealtimeRail:
     if not xml_elements:
       return (tm_now, parsed_rows)
     for row_count, xml_row in enumerate(xml_elements):
-      row_data: _ExpectedRowData = {}
+      row_data: gdm.ExpectedRowData = {}
       for field_name, (field_type, field_required) in row_types.items():
         xml_data = list(xml_row.getElementsByTagName(field_name))
         if len(xml_data) != 1:
@@ -240,9 +301,9 @@ class RealtimeRail:
             )
           row_data[field_name] = None
         # field has a value
-        elif field_type == str:
+        elif field_type is str:
           row_data[field_name] = field_value.strip()  # vanilla string
-        elif field_type == bool:
+        elif field_type is bool:
           bool_value: str = field_value.strip()
           try:
             row_data[field_name] = base.BOOL_FIELD[bool_value]  # convert to bool '0'/'1'
@@ -250,7 +311,7 @@ class RealtimeRail:
             raise ParseError(
               f'invalid bool value {rpc_name}/{args}/{row_count}/{field_name}: {bool_value!r}'
             ) from err
-        elif field_type in (int, float):
+        elif field_type in {int, float}:
           try:
             row_data[field_name] = field_type(field_value)  # convert int/float
           except ValueError as err:
@@ -273,7 +334,12 @@ class RealtimeRail:
     return (tm_now, parsed_rows)
 
   def StationsCall(self) -> list[dm.Station]:
-    """Get all stations."""
+    """Get all stations.
+
+    Returns:
+        list[dm.Station]: list of stations
+
+    """
     # make call
     stations: list[dm.Station]
     self._InvalidateCaches()
@@ -288,7 +354,12 @@ class RealtimeRail:
     return sorted_stations  # no need for copy as we don't store this list
 
   def RunningTrainsCall(self) -> list[dm.RunningTrain]:
-    """Get all running trains."""
+    """Get all running trains.
+
+    Returns:
+        list[dm.RunningTrain]: list of running trains
+
+    """
     # make call
     running: list[dm.RunningTrain]
     tm, running = self._CallRPC('running', {})  # type: ignore
@@ -305,7 +376,19 @@ class RealtimeRail:
   def StationBoardCall(
     self, station_code: str, /
   ) -> tuple[dm.StationLineQueryData | None, list[dm.StationLine]]:
-    """Get a station board (all trains due to serve the named station in the next 90 minutes)."""
+    """Get a station board (all trains due to serve the named station in the next 90 minutes).
+
+    Args:
+        station_code (str): station code
+
+    Returns:
+        tuple[dm.StationLineQueryData | None, list[dm.StationLine]]: query data and list of
+            station lines
+
+    Raises:
+        Error: invalid station code
+
+    """
     # make call
     station_code = station_code.strip().upper()
     if not station_code:
@@ -329,7 +412,19 @@ class RealtimeRail:
   def TrainDataCall(
     self, train_code: str, day: datetime.date, /
   ) -> tuple[dm.TrainStopQueryData | None, list[dm.TrainStop]]:
-    """Get train realtime."""
+    """Get train realtime.
+
+    Args:
+        train_code (str): train code
+        day (datetime.date): day of the train
+
+    Returns:
+        tuple[dm.TrainStopQueryData | None, list[dm.TrainStop]]: query data and list of train stops
+
+    Raises:
+        Error: invalid train code
+
+    """
     # make call
     train_code = train_code.strip().upper()
     if not train_code:
@@ -375,14 +470,17 @@ class RealtimeRail:
   #     RowError: error parsing this record
   #   """
 
-  def _HandleStationXMLRow(
+  def _HandleStationXMLRow(  # noqa: PLR6301
     self, params: _PossibleRPCArgs, row: dm.ExpectedStationXMLRowType, /
   ) -> dm.Station:
-    """Handler: Station.
+    """Handle: Station.
 
     Args:
       params: dict with args for calling XML URL-calling method
       row: the row as a dict {field_name: Optional[field_data]}
+
+    Returns:
+      dm.Station: parsed station
 
     Raises:
       RowError: error parsing this record
@@ -402,17 +500,20 @@ class RealtimeRail:
       alias=row['StationAlias'],
     )
 
-  def _HandleRunningTrainXMLRow(
+  def _HandleRunningTrainXMLRow(  # noqa: PLR6301
     self, params: _PossibleRPCArgs, row: dm.ExpectedRunningTrainXMLRowType, /
   ) -> dm.RunningTrain:
-    """Handler: RunningTrain.
+    """Handle: RunningTrain.
 
     Args:
       params: dict with args for calling XML URL-calling method
       row: the row as a dict {field_name: Optional[field_data]}
 
+    Returns:
+      dm.RunningTrain: parsed running train
+
     Raises:
-      RowError: error parsing this record
+      Error: error parsing this record
 
     """
     day: datetime.date = base.DATE_OBJ_REALTIME(row['TrainDate'])
@@ -436,14 +537,17 @@ class RealtimeRail:
   def _HandleStationLineXMLRow(
     self, params: _PossibleRPCArgs, row: dm.ExpectedStationLineXMLRowType, /
   ) -> dm.StationLine:
-    """Handler: StationLine.
+    """Handle: StationLine.
 
     Args:
       params: dict with args for calling XML URL-calling method
       row: the row as a dict {field_name: Optional[field_data]}
 
+    Returns:
+      dm.StationLine: parsed station line
+
     Raises:
-      RowError: error parsing this record
+      Error: error parsing this record
 
     """
     day: datetime.date = base.DATE_OBJ_REALTIME(row['Traindate'])
@@ -517,14 +621,17 @@ class RealtimeRail:
   def _HandleTrainStationXMLRow(
     self, params: _PossibleRPCArgs, row: dm.ExpectedTrainStopXMLRowType, /
   ) -> dm.TrainStop:
-    """Handler: TrainStation.
+    """Handle: TrainStation.
 
     Args:
       params: dict with args for calling XML URL-calling method
       row: the row as a dict {field_name: Optional[field_data]}
 
+    Returns:
+      dm.TrainStop: parsed train stop
+
     Raises:
-      RowError: error parsing this record
+      Error: error parsing this record
 
     """
     if row['LocationOrder'] < 1 or row['TrainCode'] != params['train_code']:
@@ -607,14 +714,19 @@ class RealtimeRail:
   # REALTIME PRETTY PRINTS
   ##################################################################################################
 
-  def PrettyPrintStations(self) -> Generator[str, None, None]:
-    """Generate a pretty version of all stations."""
+  def PrettyPrintStations(self) -> abc.Generator[str, None, None]:
+    """Generate a pretty version of all stations.
+
+    Yields:
+        str: lines of the pretty-printed data
+
+    """
     if self._latest.stations_tm is None or not self._latest.stations:
       self.StationsCall()  # lazy load
     yield (
       f'{base.MAGENTA}Irish Rail Stations @ {base.BOLD}'
-      f'{base.STD_TIME_STRING(self._latest.stations_tm)}{base.NULL}'
-    )  # type: ignore
+      f'{base.STD_TIME_STRING(self._latest.stations_tm or 0)}{base.NULL}'
+    )
     yield ''
     table = prettytable.PrettyTable(
       [
@@ -634,25 +746,38 @@ class RealtimeRail:
           f'{base.BOLD}{station.code}{base.NULL}',
           f'{base.BOLD}{base.YELLOW}{station.description}{base.NULL}',
           f'{base.BOLD}{station.alias or base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{lat or base.NULL_TEXT}{base.NULL}\n'
-          f'{base.BOLD}{base.YELLOW}{lon or base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{f"{station.location.latitude:0.7f}" if station.location else base.NULL_TEXT}'
-          f'{base.NULL}\n'
-          f'{base.BOLD}{f"{station.location.longitude:0.7f}" if station.location else base.NULL_TEXT}'
-          f'{base.NULL}',
+          (
+            f'{base.BOLD}{base.YELLOW}{lat or base.NULL_TEXT}{base.NULL}\n'
+            f'{base.BOLD}{base.YELLOW}{lon or base.NULL_TEXT}{base.NULL}'
+          ),
+          (
+            f'{base.BOLD}{
+              f"{station.location.latitude:0.7f}" if station.location else base.NULL_TEXT
+            }'
+            f'{base.NULL}\n'
+            f'{base.BOLD}{
+              f"{station.location.longitude:0.7f}" if station.location else base.NULL_TEXT
+            }'
+            f'{base.NULL}'
+          ),
         ]
       )
     table.hrules = prettytable.HRuleStyle.ALL
-    yield from table.get_string().splitlines()  # type:ignore
+    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
-  def PrettyPrintRunning(self) -> Generator[str, None, None]:
-    """Generate a pretty version of running trains."""
+  def PrettyPrintRunning(self) -> abc.Generator[str, None, None]:
+    """Generate a pretty version of running trains.
+
+    Yields:
+        str: lines of the pretty-printed data
+
+    """
     if self._latest.running_tm is None or not self._latest.running_trains:
       self.RunningTrainsCall()  # lazy load
     yield (
       f'{base.MAGENTA}Irish Rail Running Trains @ {base.BOLD}'
-      f'{base.STD_TIME_STRING(self._latest.running_tm)}{base.NULL}'
-    )  # type: ignore
+      f'{base.STD_TIME_STRING(self._latest.running_tm or 0)}{base.NULL}'
+    )
     yield ''
     table = prettytable.PrettyTable(
       [
@@ -672,25 +797,39 @@ class RealtimeRail:
       )
       table.add_row(
         [
-          f'{base.BOLD}{base.CYAN}{train.code}{base.NULL}\n'
-          f'{base.BOLD}{dm.TRAIN_STATUS_STR[train.status]}{base.NULL}',
+          (
+            f'{base.BOLD}{base.CYAN}{train.code}{base.NULL}\n'
+            f'{base.BOLD}{dm.TRAIN_STATUS_STR[train.status]}{base.NULL}'
+          ),
           f'{base.BOLD}{base.LIMITED_TEXT(train.direction, 15)}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW if lat else ""}{lat or base.NULL_TEXT}{base.NULL}\n'
-          f'{base.BOLD}{base.YELLOW if lon else ""}{lon or base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{f"{train.position.latitude:0.7f}" if train.position else base.NULL_TEXT}'
-          f'{base.NULL}\n'
-          f'{base.BOLD}{f"{train.position.longitude:0.7f}" if train.position else base.NULL_TEXT}'
-          f'{base.NULL}',
+          (
+            f'{base.BOLD}{base.YELLOW if lat else ""}{lat or base.NULL_TEXT}{base.NULL}\n'
+            f'{base.BOLD}{base.YELLOW if lon else ""}{lon or base.NULL_TEXT}{base.NULL}'
+          ),
+          (
+            f'{base.BOLD}{f"{train.position.latitude:0.7f}" if train.position else base.NULL_TEXT}'
+            f'{base.NULL}\n'
+            f'{base.BOLD}{f"{train.position.longitude:0.7f}" if train.position else base.NULL_TEXT}'
+            f'{base.NULL}'
+          ),
           '\n'.join(
             f'{base.BOLD}{base.LIMITED_TEXT(m, 50)}{base.NULL}' for m in train_message.split('\n')
           ),
         ]
       )
     table.hrules = prettytable.HRuleStyle.ALL
-    yield from table.get_string().splitlines()  # type:ignore
+    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
-  def PrettyPrintStation(self, /, *, station_code: str) -> Generator[str, None, None]:
-    """Generate a pretty version of station board."""
+  def PrettyPrintStation(self, /, *, station_code: str) -> abc.Generator[str, None, None]:
+    """Generate a pretty version of station board.
+
+    Args:
+        station_code (str): station code
+
+    Yields:
+        str: lines of the pretty-printed data
+
+    """
     station_code = station_code.upper()
     if station_code not in self._latest.station_boards:
       self.StationBoardCall(station_code)  # lazy load
@@ -734,24 +873,32 @@ class RealtimeRail:
             if line.train_type != dm.TrainType.UNKNOWN
             else ''
           ),
-          f'{base.BOLD}{line.origin_code}{base.NULL}\n'
-          f'{base.BOLD}{base.LIMITED_TEXT(line.origin_name, 15)}{base.NULL}\n'
-          f'{base.BOLD}{line.trip.arrival.ToHMS() if line.trip.arrival else base.NULL_TEXT}'
-          f'{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{line.destination_code}{base.NULL}\n'
-          f'{base.BOLD}{base.YELLOW}{base.LIMITED_TEXT(line.destination_name, 15)}{base.NULL}\n'
-          f'{base.BOLD}{line.trip.departure.ToHMS() if line.trip.departure else base.NULL_TEXT}'
-          f'{base.NULL}',
+          (
+            f'{base.BOLD}{line.origin_code}{base.NULL}\n'
+            f'{base.BOLD}{base.LIMITED_TEXT(line.origin_name, 15)}{base.NULL}\n'
+            f'{base.BOLD}{line.trip.arrival.ToHMS() if line.trip.arrival else base.NULL_TEXT}'
+            f'{base.NULL}'
+          ),
+          (
+            f'{base.BOLD}{base.YELLOW}{line.destination_code}{base.NULL}\n'
+            f'{base.BOLD}{base.YELLOW}{base.LIMITED_TEXT(line.destination_name, 15)}{base.NULL}\n'
+            f'{base.BOLD}{line.trip.departure.ToHMS() if line.trip.departure else base.NULL_TEXT}'
+            f'{base.NULL}'
+          ),
           f'{base.BOLD}{line.due_in.time:+}{base.NULL}',
           f'{base.BOLD}{base.GREEN}'
-          f'{line.scheduled.arrival.ToHMS() if line.scheduled.arrival else base.NULL_TEXT}{base.NULL}'
+          f'{line.scheduled.arrival.ToHMS() if line.scheduled.arrival else base.NULL_TEXT}{
+            base.NULL
+          }'
           + (
             ''
             if not line.expected.arrival or line.expected.arrival == line.scheduled.arrival
             else f'\n{base.BOLD}{base.RED}{line.expected.arrival.ToHMS()}{base.NULL}'
           ),
           f'{base.BOLD}{base.GREEN}'
-          f'{line.scheduled.departure.ToHMS() if line.scheduled.departure else base.NULL_TEXT}{base.NULL}'
+          f'{line.scheduled.departure.ToHMS() if line.scheduled.departure else base.NULL_TEXT}{
+            base.NULL
+          }'
           + (
             ''
             if not line.expected.departure or line.expected.departure == line.scheduled.departure
@@ -760,20 +907,33 @@ class RealtimeRail:
           '\n'
           if not line.late
           else f'\n{base.BOLD}{base.RED if line.late > 0 else base.YELLOW}{line.late:+}{base.NULL}',
-          f'\n{base.BOLD}{base.LIMITED_TEXT(line.status, 15) if line.status else base.NULL_TEXT}'
-          f'{base.NULL}',
-          f'\n{base.BOLD}'
-          f'{base.LIMITED_TEXT(line.last_location, 15) if line.last_location else base.NULL_TEXT}'
-          f'{base.NULL}',
+          (
+            f'\n{base.BOLD}{base.LIMITED_TEXT(line.status, 15) if line.status else base.NULL_TEXT}'
+            f'{base.NULL}'
+          ),
+          (
+            f'\n{base.BOLD}'
+            f'{base.LIMITED_TEXT(line.last_location, 15) if line.last_location else base.NULL_TEXT}'
+            f'{base.NULL}'
+          ),
         ]
       )
     table.hrules = prettytable.HRuleStyle.ALL
-    yield from table.get_string().splitlines()  # type:ignore
+    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
   def PrettyPrintTrain(
     self, /, *, train_code: str, day: datetime.date
-  ) -> Generator[str, None, None]:
-    """Generate a pretty version of single train data."""
+  ) -> abc.Generator[str, None, None]:
+    """Generate a pretty version of single train data.
+
+    Args:
+        train_code (str): train code
+        day (datetime.date): day of the train
+
+    Yields:
+        str: lines of the pretty-printed data
+
+    """
     train_code = train_code.upper()
     if train_code not in self._latest.trains or day not in self._latest.trains[train_code]:
       self.TrainDataCall(train_code, day)
@@ -818,112 +978,223 @@ class RealtimeRail:
       table.add_row(
         [
           f'{base.BOLD}{base.CYAN}{seq}{base.NULL}{stop_type}',
-          f'{base.BOLD}{base.YELLOW}{stop.station_code}{base.NULL}\n'
-          f'{base.BOLD}{base.YELLOW}'
-          f'{base.LIMITED_TEXT(stop.station_name, 15) if stop.station_name else "????"}{base.NULL}\n'
-          f'{base.BOLD}{dm.LOCATION_TYPE_STR[stop.location_type]}{base.NULL}',
-          f'{base.BOLD}{base.GREEN}'
-          f'{stop.scheduled.arrival.ToHMS() if stop.scheduled.arrival else base.NULL_TEXT}{base.NULL}'
+          (
+            f'{base.BOLD}{base.YELLOW}{stop.station_code}{base.NULL}\n'
+            f'{base.BOLD}{base.YELLOW}'
+            f'{base.LIMITED_TEXT(stop.station_name, 15) if stop.station_name else "????"}{
+              base.NULL
+            }\n'
+            f'{base.BOLD}{dm.LOCATION_TYPE_STR[stop.location_type]}{base.NULL}'
+          ),
+          (
+            f'{base.BOLD}{base.GREEN}'
+            f'{stop.scheduled.arrival.ToHMS() if stop.scheduled.arrival else base.NULL_TEXT}{
+              base.NULL
+            }'
+          )
           + (
             ''
             if not stop.expected.arrival or stop.expected.arrival == stop.scheduled.arrival
             else f'\n{base.BOLD}{base.RED}{stop.expected.arrival.ToHMS()}{base.NULL}'
           )
           + (f'\n{base.BOLD}{dm.PRETTY_AUTO(True)}' if stop.auto_arrival else ''),
-          f'{base.BOLD}{base.YELLOW}'
-          f'{stop.actual.arrival.ToHMS() if stop.actual.arrival else base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{base.GREEN}'
-          f'{stop.scheduled.departure.ToHMS() if stop.scheduled.departure else base.NULL_TEXT}{base.NULL}'
+          (
+            f'{base.BOLD}{base.YELLOW}'
+            f'{stop.actual.arrival.ToHMS() if stop.actual.arrival else base.NULL_TEXT}{base.NULL}'
+          ),
+          (
+            f'{base.BOLD}{base.GREEN}'
+            f'{stop.scheduled.departure.ToHMS() if stop.scheduled.departure else base.NULL_TEXT}{
+              base.NULL
+            }'
+          )
           + (
             ''
             if not stop.expected.departure or stop.expected.departure == stop.scheduled.departure
             else f'\n{base.BOLD}{base.RED}{stop.expected.departure.ToHMS()}{base.NULL}'
           )
           + (f'\n{base.BOLD}{dm.PRETTY_AUTO(True)}' if stop.auto_depart else ''),
-          f'{base.BOLD}{base.YELLOW}'
-          f'{stop.actual.departure.ToHMS() if stop.actual.departure else base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{base.NULL_TEXT if late is None else (f"{base.RED}{late / 60.0:+0.2f}" if late > 0 else f"{base.GREEN}{late / 60.0:+0.2f}")}{base.NULL}',
+          (
+            f'{base.BOLD}{base.YELLOW}'
+            f'{stop.actual.departure.ToHMS() if stop.actual.departure else base.NULL_TEXT}{
+              base.NULL
+            }'
+          ),
+          f'{base.BOLD}{
+            base.NULL_TEXT
+            if late is None
+            else (
+              f"{base.RED}{late / 60.0:+0.2f}" if late > 0 else f"{base.GREEN}{late / 60.0:+0.2f}"
+            )
+          }{base.NULL}',
         ]
       )
     table.hrules = prettytable.HRuleStyle.ALL
-    yield from table.get_string().splitlines()  # type:ignore
+    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
 
-def main(argv: list[str] | None = None) -> int:
-  """Main entry point."""
-  # parse the input arguments, add subparser for `command`
-  parser: argparse.ArgumentParser = argparse.ArgumentParser()
-  command_arg_subparsers = parser.add_subparsers(dest='command')
-  # "print" command
-  print_parser: argparse.ArgumentParser = command_arg_subparsers.add_parser(
-    'print', help='Print RPC Call'
-  )
-  print_arg_subparsers = print_parser.add_subparsers(dest='print_command')
-  print_arg_subparsers.add_parser('stations', help='Print All System Stations')
-  print_arg_subparsers.add_parser('running', help='Print Running Trains')
-  station_parser = print_arg_subparsers.add_parser('station', help='Print Station Board')
-  station_parser.add_argument(
-    '-c',
-    '--code',
-    type=str,
-    default='',
-    help='Either a 5-letter station code (ex: "LURGN") or a search string that can '
-    'be identified as a station (ex: "lurgan")',
-  )
-  train_parser = print_arg_subparsers.add_parser('train', help='Print Train Movements')
-  train_parser.add_argument('-c', '--code', type=str, default='', help='Train code (ex: "E108")')
-  train_parser.add_argument(
-    '-d',
-    '--day',
-    type=str,
-    default='',
-    help='day to consider in "YYYYMMDD" format (default: TODAY/NOW)',
-  )
-  # ALL commands
-  parser.add_argument(
+# CLI app setup, this is an important object and can be imported elsewhere and called
+app = typer.Typer(
+  add_completion=True,
+  no_args_is_help=True,
+  help='realtime: CLI for Irish Rail Realtime services.',  # keep in sync with Main().help
+  epilog=(
+    'Example:\n\n\n\n'
+    '# --- Print realtime data ---\n\n'
+    'poetry run realtime print stations\n\n'
+    'poetry run realtime print running\n\n'
+    'poetry run realtime print station LURGN\n\n'
+    'poetry run realtime print train E108 20260201\n\n\n\n'
+    '# --- Generate documentation ---\n\n'
+    'poetry run realtime markdown > realtime.md\n\n'
+  ),
+)
+
+
+def Run() -> None:
+  """Run the CLI."""
+  app()
+
+
+@app.callback(
+  invoke_without_command=True,  # have only one; this is the "constructor"
+  help='realtime: CLI for Irish Rail Realtime services.',  # keep message in sync with app.help
+)
+@clibase.CLIErrorGuard
+def Main(  # documentation is help/epilog/args # noqa: D103
+  *,
+  ctx: click.Context,  # global context
+  version: bool = typer.Option(False, '--version', help='Show version and exit.'),
+  verbose: int = typer.Option(
+    0,
     '-v',
     '--verbose',
-    action='count',
-    default=0,
-    help='Increase verbosity (use -v, -vv, -vvv, -vvvv for ERR/WARN/INFO/DEBUG output)',
+    count=True,
+    help='Verbosity (nothing=ERROR, -v=WARNING, -vv=INFO, -vvv=DEBUG).',
+    min=0,
+    max=3,
+  ),
+  color: bool | None = typer.Option(
+    None,
+    '--color/--no-color',
+    help=(
+      'Force enable/disable colored output (respects NO_COLOR env var if not provided). '
+      'Defaults to having colors.'  # state default because None default means docs don't show it
+    ),
+  ),
+) -> None:
+  if version:
+    typer.echo(__version__)
+    raise typer.Exit(0)
+  # initialize logging and get console
+  console: rich_console.Console
+  console, verbose, color = tc_logging.InitLogging(
+    verbose,
+    color=color,
+    include_process=False,
   )
-  args: argparse.Namespace = parser.parse_args(argv)
-  levels: list[int] = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
-  logging.basicConfig(level=levels[min(args.verbose, len(levels) - 1)], format=base.LOG_FORMAT)  # type:ignore
-  logging.captureWarnings(True)
-  command = args.command.lower().strip() if args.command else ''
+  # check a few things
+  if not (_MIN_DATE < _TODAY_INT < _MAX_DATE):
+    raise Error(f'invalid TODAY date {_TODAY_INT}: not in {_MIN_DATE}..{_MAX_DATE}')
+  # create context with the arguments we received.
+  ctx.obj = RealtimeConfig(
+    console=console,
+    verbose=verbose,
+    color=color,
+  )
+
+
+print_app = typer.Typer(
+  no_args_is_help=True,
+  help='Print Realtime Data',
+)
+app.add_typer(print_app, name='print')
+
+
+@print_app.command(
+  'stations',
+  help='Print All System Stations.',
+  epilog=('Example:\n\n\n\n$ poetry run realtime print stations\n\n<<prints all stations>>'),
+)
+@clibase.CLIErrorGuard
+def PrintStations(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+  config: RealtimeConfig = ctx.obj
   realtime = RealtimeRail()
-  # look at main command
-  match command:
-    case 'print':
-      # look at sub-command for print
-      print_command = args.print_command.lower().strip() if args.print_command else ''
-      print()
-      match print_command:
-        case 'stations':
-          for line in realtime.PrettyPrintStations():
-            print(line)
-        case 'running':
-          for line in realtime.PrettyPrintRunning():
-            print(line)
-        case 'station':
-          for line in realtime.PrettyPrintStation(
-            station_code=realtime.StationCodeFromNameFragmentOrCode(args.code)
-          ):
-            print(line)
-        case 'train':
-          for line in realtime.PrettyPrintTrain(
-            train_code=args.code,
-            day=base.DATE_OBJ_GTFS(args.day) if args.day else datetime.date.today(),
-          ):
-            print(line)
-        case _:
-          raise NotImplementedError
-      print()
-    case _:
-      raise NotImplementedError
-  return 0
+  for line in realtime.PrettyPrintStations():
+    config.console.print(line)
 
 
-if __name__ == '__main__':
-  sys.exit(main())
+@print_app.command(
+  'running',
+  help='Print Running Trains.',
+  epilog=('Example:\n\n\n\n$ poetry run realtime print running\n\n<<prints all running trains>>'),
+)
+@clibase.CLIErrorGuard
+def PrintRunning(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+  config: RealtimeConfig = ctx.obj
+  realtime = RealtimeRail()
+  for line in realtime.PrettyPrintRunning():
+    config.console.print(line)
+
+
+@print_app.command(
+  'station',
+  help='Print Station Board.',
+  epilog=(
+    'Example:\n\n\n\n$ poetry run realtime print station LURGN\n\n<<prints Lurgan station board>>'
+  ),
+)
+@clibase.CLIErrorGuard
+def PrintStation(  # documentation is help/epilog/args # noqa: D103
+  *,
+  ctx: typer.Context,
+  code: str = typer.Argument(
+    ...,
+    help='Either a 5-letter station code (ex: "LURGN") or a search string that can '
+    'be identified as a station (ex: "lurgan")',
+  ),
+) -> None:
+  config: RealtimeConfig = ctx.obj
+  realtime = RealtimeRail()
+  for line in realtime.PrettyPrintStation(
+    station_code=realtime.StationCodeFromNameFragmentOrCode(code)
+  ):
+    config.console.print(line)
+
+
+@print_app.command(
+  'train',
+  help='Print Train Movements.',
+  epilog=(
+    'Example:\n\n\n\n'
+    '$ poetry run realtime print train E108 20260201\n\n'
+    '<<prints train E108 movements>>'
+  ),
+)
+@clibase.CLIErrorGuard
+def PrintTrain(  # documentation is help/epilog/args # noqa: D103
+  *,
+  ctx: typer.Context,
+  code: str = typer.Argument(..., help='Train code (ex: "E108")'),
+  day: int = typer.Argument(
+    _TODAY_INT,
+    min=_MIN_DATE,
+    max=_MAX_DATE,
+    help='Day to consider in "YYYYMMDD" format (default: TODAY/NOW).',
+  ),
+) -> None:
+  config: RealtimeConfig = ctx.obj
+  realtime = RealtimeRail()
+  for line in realtime.PrettyPrintTrain(train_code=code, day=base.DATE_OBJ_GTFS(str(day))):
+    config.console.print(line)
+
+
+@app.command(
+  'markdown',
+  help='Emit Markdown docs for the CLI (see README.md section "Creating a New Version").',
+  epilog=('Example:\n\n\n\n$ poetry run realtime markdown > realtime.md\n\n<<saves CLI doc>>'),
+)
+@clibase.CLIErrorGuard
+def Markdown(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+  config: RealtimeConfig = ctx.obj
+  config.console.print(clibase.GenerateTyperHelpMarkdown(app, prog_name='realtime'))

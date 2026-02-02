@@ -58,6 +58,9 @@ LOAD_ORDER: list[str] = [
 ####################################################################################################
 
 
+type ExpectedRowData = dict[str, str | int | float | bool | None]
+
+
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class FileMetadata:
   """GTFS file metadata (mostly from loading feed_info.txt tables)."""
