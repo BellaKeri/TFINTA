@@ -10,7 +10,6 @@ import dataclasses
 import datetime
 import operator
 from collections.abc import Generator
-from typing import Any
 
 import click
 import prettytable
@@ -24,19 +23,9 @@ from . import gtfs_data_model as dm
 from . import tfinta_base as base
 
 
-@dataclasses.dataclass(kw_only=True, slots=True)
-class DARTConfig:
-  """CLI global context, storing the configuration.
-
-  Attributes:
-      database: GTFS database object (None if not needed)
-
-  """
-
-  console: rich_console.Console
-  verbose: int
-  color: bool | None
-  database: gtfs.GTFS | None = None
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class DARTConfig(clibase.CLIConfig):
+  """CLI global context, storing the configuration."""
 
 
 # defaults
@@ -49,20 +38,6 @@ _MAX_DATE = 21991231
 
 class Error(gtfs.Error):
   """DART exception."""
-
-
-def SortedItems[K: Any, V](d: dict[K, V], /) -> Generator[tuple[K, V], None, None]:
-  """Behaves like dict.items() but gets (key, value) pairs sorted by keys.
-
-  Args:
-      d: dictionary to get sorted items from
-
-  Yields:
-      key, value pairs sorted by keys
-
-  """
-  for key in sorted(d):
-    yield (key, d[key])
 
 
 class DART:
@@ -537,22 +512,6 @@ class DART:
       yield ''
 
 
-def _GetDatabase(config: DARTConfig) -> gtfs.GTFS:
-  """Get or initialize the database on demand.
-
-  Args:
-      config: CLI configuration
-
-  Returns:
-      GTFS database object
-
-  """
-  if config.database is None:
-    # Lazy initialization - create a new config with the database
-    config.database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
-  return config.database
-
-
 # CLI app setup, this is an important object and can be imported elsewhere and called
 app = typer.Typer(
   add_completion=True,
@@ -648,7 +607,8 @@ def ReadCommand(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: DARTConfig = ctx.obj
-  _GetDatabase(config).LoadData(
+  database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
+  database.LoadData(
     dm.IRISH_RAIL_OPERATOR,
     dm.IRISH_RAIL_LINK,
     allow_unknown_file=True,
@@ -657,16 +617,17 @@ def ReadCommand(  # documentation is help/epilog/args # noqa: D103
     force_replace=replace,
     override=None,
   )
+  config.console.print('[bold green]DART database loaded successfully[/]')
 
 
-random_app = typer.Typer(
+print_app = typer.Typer(
   no_args_is_help=True,
   help='Print DB',
 )
-app.add_typer(random_app, name='print')
+app.add_typer(print_app, name='print')
 
 
-@random_app.command(
+@print_app.command(
   'all',
   help='Print all database information.',
   epilog=('Example:\n\n\n\n$ poetry run dart print all\n\n<<prints all DART data>>'),
@@ -674,11 +635,12 @@ app.add_typer(random_app, name='print')
 @clibase.CLIErrorGuard
 def PrintAll(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: DARTConfig = ctx.obj
-  for line in DART(_GetDatabase(config)).PrettyPrintAllDatabase():
+  database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
+  for line in DART(database).PrettyPrintAllDatabase():
     config.console.print(line)
 
 
-@random_app.command(
+@print_app.command(
   'calendars',
   help='Print Calendars/Services.',
   epilog=('Example:\n\n\n\n$ poetry run dart print calendars\n\n<<prints DART service calendars>>'),
@@ -686,11 +648,12 @@ def PrintAll(*, ctx: typer.Context) -> None:  # documentation is help/epilog/arg
 @clibase.CLIErrorGuard
 def PrintCalendars(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: DARTConfig = ctx.obj
-  for line in DART(_GetDatabase(config)).PrettyPrintCalendar():
+  database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
+  for line in DART(database).PrettyPrintCalendar():
     config.console.print(line)
 
 
-@random_app.command(
+@print_app.command(
   'stops',
   help='Print Stops.',
   epilog=('Example:\n\n\n\n$ poetry run dart print stops\n\n<<prints all DART stations>>'),
@@ -698,11 +661,12 @@ def PrintCalendars(*, ctx: typer.Context) -> None:  # documentation is help/epil
 @clibase.CLIErrorGuard
 def PrintStops(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: DARTConfig = ctx.obj
-  for line in DART(_GetDatabase(config)).PrettyPrintStops():
+  database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
+  for line in DART(database).PrettyPrintStops():
     config.console.print(line)
 
 
-@random_app.command(
+@print_app.command(
   'trips',
   help='Print Trips.',
   epilog=(
@@ -721,11 +685,12 @@ def PrintTrips(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: DARTConfig = ctx.obj
-  for line in DART(_GetDatabase(config)).PrettyDaySchedule(day=base.DATE_OBJ_GTFS(str(day))):
+  database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
+  for line in DART(database).PrettyDaySchedule(day=base.DATE_OBJ_GTFS(str(day))):
     config.console.print(line)
 
 
-@random_app.command(
+@print_app.command(
   'station',
   help='Print Station Chart.',
   epilog=(
@@ -749,15 +714,15 @@ def PrintStation(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: DARTConfig = ctx.obj
-  db: gtfs.GTFS = _GetDatabase(config)
-  for line in DART(db).PrettyStationSchedule(
-    stop_id=db.StopIDFromNameFragmentOrID(station),
+  database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
+  for line in DART(database).PrettyStationSchedule(
+    stop_id=database.StopIDFromNameFragmentOrID(station),
     day=base.DATE_OBJ_GTFS(str(day)),
   ):
     config.console.print(line)
 
 
-@random_app.command(
+@print_app.command(
   'trip',
   help='Print DART Trip.',
   epilog=('Example:\n\n\n\n$ poetry run dart print trip E108\n\n<<prints details for train E108>>'),
@@ -769,7 +734,8 @@ def PrintTrip(  # documentation is help/epilog/args # noqa: D103
   train: str = typer.Argument(..., help='DART train code, like "E108" for example'),
 ) -> None:
   config: DARTConfig = ctx.obj
-  for line in DART(_GetDatabase(config)).PrettyPrintTrip(trip_name=train):
+  database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
+  for line in DART(database).PrettyPrintTrip(trip_name=train):
     config.console.print(line)
 
 

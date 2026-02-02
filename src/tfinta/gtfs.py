@@ -24,9 +24,7 @@ import urllib.request
 import zipfile
 import zoneinfo
 from collections.abc import Callable, Generator
-from typing import IO, Any
-from typing import get_args as GetTypeArgs
-from typing import get_type_hints as GetTypeHints
+from typing import IO, Any, get_args, get_type_hints
 
 import prettytable
 
@@ -82,17 +80,21 @@ class _TableLocation:
 
 
 # useful aliases
-_GTFSRowHandler = Callable[[_TableLocation, int, dict[str, None | str | int | float | bool]], None]
+type _GTFSRowHandler[T: dm.BaseCVSRowType] = Callable[[_TableLocation, int, T], None]
 
 
 class GTFS:
   """GTFS database."""
 
   def __init__(self, db_dir_path: str, /) -> None:
-    """Constructor.
+    """Construct.
 
     Args:
       db_dir_path: Path to directory in which to save DB 'transit.db'
+
+
+    Raises:
+      Error: on invalid directory path
 
     """
     # save the dir/path, create directory if needed
@@ -125,39 +127,40 @@ class GTFS:
       self.Save(force=True)
     # create file handlers structure
     self._file_handlers: dict[
-      str, tuple[_GTFSRowHandler, type, dict[str, tuple[type, bool]], set[str]]
-    ] = {  # type:ignore
+      str,
+      tuple[_GTFSRowHandler[Any], type[dm.BaseCVSRowType], dict[str, tuple[type, bool]], set[str]],
+    ] = {
       # {file_name: (handler, TypedDict_row_definition,
       #              {field: (type, required?)}, {required1, required2, ...})}
-      'feed_info.txt': (self._HandleFeedInfoRow, dm.ExpectedFeedInfoCSVRowType, {}, set()),  # type:ignore
-      'agency.txt': (self._HandleAgencyRow, dm.ExpectedAgencyCSVRowType, {}, set()),  # type:ignore
-      'calendar.txt': (self._HandleCalendarRow, dm.ExpectedCalendarCSVRowType, {}, set()),  # type:ignore
+      'feed_info.txt': (self._HandleFeedInfoRow, dm.ExpectedFeedInfoCSVRowType, {}, set()),
+      'agency.txt': (self._HandleAgencyRow, dm.ExpectedAgencyCSVRowType, {}, set()),
+      'calendar.txt': (self._HandleCalendarRow, dm.ExpectedCalendarCSVRowType, {}, set()),
       'calendar_dates.txt': (
         self._HandleCalendarDatesRow,
         dm.ExpectedCalendarDatesCSVRowType,
         {},
         set(),
-      ),  # type:ignore
-      'routes.txt': (self._HandleRoutesRow, dm.ExpectedRoutesCSVRowType, {}, set()),  # type:ignore
-      'shapes.txt': (self._HandleShapesRow, dm.ExpectedShapesCSVRowType, {}, set()),  # type:ignore
-      'trips.txt': (self._HandleTripsRow, dm.ExpectedTripsCSVRowType, {}, set()),  # type:ignore
-      'stops.txt': (self._HandleStopsRow, dm.ExpectedStopsCSVRowType, {}, set()),  # type:ignore
-      'stop_times.txt': (self._HandleStopTimesRow, dm.ExpectedStopTimesCSVRowType, {}, set()),  # type:ignore
+      ),
+      'routes.txt': (self._HandleRoutesRow, dm.ExpectedRoutesCSVRowType, {}, set()),
+      'shapes.txt': (self._HandleShapesRow, dm.ExpectedShapesCSVRowType, {}, set()),
+      'trips.txt': (self._HandleTripsRow, dm.ExpectedTripsCSVRowType, {}, set()),
+      'stops.txt': (self._HandleStopsRow, dm.ExpectedStopsCSVRowType, {}, set()),
+      'stop_times.txt': (self._HandleStopTimesRow, dm.ExpectedStopTimesCSVRowType, {}, set()),
     }
     # fill in types, derived from the _Expected*CSVRowType TypedDicts
     for file_name, (_, expected, fields, required) in self._file_handlers.items():
-      for field, type_descriptor in GetTypeHints(expected).items():
+      for field, type_descriptor in get_type_hints(expected).items():
         if type_descriptor in (str, int, float, bool):
           # no optional, so field is required
           required.add(field)
           fields[field] = (type_descriptor, True)
         else:
           # it is optional and something else, so find out which
-          field_args = GetTypeArgs(type_descriptor)
+          field_args = get_args(type_descriptor)
           if len(field_args) != 2:
             raise Error(f'incorrect type len {file_name}/{field}: {field_args!r}')
           field_type = field_args[0] if field_args[1] == types.NoneType else field_args[1]
-          if field_type not in (str, int, float, bool):
+          if field_type not in {str, int, float, bool}:
             raise Error(f'incorrect type {file_name}/{field}: {field_args!r}')
           fields[field] = (field_type, False)
 
@@ -365,9 +368,9 @@ class GTFS:
       not force_replace
       and operator in self._db.files.files
       and link in self._db.files.files[operator]
-      and self._db.files.files[operator][link]
-      and (age := DAYS_OLD(self._db.files.files[operator][link].tm)) <= freshness
-    ):  # type:ignore
+      and (file_metadata := self._db.files.files[operator][link]) is not None
+      and (age := DAYS_OLD(file_metadata.tm)) <= freshness
+    ):
       logging.info('GTFS sources are fresh (%0.2f days old) - SKIP', age)
     else:
       logging.info('Parsing GTFS ZIP source (%0.2f days old)', age)
@@ -1006,7 +1009,7 @@ class GTFS:
             f'{base.BOLD}{len(route.trips)}{base.NULL}',
           ]
         )
-      yield from table.get_string().splitlines()  # type:ignore
+      yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
       if i < n_items - 1:
         yield ''
         yield '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
@@ -1031,16 +1034,19 @@ class GTFS:
           table.add_row(
             [
               '',
-              f'Version: {base.BOLD}{base.YELLOW}{meta.version}{base.NULL}\n'
-              f'Last load: {base.BOLD}{base.YELLOW}{base.STD_TIME_STRING(meta.tm)}{base.NULL}\n'
-              f'Publisher: {base.BOLD}{meta.publisher or base.NULL_TEXT}{base.NULL}\n'
-              f'URL: {base.BOLD}{meta.url or base.NULL_TEXT}{base.NULL}\n'
-              f'Language: {base.BOLD}{meta.language or base.NULL_TEXT}{base.NULL}\n'
-              f'Days range: {base.BOLD}{base.YELLOW}{base.PRETTY_DATE(meta.days.start)} - {base.PRETTY_DATE(meta.days.end)}{base.NULL}\n'
-              f'Mail: {base.BOLD}{meta.email or base.NULL_TEXT}{base.NULL}',
+              (
+                f'Version: {base.BOLD}{base.YELLOW}{meta.version}{base.NULL}\n'
+                f'Last load: {base.BOLD}{base.YELLOW}{base.STD_TIME_STRING(meta.tm)}{base.NULL}\n'
+                f'Publisher: {base.BOLD}{meta.publisher or base.NULL_TEXT}{base.NULL}\n'
+                f'URL: {base.BOLD}{meta.url or base.NULL_TEXT}{base.NULL}\n'
+                f'Language: {base.BOLD}{meta.language or base.NULL_TEXT}{base.NULL}\n'
+                f'Days range: {base.BOLD}{base.YELLOW}{base.PRETTY_DATE(meta.days.start)} -'
+                f' {base.PRETTY_DATE(meta.days.end)}{base.NULL}\n'
+                f'Mail: {base.BOLD}{meta.email or base.NULL_TEXT}{base.NULL}'
+              ),
             ]
           )
-    yield from table.get_string().splitlines()  # type:ignore
+    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
   def PrettyPrintCalendar(
     self, /, *, filter_to: set[int] | None = None
@@ -1093,7 +1099,7 @@ class GTFS:
     if not has_data:
       raise Error('No calendar data found')
     table.hrules = prettytable.HRuleStyle.ALL
-    yield from table.get_string().splitlines()  # type:ignore
+    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
   def PrettyPrintStops(self, /, *, filter_to: set[str] | None = None) -> Generator[str, None, None]:
     """Generate a pretty version of the stops."""
@@ -1145,7 +1151,7 @@ class GTFS:
     if not has_data:
       raise Error('No stop data found')
     table.hrules = prettytable.HRuleStyle.ALL
-    yield from table.get_string().splitlines()  # type:ignore
+    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
   def PrettyPrintShape(self, /, *, shape_id: str) -> Generator[str, None, None]:
     """Generate a pretty version of a shape."""
@@ -1177,7 +1183,7 @@ class GTFS:
           f'{base.BOLD}{point.point.longitude:0.7f}{base.NULL}',
         ]
       )
-    yield from table.get_string().splitlines()  # type:ignore
+    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
   def PrettyPrintTrip(self, /, *, trip_id: str) -> Generator[str, None, None]:
     """Generate a pretty version of a Trip."""
@@ -1230,7 +1236,7 @@ class GTFS:
           f'{base.BOLD}{stop_description or base.NULL_TEXT}{base.NULL}',
         ]
       )
-    yield from table.get_string().splitlines()  # type:ignore
+    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
 
   def PrettyPrintAllDatabase(self) -> Generator[str, None, None]:
     """Print everything in the database."""
@@ -1360,7 +1366,7 @@ def main(argv: list[str] | None = None) -> int:
   )
   args: argparse.Namespace = parser.parse_args(argv)
   levels: list[int] = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
-  logging.basicConfig(level=levels[min(args.verbose, len(levels) - 1)], format=base.LOG_FORMAT)  # type:ignore
+  logging.basicConfig(level=levels[min(args.verbose, len(levels) - 1)], format=base.LOG_FORMAT)
   command = args.command.lower().strip() if args.command else ''
   database = GTFS(DEFAULT_DATA_DIR)
   # look at main command

@@ -71,7 +71,11 @@ class FileMetadata:
   email: str | None = None  # feed_info.txt/feed_contact_email
 
 
-class ExpectedFeedInfoCSVRowType(TypedDict):
+class BaseCVSRowType(TypedDict):
+  """Base CSV row type."""
+
+
+class ExpectedFeedInfoCSVRowType(BaseCVSRowType):
   """feed_info.txt."""
 
   feed_publisher_name: str
