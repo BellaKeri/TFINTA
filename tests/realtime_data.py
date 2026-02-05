@@ -514,7 +514,7 @@ TRAIN_OBJ = dm.LatestData(
 )
 
 STATIONS_STR: str = """\
-Irish Rail Stations @ 2025/Jun/29-08:14:27-UTC
+[magenta]Irish Rail Stations @ [bold]2025/Jun/29-08:14:27-UTC[/]
 
 +------+-------+-------------------------------------------------+-----------------+---------------+------------+
 |  ID  |  Code |                       Name                      |      Alias      |   Location °  |  Location  |
@@ -540,7 +540,7 @@ Irish Rail Stations @ 2025/Jun/29-08:14:27-UTC
 """
 
 RUNNING_STR: str = """\
-Irish Rail Running Trains @ 2025/Jun/29-08:14:27-UTC
+[magenta]Irish Rail Running Trains @ [bold]2025/Jun/29-08:14:27-UTC[/]
 
 +-------+-----------------+---------------+------------+---------------------------------------------------+
 | Train |    Direction    |   Location °  |  Location  |                      Message                      |

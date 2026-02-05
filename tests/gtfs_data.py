@@ -1642,10 +1642,10 @@ DART_TRIPS_ZIP_1 = collections.OrderedDict(
 )
 
 TRIPS_SCHEDULE_2025_08_04: str = """\
-DART Schedule
+[bold magenta]DART Schedule[/]
 
-Day:      2025-08-04 (Monday)
-Services: 84
+Day:      [bold yellow]2025-08-04[/] [bold](Monday)[/]
+Services: [bold yellow]84[/]
 
 +-----+-------+------------+----------+-------------+---------------------------------+
 | N/S | Train |   Start    |   End    | Depart Time | Service/Trip Codes/[★Alt.Times] |
