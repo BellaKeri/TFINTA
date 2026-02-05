@@ -52,7 +52,12 @@ class FakeHTTPFile(FakeHTTPStream):
 
 @dataclasses.dataclass(kw_only=False, slots=True, frozen=True)
 class Data:
-  """Expected data cell for AssertTable."""
+  """Expected data cell for AssertTable.
+
+  We don't actually need this for now, since all styles are "inline".
+  Later if we need this replace `str` for `Data` in ExpectedTable.
+
+  """
 
   value: str
   style: str | None = None
@@ -62,8 +67,8 @@ class Data:
 class ExpectedTable:
   """Expected data structure for AssertTable."""
 
-  columns: list[Data]
-  rows: list[list[Data]]
+  columns: list[str]
+  rows: list[list[str]]
 
 
 type ExpectedPrettyPrint = list[str | ExpectedTable]
@@ -81,26 +86,14 @@ def AssertTable(expected_data: ExpectedTable, actual_table: table.Table, /) -> N
   n_cols: int = len(actual_table.columns)
   assert n_cols == len(expected_data.columns), 'incorrect number of headers'
   for i, actual_col in enumerate(actual_table.columns):
-    expected_col: Data = expected_data.columns[i]
-    val: str = expected_col.value
+    val: str = expected_data.columns[i]
     assert str(actual_col.header) == val, f'Header {i}: expected {val!r}, got {actual_col.header!r}'
-    if expected_col.style is not None:
-      assert str(actual_col.style) == expected_col.style, (
-        f'Header {i} style: expected {expected_col.style!r}, got {actual_col.style!r}'
-      )
     cells_list = list(actual_col.cells)
     assert len(cells_list) == len(expected_data.rows), f'Col {i}: incorrect number of cells'
     for r, cell in enumerate(cells_list):
       assert n_cols == len(expected_data.rows[r]), f'incorrect number of columns in row {r}'
-      expected_cell: Data = expected_data.rows[r][i]
-      assert str(cell) == expected_cell.value, (
-        f'Cell {r}/{i}: expected {expected_cell.value!r}, got {cell!r}'
-      )
-      if expected_cell.style is not None:
-        style_str = str(getattr(cell, 'style', ''))
-        assert style_str == expected_cell.style, (
-          f'Cell {r}/{i} style: expected {expected_cell.style!r}, got {style_str!r}'
-        )
+      val = expected_data.rows[r][i]
+      assert str(cell) == val, f'Cell {r}/{i}: expected {val!r}, got {cell!r}'
 
 
 def AssertPrettyPrint(
