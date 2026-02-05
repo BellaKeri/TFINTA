@@ -1054,35 +1054,35 @@ class GTFS:
     n_items: int = len(self._db.agencies)
     for i, agency_id in enumerate(sorted(self._db.agencies)):
       agency: dm.Agency = self._db.agencies[agency_id]
-      yield f'{base.MAGENTA}Agency {base.BOLD}{agency.name} ({agency.id}){base.NULL}'
+      yield f'[magenta]Agency [bold]{agency.name} ({agency.id})[/]'
       yield f'  {agency.url} ({agency.zone})'
       yield ''
       table = prettytable.PrettyTable(
         [
-          f'{base.BOLD}{base.CYAN}Route{base.NULL}',
-          f'{base.BOLD}{base.CYAN}Name{base.NULL}',
-          f'{base.BOLD}{base.CYAN}Long Name{base.NULL}',
-          f'{base.BOLD}{base.CYAN}Type{base.NULL}',
-          f'{base.BOLD}{base.CYAN}Desc.{base.NULL}',
-          f'{base.BOLD}{base.CYAN}URL{base.NULL}',
-          f'{base.BOLD}{base.CYAN}Color{base.NULL}',
-          f'{base.BOLD}{base.CYAN}Text{base.NULL}',
-          f'{base.BOLD}{base.CYAN}# Trips{base.NULL}',
+          '[bold cyan]Route[/]',
+          '[bold cyan]Name[/]',
+          '[bold cyan]Long Name[/]',
+          '[bold cyan]Type[/]',
+          '[bold cyan]Desc.[/]',
+          '[bold cyan]URL[/]',
+          '[bold cyan]Color[/]',
+          '[bold cyan]Text[/]',
+          '[bold cyan]# Trips[/]',
         ]
       )
       for route_id in sorted(agency.routes):
         route: dm.Route = agency.routes[route_id]
         table.add_row(
           [
-            f'{base.BOLD}{base.CYAN}{route.id}{base.NULL}',
-            f'{base.BOLD}{base.YELLOW}{route.short_name}{base.NULL}',
-            f'{base.BOLD}{base.YELLOW}{route.long_name}{base.NULL}',
-            f'{base.BOLD}{route.route_type.name}{base.NULL}',
-            f'{base.BOLD}{route.description or base.NULL_TEXT}{base.NULL}',
-            f'{base.BOLD}{route.url or base.NULL_TEXT}{base.NULL}',
-            f'{base.BOLD}{route.color or base.NULL_TEXT}{base.NULL}',
-            f'{base.BOLD}{route.text_color or base.NULL_TEXT}{base.NULL}',
-            f'{base.BOLD}{len(route.trips)}{base.NULL}',
+            f'[bold cyan]{route.id}[/]',
+            f'[bold yellow]{route.short_name}[/]',
+            f'[bold yellow]{route.long_name}[/]',
+            f'[bold]{route.route_type.name}[/]',
+            f'[bold]{route.description or base.NULL_TEXT}[/]',
+            f'[bold]{route.url or base.NULL_TEXT}[/]',
+            f'[bold]{route.color or base.NULL_TEXT}[/]',
+            f'[bold]{route.text_color or base.NULL_TEXT}[/]',
+            f'[bold]{len(route.trips)}[/]',
           ]
         )
       yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
@@ -1091,19 +1091,17 @@ class GTFS:
         yield '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
         yield ''
     yield ''
-    yield (f'{base.MAGENTA}{base.BOLD}Files @ {base.STD_TIME_STRING(self._db.files.tm)}{base.NULL}')
+    yield (f'[bold magenta]Files @ {base.STD_TIME_STRING(self._db.files.tm)}[/]')
     yield ''
-    table = prettytable.PrettyTable(
-      [f'{base.BOLD}{base.CYAN}Agency{base.NULL}', f'{base.BOLD}{base.CYAN}URLs / Data{base.NULL}']
-    )
+    table = prettytable.PrettyTable(['[bold cyan]Agency[/]', '[bold cyan]URLs / Data[/]'])
     for agency_name in sorted(self._db.files.files):
       urls = self._db.files.files[agency_name]
       for url in sorted(urls):
         meta: dm.FileMetadata | None = urls[url]
         table.add_row(
           [
-            f'{base.BOLD}{base.CYAN}{agency_name}{base.NULL}',
-            f'{base.BOLD}{url}{base.NULL}',
+            f'[bold cyan]{agency_name}[/]',
+            f'[bold]{url}[/]',
           ]
         )
         if meta:
@@ -1111,14 +1109,14 @@ class GTFS:
             [
               '',
               (
-                f'Version: {base.BOLD}{base.YELLOW}{meta.version}{base.NULL}\n'
-                f'Last load: {base.BOLD}{base.YELLOW}{base.STD_TIME_STRING(meta.tm)}{base.NULL}\n'
-                f'Publisher: {base.BOLD}{meta.publisher or base.NULL_TEXT}{base.NULL}\n'
-                f'URL: {base.BOLD}{meta.url or base.NULL_TEXT}{base.NULL}\n'
-                f'Language: {base.BOLD}{meta.language or base.NULL_TEXT}{base.NULL}\n'
-                f'Days range: {base.BOLD}{base.YELLOW}{base.PRETTY_DATE(meta.days.start)} -'
-                f' {base.PRETTY_DATE(meta.days.end)}{base.NULL}\n'
-                f'Mail: {base.BOLD}{meta.email or base.NULL_TEXT}{base.NULL}'
+                f'Version: [bold yellow]{meta.version}[/]\n'
+                f'Last load: [bold yellow]{base.STD_TIME_STRING(meta.tm)}[/]\n'
+                f'Publisher: [bold]{meta.publisher or base.NULL_TEXT}[/]\n'
+                f'URL: [bold]{meta.url or base.NULL_TEXT}[/]\n'
+                f'Language: [bold]{meta.language or base.NULL_TEXT}[/]\n'
+                f'Days range: [bold yellow]{base.PRETTY_DATE(meta.days.start)} -'
+                f' {base.PRETTY_DATE(meta.days.end)}[/]\n'
+                f'Mail: [bold]{meta.email or base.NULL_TEXT}[/]'
               ),
             ]
           )
@@ -1138,17 +1136,17 @@ class GTFS:
     """
     table = prettytable.PrettyTable(
       [
-        f'{base.BOLD}{base.CYAN}Service{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Start{base.NULL}',
-        f'{base.BOLD}{base.CYAN}End{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Mon{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Tue{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Wed{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Thu{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Fri{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Sat{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Sun{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Exceptions{base.NULL}',
+        '[bold cyan]Service[/]',
+        '[bold cyan]Start[/]',
+        '[bold cyan]End[/]',
+        '[bold cyan]Mon[/]',
+        '[bold cyan]Tue[/]',
+        '[bold cyan]Wed[/]',
+        '[bold cyan]Thu[/]',
+        '[bold cyan]Fri[/]',
+        '[bold cyan]Sat[/]',
+        '[bold cyan]Sun[/]',
+        '[bold cyan]Exceptions[/]',
       ]
     )
     has_data = False
@@ -1159,27 +1157,26 @@ class GTFS:
       calendar: dm.CalendarService = self._db.calendar[service]
       table.add_row(
         [
-          f'{base.BOLD}{base.CYAN}{calendar.id}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{base.PRETTY_DATE(calendar.days.start)}{base.NULL}',
+          f'[bold cyan]{calendar.id}[/]',
+          f'[bold yellow]{base.PRETTY_DATE(calendar.days.start)}[/]',
           (
-            f'{base.BOLD}'
+            f'[bold]'
             f'{
               base.PRETTY_DATE(
                 calendar.days.end if calendar.days.end != calendar.days.start else None
               )
             }'
-            f'{base.NULL}'
+            f'[/]'
           ),
-          f'{base.BOLD}{base.PRETTY_BOOL(calendar.week[0])}{base.NULL}',
-          f'{base.BOLD}{base.PRETTY_BOOL(calendar.week[1])}{base.NULL}',
-          f'{base.BOLD}{base.PRETTY_BOOL(calendar.week[2])}{base.NULL}',
-          f'{base.BOLD}{base.PRETTY_BOOL(calendar.week[3])}{base.NULL}',
-          f'{base.BOLD}{base.PRETTY_BOOL(calendar.week[4])}{base.NULL}',
-          f'{base.BOLD}{base.PRETTY_BOOL(calendar.week[5])}{base.NULL}',
-          f'{base.BOLD}{base.PRETTY_BOOL(calendar.week[6])}{base.NULL}',
+          f'[bold]{base.PRETTY_BOOL(calendar.week[0])}[/]',
+          f'[bold]{base.PRETTY_BOOL(calendar.week[1])}[/]',
+          f'[bold]{base.PRETTY_BOOL(calendar.week[2])}[/]',
+          f'[bold]{base.PRETTY_BOOL(calendar.week[3])}[/]',
+          f'[bold]{base.PRETTY_BOOL(calendar.week[4])}[/]',
+          f'[bold]{base.PRETTY_BOOL(calendar.week[5])}[/]',
+          f'[bold]{base.PRETTY_BOOL(calendar.week[6])}[/]',
           '\n'.join(
-            f'{base.BOLD}{base.PRETTY_DATE(d)} '
-            f'{base.PRETTY_BOOL(calendar.exceptions[d])}{base.NULL}'
+            f'[bold]{base.PRETTY_DATE(d)} {base.PRETTY_BOOL(calendar.exceptions[d])}[/]'
             for d in sorted(calendar.exceptions)
           )
           if calendar.exceptions
@@ -1205,15 +1202,15 @@ class GTFS:
     """
     table = prettytable.PrettyTable(
       [
-        f'{base.BOLD}{base.CYAN}Stop{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Code{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Name{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Type{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Location °{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Location{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Zone{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Desc.{base.NULL}',
-        f'{base.BOLD}{base.CYAN}URL{base.NULL}',
+        '[bold cyan]Stop[/]',
+        '[bold cyan]Code[/]',
+        '[bold cyan]Name[/]',
+        '[bold cyan]Type[/]',
+        '[bold cyan]Location °[/]',
+        '[bold cyan]Location[/]',
+        '[bold cyan]Zone[/]',
+        '[bold cyan]Desc.[/]',
+        '[bold cyan]URL[/]',
       ]
     )
     has_data = False
@@ -1223,33 +1220,26 @@ class GTFS:
       has_data = True
       stop: dm.BaseStop = self._db.stops[stop_id]
       parent_code = (
-        ''
-        if stop.parent is None
-        else f'\n{base.BOLD}{base.RED}  \u2514\u2500 {stop.parent}{base.NULL}'
+        '' if stop.parent is None else f'\n[bold red]  \u2514\u2500 {stop.parent}[/]'
       )  # └─
       parent_name = (
         ''
         if stop.parent is None
-        else f'\n{base.BOLD}{base.RED}  \u2514\u2500 '  # └─
-        f'{self._db.stops[stop.parent].name}{base.NULL}'
+        else f'\n[bold red]  \u2514\u2500 '  # └─
+        f'{self._db.stops[stop.parent].name}[/]'
       )
       lat, lon = stop.point.ToDMS()
       table.add_row(
         [
-          f'{base.BOLD}{base.CYAN}{stop.id}{base.NULL}{parent_code}',
-          f'{base.BOLD}{stop.code if stop.code and stop.code != "0" else base.NULL_TEXT}{
-            base.NULL
-          }',
-          f'{base.BOLD}{base.YELLOW}{stop.name}{base.NULL}{parent_name}',
-          f'{base.BOLD}{stop.location.name}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{lat}{base.NULL}\n{base.BOLD}{base.YELLOW}{lon}{base.NULL}',
-          (
-            f'{base.BOLD}{stop.point.latitude:0.7f}{base.NULL}\n'
-            f'{base.BOLD}{stop.point.longitude:0.7f}{base.NULL}'
-          ),
-          f'{base.BOLD}{stop.zone or base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{stop.description if stop.zone else base.NULL_TEXT}{base.NULL}',
-          f'{base.BOLD}{stop.url or base.NULL_TEXT}{base.NULL}',
+          f'[bold cyan]{stop.id}[/]{parent_code}',
+          f'[bold]{stop.code if stop.code and stop.code != "0" else base.NULL_TEXT}[/]',
+          f'[bold yellow]{stop.name}[/]{parent_name}',
+          f'[bold]{stop.location.name}[/]',
+          f'[bold yellow]{lat}[/]\n[bold yellow]{lon}[/]',
+          (f'[bold]{stop.point.latitude:0.7f}[/]\n[bold]{stop.point.longitude:0.7f}[/]'),
+          f'[bold]{stop.zone or base.NULL_TEXT}[/]',
+          f'[bold]{stop.description if stop.zone else base.NULL_TEXT}[/]',
+          f'[bold]{stop.url or base.NULL_TEXT}[/]',
         ]
       )
     if not has_data:
@@ -1270,16 +1260,16 @@ class GTFS:
     shape: dm.Shape | None = self._db.shapes.get(shape_id.strip(), None)
     if not shape_id.strip() or not shape:
       raise Error(f'shape id {shape_id!r} was not found')
-    yield f'{base.MAGENTA}GTFS Shape ID {base.BOLD}{shape.id}{base.NULL}'
+    yield f'[magenta]GTFS Shape ID [bold]{shape.id}[/]'
     yield ''
     table = prettytable.PrettyTable(
       [
-        f'{base.BOLD}{base.CYAN}#{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Distance{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Latitude °{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Longitude °{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Latitude{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Longitude{base.NULL}',
+        '[bold cyan]#[/]',
+        '[bold cyan]Distance[/]',
+        '[bold cyan]Latitude °[/]',
+        '[bold cyan]Longitude °[/]',
+        '[bold cyan]Latitude[/]',
+        '[bold cyan]Longitude[/]',
       ]
     )
     for seq in range(1, len(shape.points) + 1):
@@ -1287,12 +1277,12 @@ class GTFS:
       lat, lon = point.point.ToDMS()
       table.add_row(
         [
-          f'{base.BOLD}{base.CYAN}{seq}{base.NULL}',
-          f'{base.BOLD}{point.distance:0.2f}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{lat}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{lon}{base.NULL}',
-          f'{base.BOLD}{point.point.latitude:0.7f}{base.NULL}',
-          f'{base.BOLD}{point.point.longitude:0.7f}{base.NULL}',
+          f'[bold cyan]{seq}[/]',
+          f'[bold]{point.distance:0.2f}[/]',
+          f'[bold yellow]{lat}[/]',
+          f'[bold yellow]{lon}[/]',
+          f'[bold]{point.point.latitude:0.7f}[/]',
+          f'[bold]{point.point.longitude:0.7f}[/]',
         ]
       )
     yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
@@ -1310,32 +1300,29 @@ class GTFS:
     agency, route, trip = self.FindTrip(trip_id)
     if not agency or not route or not trip:
       raise Error(f'trip id {trip_id!r} was not found')
-    yield f'{base.MAGENTA}GTFS Trip ID {base.BOLD}{trip.id}{base.NULL}'
+    yield f'[magenta]GTFS Trip ID [bold]{trip.id}[/]'
     yield ''
-    yield f'Agency:        {base.BOLD}{base.YELLOW}{agency.name}{base.NULL}'
-    yield f'Route:         {base.BOLD}{base.YELLOW}{route.id}{base.NULL}'
-    yield f'  Short name:  {base.BOLD}{base.YELLOW}{route.short_name}{base.NULL}'
-    yield f'  Long name:   {base.BOLD}{base.YELLOW}{route.long_name}{base.NULL}'
-    yield (f'  Description: {base.BOLD}{route.description or base.NULL_TEXT}{base.NULL}')
-    yield (
-      f'Direction:     {base.BOLD}{base.YELLOW}'
-      f'{"inbound" if trip.direction else "outbound"}{base.NULL}'
-    )
-    yield f'Service:       {base.BOLD}{base.YELLOW}{trip.service}{base.NULL}{base.NULL}'
-    yield f'Shape:         {base.BOLD}{trip.shape or base.NULL_TEXT}{base.NULL}'
-    yield f'Headsign:      {base.BOLD}{trip.headsign or base.NULL_TEXT}{base.NULL}'
-    yield f'Name:          {base.BOLD}{trip.name or base.NULL_TEXT}{base.NULL}'
-    yield f'Block:         {base.BOLD}{trip.block or base.NULL_TEXT}{base.NULL}'
+    yield f'Agency:        [bold yellow]{agency.name}[/]'
+    yield f'Route:         [bold yellow]{route.id}[/]'
+    yield f'  Short name:  [bold yellow]{route.short_name}[/]'
+    yield f'  Long name:   [bold yellow]{route.long_name}[/]'
+    yield (f'  Description: [bold]{route.description or base.NULL_TEXT}[/]')
+    yield (f'Direction:     [bold yellow]{"inbound" if trip.direction else "outbound"}[/]')
+    yield f'Service:       [bold yellow]{trip.service}[/]'
+    yield f'Shape:         [bold]{trip.shape or base.NULL_TEXT}[/]'
+    yield f'Headsign:      [bold]{trip.headsign or base.NULL_TEXT}[/]'
+    yield f'Name:          [bold]{trip.name or base.NULL_TEXT}[/]'
+    yield f'Block:         [bold]{trip.block or base.NULL_TEXT}[/]'
     yield ''
     table = prettytable.PrettyTable(
       [
-        f'{base.BOLD}{base.CYAN}#{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Stop ID{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Name{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Arrival{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Departure{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Code{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Description{base.NULL}',
+        '[bold cyan]#[/]',
+        '[bold cyan]Stop ID[/]',
+        '[bold cyan]Name[/]',
+        '[bold cyan]Arrival[/]',
+        '[bold cyan]Departure[/]',
+        '[bold cyan]Code[/]',
+        '[bold cyan]Description[/]',
       ]
     )
     for seq in range(1, len(trip.stops) + 1):
@@ -1343,29 +1330,29 @@ class GTFS:
       stop_code, stop_name, stop_description = self.StopName(stop.stop)
       table.add_row(
         [
-          f'{base.BOLD}{base.CYAN}{seq}{base.NULL}',
-          f'{base.BOLD}{stop.stop}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{stop_name or base.NULL_TEXT}{base.NULL}',
+          f'[bold cyan]{seq}[/]',
+          f'[bold]{stop.stop}[/]',
+          f'[bold yellow]{stop_name or base.NULL_TEXT}[/]',
           (
-            f'{base.BOLD}'
+            f'[bold]'
             f'{
               stop.scheduled.times.arrival.ToHMS()
               if stop.scheduled.times.arrival
               else base.NULL_TEXT
             }'
-            f'{base.NULL}'
+            f'[/]'
           ),
           (
-            f'{base.BOLD}'
+            f'[bold]'
             f'{
               stop.scheduled.times.departure.ToHMS()
               if stop.scheduled.times.departure
               else base.NULL_TEXT
             }'
-            f'{base.NULL}'
+            f'[/]'
           ),
-          f'{base.BOLD}{stop_code}{base.NULL}',
-          f'{base.BOLD}{stop_description or base.NULL_TEXT}{base.NULL}',
+          f'[bold]{stop_code}[/]',
+          f'[bold]{stop_description or base.NULL_TEXT}[/]',
         ]
       )
     yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]

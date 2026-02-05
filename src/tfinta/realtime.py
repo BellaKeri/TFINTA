@@ -724,41 +724,34 @@ class RealtimeRail:
     if self._latest.stations_tm is None or not self._latest.stations:
       self.StationsCall()  # lazy load
     yield (
-      f'{base.MAGENTA}Irish Rail Stations @ {base.BOLD}'
-      f'{base.STD_TIME_STRING(self._latest.stations_tm or 0)}{base.NULL}'
+      f'[magenta]Irish Rail Stations @ [bold]'
+      f'{base.STD_TIME_STRING(self._latest.stations_tm or 0)}[/]'
     )
     yield ''
     table = prettytable.PrettyTable(
       [
-        f'{base.BOLD}{base.CYAN}ID{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Code{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Name{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Alias{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Location °{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Location{base.NULL}',
+        '[bold cyan]ID[/]',
+        '[bold cyan]Code[/]',
+        '[bold cyan]Name[/]',
+        '[bold cyan]Alias[/]',
+        '[bold cyan]Location °[/]',
+        '[bold cyan]Location[/]',
       ]
     )
     for station in sorted(self._latest.stations.values()):
       lat, lon = (None, None) if station.location is None else station.location.ToDMS()
       table.add_row(
         [
-          f'{base.BOLD}{base.CYAN}{station.id}{base.NULL}',
-          f'{base.BOLD}{station.code}{base.NULL}',
-          f'{base.BOLD}{base.YELLOW}{station.description}{base.NULL}',
-          f'{base.BOLD}{station.alias or base.NULL_TEXT}{base.NULL}',
+          f'[bold cyan]{station.id}[/]',
+          f'[bold]{station.code}[/]',
+          f'[bold yellow]{station.description}[/]',
+          f'[bold]{station.alias or base.NULL_TEXT}[/]',
+          (f'[bold yellow]{lat or base.NULL_TEXT}[/]\n[bold yellow]{lon or base.NULL_TEXT}[/]'),
           (
-            f'{base.BOLD}{base.YELLOW}{lat or base.NULL_TEXT}{base.NULL}\n'
-            f'{base.BOLD}{base.YELLOW}{lon or base.NULL_TEXT}{base.NULL}'
-          ),
-          (
-            f'{base.BOLD}{
-              f"{station.location.latitude:0.7f}" if station.location else base.NULL_TEXT
-            }'
-            f'{base.NULL}\n'
-            f'{base.BOLD}{
-              f"{station.location.longitude:0.7f}" if station.location else base.NULL_TEXT
-            }'
-            f'{base.NULL}'
+            f'[bold]{f"{station.location.latitude:0.7f}" if station.location else base.NULL_TEXT}'
+            f'[/]\n'
+            f'[bold]{f"{station.location.longitude:0.7f}" if station.location else base.NULL_TEXT}'
+            f'[/]'
           ),
         ]
       )
@@ -775,17 +768,17 @@ class RealtimeRail:
     if self._latest.running_tm is None or not self._latest.running_trains:
       self.RunningTrainsCall()  # lazy load
     yield (
-      f'{base.MAGENTA}Irish Rail Running Trains @ {base.BOLD}'
-      f'{base.STD_TIME_STRING(self._latest.running_tm or 0)}{base.NULL}'
+      f'[magenta]Irish Rail Running Trains @ [bold]'
+      f'{base.STD_TIME_STRING(self._latest.running_tm or 0)}[/]'
     )
     yield ''
     table = prettytable.PrettyTable(
       [
-        f'{base.BOLD}{base.CYAN}Train{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Direction{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Location °{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Location{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Message{base.NULL}',
+        '[bold cyan]Train[/]',
+        '[bold cyan]Direction[/]',
+        '[bold cyan]Location °[/]',
+        '[bold cyan]Location[/]',
+        '[bold cyan]Message[/]',
       ]
     )
     for train in sorted(self._latest.running_trains.values()):
@@ -797,24 +790,19 @@ class RealtimeRail:
       )
       table.add_row(
         [
+          (f'[bold cyan]{train.code}[/]\n[bold]{dm.TRAIN_STATUS_STR[train.status]}[/]'),
+          f'[bold]{base.LIMITED_TEXT(train.direction, 15)}[/]',
           (
-            f'{base.BOLD}{base.CYAN}{train.code}{base.NULL}\n'
-            f'{base.BOLD}{dm.TRAIN_STATUS_STR[train.status]}{base.NULL}'
-          ),
-          f'{base.BOLD}{base.LIMITED_TEXT(train.direction, 15)}{base.NULL}',
-          (
-            f'{base.BOLD}{base.YELLOW if lat else ""}{lat or base.NULL_TEXT}{base.NULL}\n'
-            f'{base.BOLD}{base.YELLOW if lon else ""}{lon or base.NULL_TEXT}{base.NULL}'
+            f'[bold{" yellow" if lat else ""}]{lat or base.NULL_TEXT}[/]\n'
+            f'[bold{" yellow" if lon else ""}]{lon or base.NULL_TEXT}[/]'
           ),
           (
-            f'{base.BOLD}{f"{train.position.latitude:0.7f}" if train.position else base.NULL_TEXT}'
-            f'{base.NULL}\n'
-            f'{base.BOLD}{f"{train.position.longitude:0.7f}" if train.position else base.NULL_TEXT}'
-            f'{base.NULL}'
+            f'[bold]{f"{train.position.latitude:0.7f}" if train.position else base.NULL_TEXT}'
+            f'[/]\n'
+            f'[bold]{f"{train.position.longitude:0.7f}" if train.position else base.NULL_TEXT}'
+            f'[/]'
           ),
-          '\n'.join(
-            f'{base.BOLD}{base.LIMITED_TEXT(m, 50)}{base.NULL}' for m in train_message.split('\n')
-          ),
+          '\n'.join(f'[bold]{base.LIMITED_TEXT(m, 50)}[/]' for m in train_message.split('\n')),
         ]
       )
     table.hrules = prettytable.HRuleStyle.ALL
@@ -837,23 +825,23 @@ class RealtimeRail:
       self.StationsCall()  # lazy load
     tm, _, station_trains = self._latest.station_boards[station_code]
     yield (
-      f'{base.MAGENTA}Irish Rail Station {base.BOLD}'
+      f'[magenta]Irish Rail Station [bold]'
       f'{self._latest.stations[station_code].description} '
-      f'({station_code}){base.NULL}{base.MAGENTA} Board @ '
-      f'{base.BOLD}{base.STD_TIME_STRING(tm)}{base.NULL}'
+      f'({station_code})[/][magenta] Board @ '
+      f'[bold]{base.STD_TIME_STRING(tm)}[/]'
     )
     yield ''
     table = prettytable.PrettyTable(
       [
-        f'{base.BOLD}{base.CYAN}Train{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Origin{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Dest.{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Due{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Arrival{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Depart.{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Late{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Status{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Location{base.NULL}',
+        '[bold cyan]Train[/]',
+        '[bold cyan]Origin[/]',
+        '[bold cyan]Dest.[/]',
+        '[bold cyan]Due[/]',
+        '[bold cyan]Arrival[/]',
+        '[bold cyan]Depart.[/]',
+        '[bold cyan]Late[/]',
+        '[bold cyan]Status[/]',
+        '[bold cyan]Location[/]',
       ]
     )
     for line in station_trains:
@@ -866,55 +854,46 @@ class RealtimeRail:
       )
       table.add_row(
         [
-          f'{base.BOLD}{base.CYAN}{line.train_code}{base.NULL}\n'
-          f'{base.BOLD}{direction_text}{base.NULL}'
+          f'[bold cyan]{line.train_code}[/]\n'
+          f'[bold]{direction_text}[/]'
           + (
-            f'\n{base.BOLD}{line.train_type.name}{base.NULL}'
-            if line.train_type != dm.TrainType.UNKNOWN
-            else ''
+            f'\n[bold]{line.train_type.name}[/]' if line.train_type != dm.TrainType.UNKNOWN else ''
           ),
           (
-            f'{base.BOLD}{line.origin_code}{base.NULL}\n'
-            f'{base.BOLD}{base.LIMITED_TEXT(line.origin_name, 15)}{base.NULL}\n'
-            f'{base.BOLD}{line.trip.arrival.ToHMS() if line.trip.arrival else base.NULL_TEXT}'
-            f'{base.NULL}'
+            f'[bold]{line.origin_code}[/]\n'
+            f'[bold]{base.LIMITED_TEXT(line.origin_name, 15)}[/]\n'
+            f'[bold]{line.trip.arrival.ToHMS() if line.trip.arrival else base.NULL_TEXT}'
+            f'[/]'
           ),
           (
-            f'{base.BOLD}{base.YELLOW}{line.destination_code}{base.NULL}\n'
-            f'{base.BOLD}{base.YELLOW}{base.LIMITED_TEXT(line.destination_name, 15)}{base.NULL}\n'
-            f'{base.BOLD}{line.trip.departure.ToHMS() if line.trip.departure else base.NULL_TEXT}'
-            f'{base.NULL}'
+            f'[bold yellow]{line.destination_code}[/]\n'
+            f'[bold yellow]{base.LIMITED_TEXT(line.destination_name, 15)}[/]\n'
+            f'[bold]{line.trip.departure.ToHMS() if line.trip.departure else base.NULL_TEXT}'
+            f'[/]'
           ),
-          f'{base.BOLD}{line.due_in.time:+}{base.NULL}',
-          f'{base.BOLD}{base.GREEN}'
-          f'{line.scheduled.arrival.ToHMS() if line.scheduled.arrival else base.NULL_TEXT}{
-            base.NULL
-          }'
+          f'[bold]{line.due_in.time:+}[/]',
+          f'[bold green]'
+          f'{line.scheduled.arrival.ToHMS() if line.scheduled.arrival else base.NULL_TEXT}[/]'
           + (
             ''
             if not line.expected.arrival or line.expected.arrival == line.scheduled.arrival
-            else f'\n{base.BOLD}{base.RED}{line.expected.arrival.ToHMS()}{base.NULL}'
+            else f'\n[bold red]{line.expected.arrival.ToHMS()}[/]'
           ),
-          f'{base.BOLD}{base.GREEN}'
-          f'{line.scheduled.departure.ToHMS() if line.scheduled.departure else base.NULL_TEXT}{
-            base.NULL
-          }'
+          f'[bold green]'
+          f'{line.scheduled.departure.ToHMS() if line.scheduled.departure else base.NULL_TEXT}[/]'
           + (
             ''
             if not line.expected.departure or line.expected.departure == line.scheduled.departure
-            else f'\n{base.BOLD}{base.RED}{line.expected.departure.ToHMS()}{base.NULL}'
+            else f'\n[bold red]{line.expected.departure.ToHMS()}[/]'
           ),
           '\n'
           if not line.late
-          else f'\n{base.BOLD}{base.RED if line.late > 0 else base.YELLOW}{line.late:+}{base.NULL}',
+          else f'\n[bold {"red" if line.late > 0 else "yellow"}]{line.late:+}[/]',
+          (f'\n[bold]{base.LIMITED_TEXT(line.status, 15) if line.status else base.NULL_TEXT}[/]'),
           (
-            f'\n{base.BOLD}{base.LIMITED_TEXT(line.status, 15) if line.status else base.NULL_TEXT}'
-            f'{base.NULL}'
-          ),
-          (
-            f'\n{base.BOLD}'
+            f'\n[bold]'
             f'{base.LIMITED_TEXT(line.last_location, 15) if line.last_location else base.NULL_TEXT}'
-            f'{base.NULL}'
+            f'[/]'
           ),
         ]
       )
@@ -939,28 +918,23 @@ class RealtimeRail:
       self.TrainDataCall(train_code, day)
     tm, query, train_stops = self._latest.trains[train_code][day]
     yield (
-      f'{base.MAGENTA}Irish Rail Train {base.BOLD}{train_code}{base.NULL}{base.MAGENTA} @ '
-      f'{base.BOLD}{base.STD_TIME_STRING(tm)}{base.NULL}'
+      f'[magenta]Irish Rail Train [bold]{train_code}[/][magenta] @ '
+      f'[bold]{base.STD_TIME_STRING(tm)}[/]'
     )
     yield ''
-    yield f'Day:         {base.BOLD}{base.YELLOW}{base.PRETTY_DATE(query.day)}{base.NULL}'
-    yield (
-      f'Origin:      {base.BOLD}{base.YELLOW}{query.origin_name} ({query.origin_code}){base.NULL}'
-    )
-    yield (
-      f'Destination: {base.BOLD}{base.YELLOW}{query.destination_name} '
-      f'({query.destination_code}){base.NULL}'
-    )
+    yield f'Day:         [bold yellow]{base.PRETTY_DATE(query.day)}[/]'
+    yield (f'Origin:      [bold yellow]{query.origin_name} ({query.origin_code})[/]')
+    yield (f'Destination: [bold yellow]{query.destination_name} ({query.destination_code})[/]')
     yield ''
     table = prettytable.PrettyTable(
       [
-        f'{base.BOLD}{base.CYAN}#{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Stop{base.NULL}',
-        f'{base.BOLD}{base.CYAN}Arr.(Expect){base.NULL}',
-        f'{base.BOLD}{base.CYAN}A.(Actual){base.NULL}',
-        f'{base.BOLD}{base.CYAN}Depart.(Expect){base.NULL}',
-        f'{base.BOLD}{base.CYAN}D.(Actual){base.NULL}',
-        f'{base.BOLD}{base.CYAN}Late(Min){base.NULL}',
+        '[bold cyan]#[/]',
+        '[bold cyan]Stop[/]',
+        '[bold cyan]Arr.(Expect)[/]',
+        '[bold cyan]A.(Actual)[/]',
+        '[bold cyan]Depart.(Expect)[/]',
+        '[bold cyan]D.(Actual)[/]',
+        '[bold cyan]Late(Min)[/]',
       ]
     )
     for seq in range(1, len(train_stops) + 1):
@@ -971,62 +945,50 @@ class RealtimeRail:
         else stop.actual.arrival.time - stop.scheduled.arrival.time
       )
       stop_type: str = (
-        ''
-        if stop.stop_type == dm.StopType.UNKNOWN
-        else f'\n{base.BOLD}{base.YELLOW}{stop.stop_type.name}{base.NULL}'
+        '' if stop.stop_type == dm.StopType.UNKNOWN else f'\n[bold yellow]{stop.stop_type.name}[/]'
       )
       table.add_row(
         [
-          f'{base.BOLD}{base.CYAN}{seq}{base.NULL}{stop_type}',
+          f'[bold cyan]{seq}[/]{stop_type}',
           (
-            f'{base.BOLD}{base.YELLOW}{stop.station_code}{base.NULL}\n'
-            f'{base.BOLD}{base.YELLOW}'
-            f'{base.LIMITED_TEXT(stop.station_name, 15) if stop.station_name else "????"}{
-              base.NULL
-            }\n'
-            f'{base.BOLD}{dm.LOCATION_TYPE_STR[stop.location_type]}{base.NULL}'
+            f'[bold yellow]{stop.station_code}[/]\n'
+            f'[bold yellow]'
+            f'{base.LIMITED_TEXT(stop.station_name, 15) if stop.station_name else "????"}[/]\n'
+            f'[bold]{dm.LOCATION_TYPE_STR[stop.location_type]}[/]'
           ),
           (
-            f'{base.BOLD}{base.GREEN}'
-            f'{stop.scheduled.arrival.ToHMS() if stop.scheduled.arrival else base.NULL_TEXT}{
-              base.NULL
-            }'
+            f'[bold green]'
+            f'{stop.scheduled.arrival.ToHMS() if stop.scheduled.arrival else base.NULL_TEXT}[/]'
           )
           + (
             ''
             if not stop.expected.arrival or stop.expected.arrival == stop.scheduled.arrival
-            else f'\n{base.BOLD}{base.RED}{stop.expected.arrival.ToHMS()}{base.NULL}'
+            else f'\n[bold red]{stop.expected.arrival.ToHMS()}[/]'
           )
-          + (f'\n{base.BOLD}{dm.PRETTY_AUTO(True)}' if stop.auto_arrival else ''),
+          + (f'\n[bold]{dm.PRETTY_AUTO(True)}' if stop.auto_arrival else ''),
           (
-            f'{base.BOLD}{base.YELLOW}'
-            f'{stop.actual.arrival.ToHMS() if stop.actual.arrival else base.NULL_TEXT}{base.NULL}'
+            f'[bold yellow]'
+            f'{stop.actual.arrival.ToHMS() if stop.actual.arrival else base.NULL_TEXT}[/]'
           ),
           (
-            f'{base.BOLD}{base.GREEN}'
-            f'{stop.scheduled.departure.ToHMS() if stop.scheduled.departure else base.NULL_TEXT}{
-              base.NULL
-            }'
+            f'[bold green]'
+            f'{stop.scheduled.departure.ToHMS() if stop.scheduled.departure else base.NULL_TEXT}[/]'
           )
           + (
             ''
             if not stop.expected.departure or stop.expected.departure == stop.scheduled.departure
-            else f'\n{base.BOLD}{base.RED}{stop.expected.departure.ToHMS()}{base.NULL}'
+            else f'\n[bold red]{stop.expected.departure.ToHMS()}[/]'
           )
-          + (f'\n{base.BOLD}{dm.PRETTY_AUTO(True)}' if stop.auto_depart else ''),
+          + (f'\n[bold]{dm.PRETTY_AUTO(True)}' if stop.auto_depart else ''),
           (
-            f'{base.BOLD}{base.YELLOW}'
-            f'{stop.actual.departure.ToHMS() if stop.actual.departure else base.NULL_TEXT}{
-              base.NULL
-            }'
+            f'[bold yellow]'
+            f'{stop.actual.departure.ToHMS() if stop.actual.departure else base.NULL_TEXT}[/]'
           ),
-          f'{base.BOLD}{
+          f'[bold]{
             base.NULL_TEXT
             if late is None
-            else (
-              f"{base.RED}{late / 60.0:+0.2f}" if late > 0 else f"{base.GREEN}{late / 60.0:+0.2f}"
-            )
-          }{base.NULL}',
+            else (f"[red]{late / 60.0:+0.2f}" if late > 0 else f"[green]{late / 60.0:+0.2f}")
+          }[/]',
         ]
       )
     table.hrules = prettytable.HRuleStyle.ALL
