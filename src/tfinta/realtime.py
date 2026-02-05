@@ -22,9 +22,9 @@ from collections import abc
 from typing import Any, cast, get_args, get_type_hints
 
 import click
-import prettytable
 import typer
 from rich import console as rich_console
+from rich.table import Table
 from transcrypto.cli import clibase
 from transcrypto.utils import human
 from transcrypto.utils import logging as tc_logging
@@ -715,7 +715,7 @@ class RealtimeRail:
   # REALTIME PRETTY PRINTS
   ##################################################################################################
 
-  def PrettyPrintStations(self) -> abc.Generator[str, None, None]:
+  def PrettyPrintStations(self) -> abc.Generator[str | Table, None, None]:
     """Generate a pretty version of all stations.
 
     Yields:
@@ -729,37 +729,31 @@ class RealtimeRail:
       f'{base.STD_TIME_STRING(self._latest.stations_tm or 0)}[/]'
     )
     yield ''
-    table = prettytable.PrettyTable(
-      [
-        '[bold cyan]ID[/]',
-        '[bold cyan]Code[/]',
-        '[bold cyan]Name[/]',
-        '[bold cyan]Alias[/]',
-        '[bold cyan]Location °[/]',
-        '[bold cyan]Location[/]',
-      ]
-    )
+    table = Table(show_header=True, show_lines=True)
+    table.add_column('[bold cyan]ID[/]')
+    table.add_column('[bold cyan]Code[/]')
+    table.add_column('[bold cyan]Name[/]')
+    table.add_column('[bold cyan]Alias[/]')
+    table.add_column('[bold cyan]Location °[/]')
+    table.add_column('[bold cyan]Location[/]')
     for station in sorted(self._latest.stations.values()):
       lat, lon = (None, None) if station.location is None else station.location.ToDMS()
       table.add_row(
-        [
-          f'[bold cyan]{station.id}[/]',
-          f'[bold]{station.code}[/]',
-          f'[bold yellow]{station.description}[/]',
-          f'[bold]{station.alias or base.NULL_TEXT}[/]',
-          (f'[bold yellow]{lat or base.NULL_TEXT}[/]\n[bold yellow]{lon or base.NULL_TEXT}[/]'),
-          (
-            f'[bold]{f"{station.location.latitude:0.7f}" if station.location else base.NULL_TEXT}'
-            f'[/]\n'
-            f'[bold]{f"{station.location.longitude:0.7f}" if station.location else base.NULL_TEXT}'
-            f'[/]'
-          ),
-        ]
+        f'[bold cyan]{station.id}[/]',
+        f'[bold]{station.code}[/]',
+        f'[bold yellow]{station.description}[/]',
+        f'[bold]{station.alias or base.NULL_TEXT}[/]',
+        (f'[bold yellow]{lat or base.NULL_TEXT}[/]\n[bold yellow]{lon or base.NULL_TEXT}[/]'),
+        (
+          f'[bold]{f"{station.location.latitude:0.7f}" if station.location else base.NULL_TEXT}'
+          f'[/]\n'
+          f'[bold]{f"{station.location.longitude:0.7f}" if station.location else base.NULL_TEXT}'
+          f'[/]'
+        ),
       )
-    table.hrules = prettytable.HRuleStyle.ALL
-    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
+    yield table
 
-  def PrettyPrintRunning(self) -> abc.Generator[str, None, None]:
+  def PrettyPrintRunning(self) -> abc.Generator[str | Table, None, None]:
     """Generate a pretty version of running trains.
 
     Yields:
@@ -773,15 +767,12 @@ class RealtimeRail:
       f'{base.STD_TIME_STRING(self._latest.running_tm or 0)}[/]'
     )
     yield ''
-    table = prettytable.PrettyTable(
-      [
-        '[bold cyan]Train[/]',
-        '[bold cyan]Direction[/]',
-        '[bold cyan]Location °[/]',
-        '[bold cyan]Location[/]',
-        '[bold cyan]Message[/]',
-      ]
-    )
+    table = Table(show_header=True, show_lines=True)
+    table.add_column('[bold cyan]Train[/]')
+    table.add_column('[bold cyan]Direction[/]')
+    table.add_column('[bold cyan]Location °[/]')
+    table.add_column('[bold cyan]Location[/]')
+    table.add_column('[bold cyan]Message[/]')
     for train in sorted(self._latest.running_trains.values()):
       lat, lon = train.position.ToDMS() if train.position is not None else (None, None)
       train_message: str = (
@@ -790,26 +781,23 @@ class RealtimeRail:
         else train.message
       )
       table.add_row(
-        [
-          (f'[bold cyan]{train.code}[/]\n[bold]{dm.TRAIN_STATUS_STR[train.status]}[/]'),
-          f'[bold]{base.LIMITED_TEXT(train.direction, 15)}[/]',
-          (
-            f'[bold{" yellow" if lat else ""}]{lat or base.NULL_TEXT}[/]\n'
-            f'[bold{" yellow" if lon else ""}]{lon or base.NULL_TEXT}[/]'
-          ),
-          (
-            f'[bold]{f"{train.position.latitude:0.7f}" if train.position else base.NULL_TEXT}'
-            f'[/]\n'
-            f'[bold]{f"{train.position.longitude:0.7f}" if train.position else base.NULL_TEXT}'
-            f'[/]'
-          ),
-          '\n'.join(f'[bold]{base.LIMITED_TEXT(m, 50)}[/]' for m in train_message.split('\n')),
-        ]
+        (f'[bold cyan]{train.code}[/]\n[bold]{dm.TRAIN_STATUS_STR[train.status]}[/]'),
+        f'[bold]{base.LIMITED_TEXT(train.direction, 15)}[/]',
+        (
+          f'[bold{" yellow" if lat else ""}]{lat or base.NULL_TEXT}[/]\n'
+          f'[bold{" yellow" if lon else ""}]{lon or base.NULL_TEXT}[/]'
+        ),
+        (
+          f'[bold]{f"{train.position.latitude:0.7f}" if train.position else base.NULL_TEXT}'
+          f'[/]\n'
+          f'[bold]{f"{train.position.longitude:0.7f}" if train.position else base.NULL_TEXT}'
+          f'[/]'
+        ),
+        '\n'.join(f'[bold]{base.LIMITED_TEXT(m, 50)}[/]' for m in train_message.split('\n')),
       )
-    table.hrules = prettytable.HRuleStyle.ALL
-    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
+    yield table
 
-  def PrettyPrintStation(self, /, *, station_code: str) -> abc.Generator[str, None, None]:
+  def PrettyPrintStation(self, /, *, station_code: str) -> abc.Generator[str | Table, None, None]:
     """Generate a pretty version of station board.
 
     Args:
@@ -832,19 +820,16 @@ class RealtimeRail:
       f'[bold]{base.STD_TIME_STRING(tm)}[/]'
     )
     yield ''
-    table = prettytable.PrettyTable(
-      [
-        '[bold cyan]Train[/]',
-        '[bold cyan]Origin[/]',
-        '[bold cyan]Dest.[/]',
-        '[bold cyan]Due[/]',
-        '[bold cyan]Arrival[/]',
-        '[bold cyan]Depart.[/]',
-        '[bold cyan]Late[/]',
-        '[bold cyan]Status[/]',
-        '[bold cyan]Location[/]',
-      ]
-    )
+    table = Table(show_header=True, show_lines=True)
+    table.add_column('[bold cyan]Train[/]')
+    table.add_column('[bold cyan]Origin[/]')
+    table.add_column('[bold cyan]Dest.[/]')
+    table.add_column('[bold cyan]Due[/]')
+    table.add_column('[bold cyan]Arrival[/]')
+    table.add_column('[bold cyan]Depart.[/]')
+    table.add_column('[bold cyan]Late[/]')
+    table.add_column('[bold cyan]Status[/]')
+    table.add_column('[bold cyan]Location[/]')
     for line in station_trains:
       direction_text: str = (
         '(N)'
@@ -854,56 +839,51 @@ class RealtimeRail:
         )
       )
       table.add_row(
-        [
-          f'[bold cyan]{line.train_code}[/]\n'
-          f'[bold]{direction_text}[/]'
-          + (
-            f'\n[bold]{line.train_type.name}[/]' if line.train_type != dm.TrainType.UNKNOWN else ''
-          ),
-          (
-            f'[bold]{line.origin_code}[/]\n'
-            f'[bold]{base.LIMITED_TEXT(line.origin_name, 15)}[/]\n'
-            f'[bold]{line.trip.arrival.ToHMS() if line.trip.arrival else base.NULL_TEXT}'
-            f'[/]'
-          ),
-          (
-            f'[bold yellow]{line.destination_code}[/]\n'
-            f'[bold yellow]{base.LIMITED_TEXT(line.destination_name, 15)}[/]\n'
-            f'[bold]{line.trip.departure.ToHMS() if line.trip.departure else base.NULL_TEXT}'
-            f'[/]'
-          ),
-          f'[bold]{line.due_in.time:+}[/]',
-          f'[bold green]'
-          f'{line.scheduled.arrival.ToHMS() if line.scheduled.arrival else base.NULL_TEXT}[/]'
-          + (
-            ''
-            if not line.expected.arrival or line.expected.arrival == line.scheduled.arrival
-            else f'\n[bold red]{line.expected.arrival.ToHMS()}[/]'
-          ),
-          f'[bold green]'
-          f'{line.scheduled.departure.ToHMS() if line.scheduled.departure else base.NULL_TEXT}[/]'
-          + (
-            ''
-            if not line.expected.departure or line.expected.departure == line.scheduled.departure
-            else f'\n[bold red]{line.expected.departure.ToHMS()}[/]'
-          ),
-          '\n'
-          if not line.late
-          else f'\n[bold {"red" if line.late > 0 else "yellow"}]{line.late:+}[/]',
-          (f'\n[bold]{base.LIMITED_TEXT(line.status, 15) if line.status else base.NULL_TEXT}[/]'),
-          (
-            f'\n[bold]'
-            f'{base.LIMITED_TEXT(line.last_location, 15) if line.last_location else base.NULL_TEXT}'
-            f'[/]'
-          ),
-        ]
+        f'[bold cyan]{line.train_code}[/]\n'
+        f'[bold]{direction_text}[/]'
+        + (f'\n[bold]{line.train_type.name}[/]' if line.train_type != dm.TrainType.UNKNOWN else ''),
+        (
+          f'[bold]{line.origin_code}[/]\n'
+          f'[bold]{base.LIMITED_TEXT(line.origin_name, 15)}[/]\n'
+          f'[bold]{line.trip.arrival.ToHMS() if line.trip.arrival else base.NULL_TEXT}'
+          f'[/]'
+        ),
+        (
+          f'[bold yellow]{line.destination_code}[/]\n'
+          f'[bold yellow]{base.LIMITED_TEXT(line.destination_name, 15)}[/]\n'
+          f'[bold]{line.trip.departure.ToHMS() if line.trip.departure else base.NULL_TEXT}'
+          f'[/]'
+        ),
+        f'[bold]{line.due_in.time:+}[/]',
+        f'[bold green]'
+        f'{line.scheduled.arrival.ToHMS() if line.scheduled.arrival else base.NULL_TEXT}[/]'
+        + (
+          ''
+          if not line.expected.arrival or line.expected.arrival == line.scheduled.arrival
+          else f'\n[bold red]{line.expected.arrival.ToHMS()}[/]'
+        ),
+        f'[bold green]'
+        f'{line.scheduled.departure.ToHMS() if line.scheduled.departure else base.NULL_TEXT}[/]'
+        + (
+          ''
+          if not line.expected.departure or line.expected.departure == line.scheduled.departure
+          else f'\n[bold red]{line.expected.departure.ToHMS()}[/]'
+        ),
+        '\n'
+        if not line.late
+        else f'\n[bold {"red" if line.late > 0 else "yellow"}]{line.late:+}[/]',
+        (f'\n[bold]{base.LIMITED_TEXT(line.status, 15) if line.status else base.NULL_TEXT}[/]'),
+        (
+          f'\n[bold]'
+          f'{base.LIMITED_TEXT(line.last_location, 15) if line.last_location else base.NULL_TEXT}'
+          f'[/]'
+        ),
       )
-    table.hrules = prettytable.HRuleStyle.ALL
-    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
+    yield table
 
   def PrettyPrintTrain(
     self, /, *, train_code: str, day: datetime.date
-  ) -> abc.Generator[str, None, None]:
+  ) -> abc.Generator[str | Table, None, None]:
     """Generate a pretty version of single train data.
 
     Args:
@@ -927,17 +907,14 @@ class RealtimeRail:
     yield (f'Origin:      [bold yellow]{query.origin_name} ({query.origin_code})[/]')
     yield (f'Destination: [bold yellow]{query.destination_name} ({query.destination_code})[/]')
     yield ''
-    table = prettytable.PrettyTable(
-      [
-        '[bold cyan]#[/]',
-        '[bold cyan]Stop[/]',
-        '[bold cyan]Arr.(Expect)[/]',
-        '[bold cyan]A.(Actual)[/]',
-        '[bold cyan]Depart.(Expect)[/]',
-        '[bold cyan]D.(Actual)[/]',
-        '[bold cyan]Late(Min)[/]',
-      ]
-    )
+    table = Table(show_header=True, show_lines=True)
+    table.add_column('[bold cyan]#[/]')
+    table.add_column('[bold cyan]Stop[/]')
+    table.add_column('[bold cyan]Arr.(Expect)[/]')
+    table.add_column('[bold cyan]A.(Actual)[/]')
+    table.add_column('[bold cyan]Depart.(Expect)[/]')
+    table.add_column('[bold cyan]D.(Actual)[/]')
+    table.add_column('[bold cyan]Late(Min)[/]')
     for seq in range(1, len(train_stops) + 1):
       stop: dm.TrainStop = train_stops[seq]
       late: int | None = (
@@ -949,51 +926,48 @@ class RealtimeRail:
         '' if stop.stop_type == dm.StopType.UNKNOWN else f'\n[bold yellow]{stop.stop_type.name}[/]'
       )
       table.add_row(
-        [
-          f'[bold cyan]{seq}[/]{stop_type}',
-          (
-            f'[bold yellow]{stop.station_code}[/]\n'
-            f'[bold yellow]'
-            f'{base.LIMITED_TEXT(stop.station_name, 15) if stop.station_name else "????"}[/]\n'
-            f'[bold]{dm.LOCATION_TYPE_STR[stop.location_type]}[/]'
-          ),
-          (
-            f'[bold green]'
-            f'{stop.scheduled.arrival.ToHMS() if stop.scheduled.arrival else base.NULL_TEXT}[/]'
-          )
-          + (
-            ''
-            if not stop.expected.arrival or stop.expected.arrival == stop.scheduled.arrival
-            else f'\n[bold red]{stop.expected.arrival.ToHMS()}[/]'
-          )
-          + (f'\n[bold]{dm.PRETTY_AUTO(True)}' if stop.auto_arrival else ''),
-          (
-            f'[bold yellow]'
-            f'{stop.actual.arrival.ToHMS() if stop.actual.arrival else base.NULL_TEXT}[/]'
-          ),
-          (
-            f'[bold green]'
-            f'{stop.scheduled.departure.ToHMS() if stop.scheduled.departure else base.NULL_TEXT}[/]'
-          )
-          + (
-            ''
-            if not stop.expected.departure or stop.expected.departure == stop.scheduled.departure
-            else f'\n[bold red]{stop.expected.departure.ToHMS()}[/]'
-          )
-          + (f'\n[bold]{dm.PRETTY_AUTO(True)}' if stop.auto_depart else ''),
-          (
-            f'[bold yellow]'
-            f'{stop.actual.departure.ToHMS() if stop.actual.departure else base.NULL_TEXT}[/]'
-          ),
-          f'[bold]{
-            base.NULL_TEXT
-            if late is None
-            else (f"[red]{late / 60.0:+0.2f}" if late > 0 else f"[green]{late / 60.0:+0.2f}")
-          }[/]',
-        ]
+        f'[bold cyan]{seq}[/]{stop_type}',
+        (
+          f'[bold yellow]{stop.station_code}[/]\n'
+          f'[bold yellow]'
+          f'{base.LIMITED_TEXT(stop.station_name, 15) if stop.station_name else "????"}[/]\n'
+          f'[bold]{dm.LOCATION_TYPE_STR[stop.location_type]}[/]'
+        ),
+        (
+          f'[bold green]'
+          f'{stop.scheduled.arrival.ToHMS() if stop.scheduled.arrival else base.NULL_TEXT}[/]'
+        )
+        + (
+          ''
+          if not stop.expected.arrival or stop.expected.arrival == stop.scheduled.arrival
+          else f'\n[bold red]{stop.expected.arrival.ToHMS()}[/]'
+        )
+        + (f'\n[bold]{dm.PRETTY_AUTO(True)}' if stop.auto_arrival else ''),
+        (
+          f'[bold yellow]'
+          f'{stop.actual.arrival.ToHMS() if stop.actual.arrival else base.NULL_TEXT}[/]'
+        ),
+        (
+          f'[bold green]'
+          f'{stop.scheduled.departure.ToHMS() if stop.scheduled.departure else base.NULL_TEXT}[/]'
+        )
+        + (
+          ''
+          if not stop.expected.departure or stop.expected.departure == stop.scheduled.departure
+          else f'\n[bold red]{stop.expected.departure.ToHMS()}[/]'
+        )
+        + (f'\n[bold]{dm.PRETTY_AUTO(True)}' if stop.auto_depart else ''),
+        (
+          f'[bold yellow]'
+          f'{stop.actual.departure.ToHMS() if stop.actual.departure else base.NULL_TEXT}[/]'
+        ),
+        f'[bold]{
+          base.NULL_TEXT
+          if late is None
+          else (f"[red]{late / 60.0:+0.2f}" if late > 0 else f"[green]{late / 60.0:+0.2f}")
+        }[/]',
       )
-    table.hrules = prettytable.HRuleStyle.ALL
-    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
+    yield table
 
 
 # CLI app setup, this is an important object and can be imported elsewhere and called

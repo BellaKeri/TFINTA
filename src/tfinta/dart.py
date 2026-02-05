@@ -12,9 +12,9 @@ import operator
 from collections import abc
 
 import click
-import prettytable
 import typer
 from rich import console as rich_console
+from rich.table import Table
 from transcrypto.cli import clibase
 from transcrypto.utils import logging as tc_logging
 
@@ -223,7 +223,7 @@ class DART:
   # DART PRETTY PRINTS
   ##################################################################################################
 
-  def PrettyPrintCalendar(self) -> abc.Generator[str, None, None]:
+  def PrettyPrintCalendar(self) -> abc.Generator[str | Table, None, None]:
     """Generate a pretty version of calendar data.
 
     Yields:
@@ -232,7 +232,7 @@ class DART:
     """
     yield from self._gtfs.PrettyPrintCalendar(filter_to=self.Services())
 
-  def PrettyPrintStops(self) -> abc.Generator[str, None, None]:
+  def PrettyPrintStops(self) -> abc.Generator[str | Table, None, None]:
     """Generate a pretty version of the stops.
 
     Yields:
@@ -247,7 +247,7 @@ class DART:
     }
     yield from self._gtfs.PrettyPrintStops(filter_to=all_stops)
 
-  def PrettyDaySchedule(self, /, *, day: datetime.date) -> abc.Generator[str, None, None]:
+  def PrettyDaySchedule(self, /, *, day: datetime.date) -> abc.Generator[str | Table, None, None]:
     """Generate a pretty version of a DART day's schedule.
 
     Args:
@@ -268,42 +268,35 @@ class DART:
     day_services: set[int] = self.ServicesForDay(day)
     yield (f'Services: [bold yellow]{", ".join(str(s) for s in sorted(day_services))}[/]')
     yield ''
-    table = prettytable.PrettyTable(
-      [
-        '[bold cyan]N/S[/]',
-        '[bold cyan]Train[/]',
-        '[bold cyan]Start[/]',
-        '[bold cyan]End[/]',
-        '[bold cyan]Depart Time[/]',
-        '[bold cyan]Service/Trip Codes/[/][red][★Alt.Times][/]',
-      ]
-    )  # ★
+    table = Table(show_header=True)
+    table.add_column('[bold cyan]N/S[/]')
+    table.add_column('[bold cyan]Train[/]')
+    table.add_column('[bold cyan]Start[/]')
+    table.add_column('[bold cyan]End[/]')
+    table.add_column('[bold cyan]Depart Time[/]')
+    table.add_column('[bold cyan]Service/Trip Codes/[/][red][★Alt.Times][/]')  # ★
     for schedule, name, trips_in_train in self.WalkTrains(filter_services=day_services):
       trip_codes: str = ', '.join(
         f'{s}/{t.id}{"" if sc == schedule else "/[red]★[/]"}' for s, sc, t in trips_in_train
       )
       table.add_row(
-        [
-          f'[bold]{dm.DART_DIRECTION(schedule)}[/]',
-          f'[bold yellow]{name}[/]',
-          f'[bold]{schedule.stops[0].name}[/]',
-          f'[bold]{schedule.stops[-1].name}[/]',
-          (
-            '[bold yellow]'
-            f'{
-              schedule.times[0].times.departure.ToHMS()
-              if schedule.times[0].times.departure
-              else "∅"
-            }[/]'
-          ),
-          f'[bold]{trip_codes}[/]',
-        ]
+        f'[bold]{dm.DART_DIRECTION(schedule)}[/]',
+        f'[bold yellow]{name}[/]',
+        f'[bold]{schedule.stops[0].name}[/]',
+        f'[bold]{schedule.stops[-1].name}[/]',
+        (
+          '[bold yellow]'
+          f'{
+            schedule.times[0].times.departure.ToHMS() if schedule.times[0].times.departure else "∅"
+          }[/]'
+        ),
+        f'[bold]{trip_codes}[/]',
       )
-    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
+    yield table
 
   def PrettyStationSchedule(
     self, /, *, stop_id: str, day: datetime.date
-  ) -> abc.Generator[str, None, None]:
+  ) -> abc.Generator[str | Table, None, None]:
     """Generate a pretty version of a DART station (stop) day's schedule.
 
     Args:
@@ -332,16 +325,13 @@ class DART:
     destinations: set[str] = {self._gtfs.StopNameTranslator(k[0]) for k in day_dart_schedule}
     yield f'Destinations: [bold yellow]{", ".join(sorted(destinations))}[/]'
     yield ''
-    table = prettytable.PrettyTable(
-      [
-        '[bold cyan]N/S[/]',
-        '[bold cyan]Train[/]',
-        '[bold cyan]Destination[/]',
-        '[bold cyan]Arrival[/]',
-        '[bold cyan]Departure[/]',
-        '[bold cyan]Service/Trip Codes/[/][red][★Alt.Times][/]',
-      ]
-    )  # ★
+    table = Table(show_header=True)
+    table.add_column('[bold cyan]N/S[/]')
+    table.add_column('[bold cyan]Train[/]')
+    table.add_column('[bold cyan]Destination[/]')
+    table.add_column('[bold cyan]Arrival[/]')
+    table.add_column('[bold cyan]Departure[/]')
+    table.add_column('[bold cyan]Service/Trip Codes/[/][red][★Alt.Times][/]')  # ★
     last_arrival: int = 0
     last_departure: int = 0
     for dest, tm in sorted(day_dart_schedule.keys(), key=operator.itemgetter(1, 0)):
@@ -356,20 +346,18 @@ class DART:
         for s, sc, t in sorted(trips_in_train)
       )
       table.add_row(
-        [
-          f'[bold]{dm.DART_DIRECTION(trips_in_train[0][2])}[/]',
-          f'[bold yellow]{name}[/]',
-          f'[bold yellow]{schedule.stops[-1].name}[/]',
-          f'[bold]{tm.times.arrival.ToHMS() if tm.times.arrival else "∅"}[/]',
-          f'[bold yellow]{tm.times.departure.ToHMS() if tm.times.departure else "∅"}[/]',
-          f'[bold]{trip_codes}[/]',
-        ]
+        f'[bold]{dm.DART_DIRECTION(trips_in_train[0][2])}[/]',
+        f'[bold yellow]{name}[/]',
+        f'[bold yellow]{schedule.stops[-1].name}[/]',
+        f'[bold]{tm.times.arrival.ToHMS() if tm.times.arrival else "∅"}[/]',
+        f'[bold yellow]{tm.times.departure.ToHMS() if tm.times.departure else "∅"}[/]',
+        f'[bold]{trip_codes}[/]',
       )
       last_arrival = tm.times.arrival.time if tm.times.arrival else 0
       last_departure = tm.times.departure.time if tm.times.departure else 0
-    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
+    yield table
 
-  def PrettyPrintTrip(self, /, *, trip_name: str) -> abc.Generator[str, None, None]:  # noqa: C901, PLR0912, PLR0915
+  def PrettyPrintTrip(self, /, *, trip_name: str) -> abc.Generator[str | Table, None, None]:  # noqa: C901, PLR0912, PLR0915
     """Generate a pretty version of a train (physical) trip, may be 2 Trips.
 
     Args:
@@ -445,26 +433,24 @@ class DART:
     yield (f'  Description: [bold]{route.description or "∅"}[/]')
     yield (f'Headsign:      [bold]{trips[0].headsign or "∅"}[/]')
     yield ''
-    table = prettytable.PrettyTable(
-      ['[bold cyan]Trip ID[/]'] + [f'[bold magenta]{t.id}[/]' for t in trips]
-    )
+    table = Table(show_header=True, show_lines=True)
+    table.add_column('[bold cyan]Trip ID[/]')
+    for t in trips:
+      table.add_column(f'[bold magenta]{t.id}[/]')
     # add the properties that are variable
-    table.add_row(['[bold cyan]Service[/]'] + [f'[bold yellow]{trip.service}[/]' for trip in trips])
+    table.add_row('Service', *[f'[bold yellow]{trip.service}[/]' for trip in trips])
     table.add_row(
       # direction can vary, example 'E725'
-      ['[bold cyan]N/S[/]'] + [f'[bold]{dm.DART_DIRECTION(trip)}[/]' for trip in trips]
+      'N/S',
+      *[f'[bold]{dm.DART_DIRECTION(trip)}[/]' for trip in trips],
+    )
+    table.add_row('Shape', *[(f'[bold]{trip.shape}[/]' if trip.shape else '∅') for trip in trips])
+    table.add_row(
+      'Block',
+      *[(f'[bold]{base.LIMITED_TEXT(trip.block, 10)}[/]' if trip.block else '∅') for trip in trips],
     )
     table.add_row(
-      ['[bold cyan]Shape[/]']
-      + [(f'[bold]{trip.shape}[/]' if trip.shape else '∅') for trip in trips]
-    )
-    table.add_row(
-      ['[bold cyan]Block[/]']
-      + [(f'[bold]{base.LIMITED_TEXT(trip.block, 10)}[/]' if trip.block else '∅') for trip in trips]
-    )
-    table.add_row(
-      ['[bold cyan]#[/]']
-      + ['[bold cyan]Stop[/]\n[bold cyan]Dropoff[/]\n[bold cyan]Pickup[/]'] * len(trips)
+      '#', *['[bold cyan]Stop[/]\n[bold cyan]Dropoff[/]\n[bold cyan]Pickup[/]'] * len(trips)
     )
     # add the stops
     for seq in range(1, n_stops + 1):
@@ -484,11 +470,10 @@ class DART:
             f'{stop.scheduled.times.departure.ToHMS() if stop.scheduled.times.departure else "∅"}'
             f'{dm.STOP_TYPE_STR[stop.pickup]}[/]'
           )
-      table.add_row(table_row)
-    table.hrules = prettytable.HRuleStyle.ALL
-    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
+      table.add_row(*table_row)
+    yield table
 
-  def PrettyPrintAllDatabase(self) -> abc.Generator[str, None, None]:
+  def PrettyPrintAllDatabase(self) -> abc.Generator[str | Table, None, None]:
     """Print everything in the database.
 
     Yields:

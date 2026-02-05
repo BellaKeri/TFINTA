@@ -25,9 +25,9 @@ from collections import abc
 from typing import IO, Any, cast, get_args, get_type_hints
 
 import click
-import prettytable
 import typer
 from rich import console as rich_console
+from rich.table import Table
 from transcrypto.cli import clibase
 from transcrypto.core import key
 from transcrypto.utils import human
@@ -1044,7 +1044,7 @@ class GTFS:
   # GTFS PRETTY PRINTS
   ##################################################################################################
 
-  def PrettyPrintBasics(self) -> abc.Generator[str, None, None]:
+  def PrettyPrintBasics(self) -> abc.Generator[str | Table, None, None]:
     """Generate a pretty version of basic DB data: Versions, agencies routes.
 
     Yields:
@@ -1057,35 +1057,30 @@ class GTFS:
       yield f'[magenta]Agency [bold]{agency.name} ({agency.id})[/]'
       yield f'  {agency.url} ({agency.zone})'
       yield ''
-      table = prettytable.PrettyTable(
-        [
-          '[bold cyan]Route[/]',
-          '[bold cyan]Name[/]',
-          '[bold cyan]Long Name[/]',
-          '[bold cyan]Type[/]',
-          '[bold cyan]Desc.[/]',
-          '[bold cyan]URL[/]',
-          '[bold cyan]Color[/]',
-          '[bold cyan]Text[/]',
-          '[bold cyan]# Trips[/]',
-        ]
-      )
+      table = Table(show_header=True)
+      table.add_column('[bold cyan]Route[/]')
+      table.add_column('[bold cyan]Name[/]')
+      table.add_column('[bold cyan]Long Name[/]')
+      table.add_column('[bold cyan]Type[/]')
+      table.add_column('[bold cyan]Desc.[/]')
+      table.add_column('[bold cyan]URL[/]')
+      table.add_column('[bold cyan]Color[/]')
+      table.add_column('[bold cyan]Text[/]')
+      table.add_column('[bold cyan]# Trips[/]')
       for route_id in sorted(agency.routes):
         route: dm.Route = agency.routes[route_id]
         table.add_row(
-          [
-            f'[bold cyan]{route.id}[/]',
-            f'[bold yellow]{route.short_name}[/]',
-            f'[bold yellow]{route.long_name}[/]',
-            f'[bold]{route.route_type.name}[/]',
-            f'[bold]{route.description or base.NULL_TEXT}[/]',
-            f'[bold]{route.url or base.NULL_TEXT}[/]',
-            f'[bold]{route.color or base.NULL_TEXT}[/]',
-            f'[bold]{route.text_color or base.NULL_TEXT}[/]',
-            f'[bold]{len(route.trips)}[/]',
-          ]
+          f'[bold cyan]{route.id}[/]',
+          f'[bold yellow]{route.short_name}[/]',
+          f'[bold yellow]{route.long_name}[/]',
+          f'[bold]{route.route_type.name}[/]',
+          f'[bold]{route.description or base.NULL_TEXT}[/]',
+          f'[bold]{route.url or base.NULL_TEXT}[/]',
+          f'[bold]{route.color or base.NULL_TEXT}[/]',
+          f'[bold]{route.text_color or base.NULL_TEXT}[/]',
+          f'[bold]{len(route.trips)}[/]',
         )
-      yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
+      yield table
       if i < n_items - 1:
         yield ''
         yield '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
@@ -1093,38 +1088,36 @@ class GTFS:
     yield ''
     yield (f'[bold magenta]Files @ {base.STD_TIME_STRING(self._db.files.tm)}[/]')
     yield ''
-    table = prettytable.PrettyTable(['[bold cyan]Agency[/]', '[bold cyan]URLs / Data[/]'])
+    table = Table(show_header=True)
+    table.add_column('[bold cyan]Agency[/]')
+    table.add_column('[bold cyan]URLs / Data[/]')
     for agency_name in sorted(self._db.files.files):
       urls = self._db.files.files[agency_name]
       for url in sorted(urls):
         meta: dm.FileMetadata | None = urls[url]
         table.add_row(
-          [
-            f'[bold cyan]{agency_name}[/]',
-            f'[bold]{url}[/]',
-          ]
+          f'[bold cyan]{agency_name}[/]',
+          f'[bold]{url}[/]',
         )
         if meta:
           table.add_row(
-            [
-              '',
-              (
-                f'Version: [bold yellow]{meta.version}[/]\n'
-                f'Last load: [bold yellow]{base.STD_TIME_STRING(meta.tm)}[/]\n'
-                f'Publisher: [bold]{meta.publisher or base.NULL_TEXT}[/]\n'
-                f'URL: [bold]{meta.url or base.NULL_TEXT}[/]\n'
-                f'Language: [bold]{meta.language or base.NULL_TEXT}[/]\n'
-                f'Days range: [bold yellow]{base.PRETTY_DATE(meta.days.start)} -'
-                f' {base.PRETTY_DATE(meta.days.end)}[/]\n'
-                f'Mail: [bold]{meta.email or base.NULL_TEXT}[/]'
-              ),
-            ]
+            '',
+            (
+              f'Version: [bold yellow]{meta.version}[/]\n'
+              f'Last load: [bold yellow]{base.STD_TIME_STRING(meta.tm)}[/]\n'
+              f'Publisher: [bold]{meta.publisher or base.NULL_TEXT}[/]\n'
+              f'URL: [bold]{meta.url or base.NULL_TEXT}[/]\n'
+              f'Language: [bold]{meta.language or base.NULL_TEXT}[/]\n'
+              f'Days range: [bold yellow]{base.PRETTY_DATE(meta.days.start)} -'
+              f' {base.PRETTY_DATE(meta.days.end)}[/]\n'
+              f'Mail: [bold]{meta.email or base.NULL_TEXT}[/]'
+            ),
           )
-    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
+    yield table
 
   def PrettyPrintCalendar(
     self, /, *, filter_to: set[int] | None = None
-  ) -> abc.Generator[str, None, None]:
+  ) -> abc.Generator[str | Table, None, None]:
     """Generate a pretty version of calendar data.
 
     Yields:
@@ -1134,21 +1127,18 @@ class GTFS:
         Error: if no calendar data is found
 
     """
-    table = prettytable.PrettyTable(
-      [
-        '[bold cyan]Service[/]',
-        '[bold cyan]Start[/]',
-        '[bold cyan]End[/]',
-        '[bold cyan]Mon[/]',
-        '[bold cyan]Tue[/]',
-        '[bold cyan]Wed[/]',
-        '[bold cyan]Thu[/]',
-        '[bold cyan]Fri[/]',
-        '[bold cyan]Sat[/]',
-        '[bold cyan]Sun[/]',
-        '[bold cyan]Exceptions[/]',
-      ]
-    )
+    table = Table(show_header=True, show_lines=True)
+    table.add_column('[bold cyan]Service[/]')
+    table.add_column('[bold cyan]Start[/]')
+    table.add_column('[bold cyan]End[/]')
+    table.add_column('[bold cyan]Mon[/]')
+    table.add_column('[bold cyan]Tue[/]')
+    table.add_column('[bold cyan]Wed[/]')
+    table.add_column('[bold cyan]Thu[/]')
+    table.add_column('[bold cyan]Fri[/]')
+    table.add_column('[bold cyan]Sat[/]')
+    table.add_column('[bold cyan]Sun[/]')
+    table.add_column('[bold cyan]Exceptions[/]')
     has_data = False
     for service in sorted(self._db.calendar):
       if filter_to is not None and service not in filter_to:
@@ -1156,41 +1146,38 @@ class GTFS:
       has_data = True
       calendar: dm.CalendarService = self._db.calendar[service]
       table.add_row(
-        [
-          f'[bold cyan]{calendar.id}[/]',
-          f'[bold yellow]{base.PRETTY_DATE(calendar.days.start)}[/]',
-          (
-            f'[bold]'
-            f'{
-              base.PRETTY_DATE(
-                calendar.days.end if calendar.days.end != calendar.days.start else None
-              )
-            }'
-            f'[/]'
-          ),
-          f'[bold]{base.PRETTY_BOOL(calendar.week[0])}[/]',
-          f'[bold]{base.PRETTY_BOOL(calendar.week[1])}[/]',
-          f'[bold]{base.PRETTY_BOOL(calendar.week[2])}[/]',
-          f'[bold]{base.PRETTY_BOOL(calendar.week[3])}[/]',
-          f'[bold]{base.PRETTY_BOOL(calendar.week[4])}[/]',
-          f'[bold]{base.PRETTY_BOOL(calendar.week[5])}[/]',
-          f'[bold]{base.PRETTY_BOOL(calendar.week[6])}[/]',
-          '\n'.join(
-            f'[bold]{base.PRETTY_DATE(d)} {base.PRETTY_BOOL(calendar.exceptions[d])}[/]'
-            for d in sorted(calendar.exceptions)
-          )
-          if calendar.exceptions
-          else base.NULL_TEXT,
-        ]
+        f'[bold cyan]{calendar.id}[/]',
+        f'[bold yellow]{base.PRETTY_DATE(calendar.days.start)}[/]',
+        (
+          f'[bold]'
+          f'{
+            base.PRETTY_DATE(
+              calendar.days.end if calendar.days.end != calendar.days.start else None
+            )
+          }'
+          f'[/]'
+        ),
+        f'[bold]{base.PRETTY_BOOL(calendar.week[0])}[/]',
+        f'[bold]{base.PRETTY_BOOL(calendar.week[1])}[/]',
+        f'[bold]{base.PRETTY_BOOL(calendar.week[2])}[/]',
+        f'[bold]{base.PRETTY_BOOL(calendar.week[3])}[/]',
+        f'[bold]{base.PRETTY_BOOL(calendar.week[4])}[/]',
+        f'[bold]{base.PRETTY_BOOL(calendar.week[5])}[/]',
+        f'[bold]{base.PRETTY_BOOL(calendar.week[6])}[/]',
+        '\n'.join(
+          f'[bold]{base.PRETTY_DATE(d)} {base.PRETTY_BOOL(calendar.exceptions[d])}[/]'
+          for d in sorted(calendar.exceptions)
+        )
+        if calendar.exceptions
+        else base.NULL_TEXT,
       )
     if not has_data:
       raise Error('No calendar data found')
-    table.hrules = prettytable.HRuleStyle.ALL
-    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
+    yield table
 
   def PrettyPrintStops(
     self, /, *, filter_to: set[str] | None = None
-  ) -> abc.Generator[str, None, None]:
+  ) -> abc.Generator[str | Table, None, None]:
     """Generate a pretty version of the stops.
 
     Yields:
@@ -1200,19 +1187,16 @@ class GTFS:
         Error: if no stops data is found
 
     """
-    table = prettytable.PrettyTable(
-      [
-        '[bold cyan]Stop[/]',
-        '[bold cyan]Code[/]',
-        '[bold cyan]Name[/]',
-        '[bold cyan]Type[/]',
-        '[bold cyan]Location °[/]',
-        '[bold cyan]Location[/]',
-        '[bold cyan]Zone[/]',
-        '[bold cyan]Desc.[/]',
-        '[bold cyan]URL[/]',
-      ]
-    )
+    table = Table(show_header=True, show_lines=True)
+    table.add_column('[bold cyan]Stop[/]')
+    table.add_column('[bold cyan]Code[/]')
+    table.add_column('[bold cyan]Name[/]')
+    table.add_column('[bold cyan]Type[/]')
+    table.add_column('[bold cyan]Location °[/]')
+    table.add_column('[bold cyan]Location[/]')
+    table.add_column('[bold cyan]Zone[/]')
+    table.add_column('[bold cyan]Desc.[/]')
+    table.add_column('[bold cyan]URL[/]')
     has_data = False
     for _, stop_id in sorted((s.name, s.id) for s in self._db.stops.values()):
       if filter_to is not None and stop_id not in filter_to:
@@ -1230,24 +1214,21 @@ class GTFS:
       )
       lat, lon = stop.point.ToDMS()
       table.add_row(
-        [
-          f'[bold cyan]{stop.id}[/]{parent_code}',
-          f'[bold]{stop.code if stop.code and stop.code != "0" else base.NULL_TEXT}[/]',
-          f'[bold yellow]{stop.name}[/]{parent_name}',
-          f'[bold]{stop.location.name}[/]',
-          f'[bold yellow]{lat}[/]\n[bold yellow]{lon}[/]',
-          (f'[bold]{stop.point.latitude:0.7f}[/]\n[bold]{stop.point.longitude:0.7f}[/]'),
-          f'[bold]{stop.zone or base.NULL_TEXT}[/]',
-          f'[bold]{stop.description if stop.zone else base.NULL_TEXT}[/]',
-          f'[bold]{stop.url or base.NULL_TEXT}[/]',
-        ]
+        f'[bold cyan]{stop.id}[/]{parent_code}',
+        f'[bold]{stop.code if stop.code and stop.code != "0" else base.NULL_TEXT}[/]',
+        f'[bold yellow]{stop.name}[/]{parent_name}',
+        f'[bold]{stop.location.name}[/]',
+        f'[bold yellow]{lat}[/]\n[bold yellow]{lon}[/]',
+        (f'[bold]{stop.point.latitude:0.7f}[/]\n[bold]{stop.point.longitude:0.7f}[/]'),
+        f'[bold]{stop.zone or base.NULL_TEXT}[/]',
+        f'[bold]{stop.description if stop.zone else base.NULL_TEXT}[/]',
+        f'[bold]{stop.url or base.NULL_TEXT}[/]',
       )
     if not has_data:
       raise Error('No stop data found')
-    table.hrules = prettytable.HRuleStyle.ALL
-    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
+    yield table
 
-  def PrettyPrintShape(self, /, *, shape_id: str) -> abc.Generator[str, None, None]:
+  def PrettyPrintShape(self, /, *, shape_id: str) -> abc.Generator[str | Table, None, None]:
     """Generate a pretty version of a shape.
 
     Yields:
@@ -1262,32 +1243,27 @@ class GTFS:
       raise Error(f'shape id {shape_id!r} was not found')
     yield f'[magenta]GTFS Shape ID [bold]{shape.id}[/]'
     yield ''
-    table = prettytable.PrettyTable(
-      [
-        '[bold cyan]#[/]',
-        '[bold cyan]Distance[/]',
-        '[bold cyan]Latitude °[/]',
-        '[bold cyan]Longitude °[/]',
-        '[bold cyan]Latitude[/]',
-        '[bold cyan]Longitude[/]',
-      ]
-    )
+    table = Table(show_header=True)
+    table.add_column('[bold cyan]#[/]')
+    table.add_column('[bold cyan]Distance[/]')
+    table.add_column('[bold cyan]Latitude °[/]')
+    table.add_column('[bold cyan]Longitude °[/]')
+    table.add_column('[bold cyan]Latitude[/]')
+    table.add_column('[bold cyan]Longitude[/]')
     for seq in range(1, len(shape.points) + 1):
       point: dm.ShapePoint = shape.points[seq]
       lat, lon = point.point.ToDMS()
       table.add_row(
-        [
-          f'[bold cyan]{seq}[/]',
-          f'[bold]{point.distance:0.2f}[/]',
-          f'[bold yellow]{lat}[/]',
-          f'[bold yellow]{lon}[/]',
-          f'[bold]{point.point.latitude:0.7f}[/]',
-          f'[bold]{point.point.longitude:0.7f}[/]',
-        ]
+        f'[bold cyan]{seq}[/]',
+        f'[bold]{point.distance:0.2f}[/]',
+        f'[bold yellow]{lat}[/]',
+        f'[bold yellow]{lon}[/]',
+        f'[bold]{point.point.latitude:0.7f}[/]',
+        f'[bold]{point.point.longitude:0.7f}[/]',
       )
-    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
+    yield table
 
-  def PrettyPrintTrip(self, /, *, trip_id: str) -> abc.Generator[str, None, None]:
+  def PrettyPrintTrip(self, /, *, trip_id: str) -> abc.Generator[str | Table, None, None]:
     """Generate a pretty version of a Trip.
 
     Yields:
@@ -1314,50 +1290,43 @@ class GTFS:
     yield f'Name:          [bold]{trip.name or base.NULL_TEXT}[/]'
     yield f'Block:         [bold]{trip.block or base.NULL_TEXT}[/]'
     yield ''
-    table = prettytable.PrettyTable(
-      [
-        '[bold cyan]#[/]',
-        '[bold cyan]Stop ID[/]',
-        '[bold cyan]Name[/]',
-        '[bold cyan]Arrival[/]',
-        '[bold cyan]Departure[/]',
-        '[bold cyan]Code[/]',
-        '[bold cyan]Description[/]',
-      ]
-    )
+    table = Table(show_header=True)
+    table.add_column('[bold cyan]#[/]')
+    table.add_column('[bold cyan]Stop ID[/]')
+    table.add_column('[bold cyan]Name[/]')
+    table.add_column('[bold cyan]Arrival[/]')
+    table.add_column('[bold cyan]Departure[/]')
+    table.add_column('[bold cyan]Code[/]')
+    table.add_column('[bold cyan]Description[/]')
     for seq in range(1, len(trip.stops) + 1):
       stop: dm.Stop = trip.stops[seq]
       stop_code, stop_name, stop_description = self.StopName(stop.stop)
       table.add_row(
-        [
-          f'[bold cyan]{seq}[/]',
-          f'[bold]{stop.stop}[/]',
-          f'[bold yellow]{stop_name or base.NULL_TEXT}[/]',
-          (
-            f'[bold]'
-            f'{
-              stop.scheduled.times.arrival.ToHMS()
-              if stop.scheduled.times.arrival
-              else base.NULL_TEXT
-            }'
-            f'[/]'
-          ),
-          (
-            f'[bold]'
-            f'{
-              stop.scheduled.times.departure.ToHMS()
-              if stop.scheduled.times.departure
-              else base.NULL_TEXT
-            }'
-            f'[/]'
-          ),
-          f'[bold]{stop_code}[/]',
-          f'[bold]{stop_description or base.NULL_TEXT}[/]',
-        ]
+        f'[bold cyan]{seq}[/]',
+        f'[bold]{stop.stop}[/]',
+        f'[bold yellow]{stop_name or base.NULL_TEXT}[/]',
+        (
+          f'[bold]'
+          f'{
+            stop.scheduled.times.arrival.ToHMS() if stop.scheduled.times.arrival else base.NULL_TEXT
+          }'
+          f'[/]'
+        ),
+        (
+          f'[bold]'
+          f'{
+            stop.scheduled.times.departure.ToHMS()
+            if stop.scheduled.times.departure
+            else base.NULL_TEXT
+          }'
+          f'[/]'
+        ),
+        f'[bold]{stop_code}[/]',
+        f'[bold]{stop_description or base.NULL_TEXT}[/]',
       )
-    yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]
+    yield table
 
-  def PrettyPrintAllDatabase(self) -> abc.Generator[str, None, None]:
+  def PrettyPrintAllDatabase(self) -> abc.Generator[str | Table, None, None]:
     """Print everything in the database.
 
     Yields:
