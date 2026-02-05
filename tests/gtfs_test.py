@@ -19,16 +19,16 @@ from typer import testing as typer_testing
 from . import gtfs_data, util
 
 # mock test files
-_OPERATOR_CSV_PATH: str = os.path.join(util.DATA_DIR, 'GTFS Operator Files - 20250621.csv')
+_OPERATOR_CSV_PATH: str = os.path.join(util.DATA_DIR, 'GTFS Operator Files - 20250621.csv')  # noqa: PTH118
 # the zip directory has a very reduced version of the real data in 202506
-_ZIP_DIR_1: str = os.path.join(util.DATA_DIR, 'zip_1')
+_ZIP_DIR_1: str = os.path.join(util.DATA_DIR, 'zip_1')  # noqa: PTH118
 
 
 @mock.patch('src.tfinta.gtfs.time.time', autospec=True)
 @mock.patch('src.tfinta.gtfs.urllib.request.urlopen', autospec=True)
 @mock.patch('transcrypto.core.key.Serialize', autospec=True)
 @mock.patch('transcrypto.core.key.DeSerialize', autospec=True)
-def test_GTFS_load_and_parse_from_net(
+def test_GTFS_load_and_parse_from_net(  # noqa: PLR0915
   deserialize: mock.MagicMock,
   serialize: mock.MagicMock,
   urlopen: mock.MagicMock,
@@ -55,7 +55,6 @@ def test_GTFS_load_and_parse_from_net(
     assert path_mock.call_args_list[2] == mock.call('db/path/transit.db')
     mock_path.exists.assert_called_once()
   # load the GTFS data into database: do it BEFORE we mock open()!
-  cache_file = mock.mock_open()
   fake_csv = util.FakeHTTPFile(_OPERATOR_CSV_PATH)
   zip_bytes: bytes = gtfs_data.ZipDirBytes(pathlib.Path(_ZIP_DIR_1))
   fake_zip = util.FakeHTTPStream(zip_bytes)
