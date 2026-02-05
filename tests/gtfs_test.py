@@ -252,123 +252,148 @@ def test_GTFS_load_existing(deserialize: mock.MagicMock, serialize: mock.MagicMo
   deserialize.return_value = dm.GTFSData(
     tm=0.0, files=dm.OfficialFiles(tm=0.0, files={}), agencies={}, calendar={}, shapes={}, stops={}
   )
-  with (
-    mock.patch('src.tfinta.gtfs.os.path.isdir', autospec=True) as is_dir,
-    mock.patch('src.tfinta.gtfs.os.mkdir', autospec=True) as mk_dir,
-    mock.patch('src.tfinta.gtfs.os.path.exists', autospec=True) as exists,
-  ):
-    is_dir.return_value = True
-    exists.return_value = True
+  mock_path = mock.MagicMock()
+  mock_path.is_dir.return_value = True
+  mock_path.exists.return_value = True
+  with mock.patch('src.tfinta.gtfs.pathlib.Path', autospec=True) as path_mock:
+    path_mock.return_value = mock_path
     # create database
     gtfs.GTFS(' db/path\t')  # some extra spaces...
     # check creation path
-    is_dir.assert_called_once_with('db/path')
-    mk_dir.assert_not_called()
-    exists.assert_called_once_with('db/path/transit.db')
-  deserialize.assert_called_once_with(file_path='db/path/transit.db', compress=True)
+    assert path_mock.call_args_list[0] == mock.call('db/path')
+    mock_path.is_dir.assert_called_once()
+    mock_path.mkdir.assert_not_called()
+    assert path_mock.call_args_list[1] == mock.call('db/path/transit.db')
+    mock_path.exists.assert_called_once()
+  deserialize.assert_called_once_with(file_path='db/path/transit.db')
   serialize.assert_not_called()
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-def test_main_load(mock_gtfs: mock.MagicMock) -> None:
+def test_main_load() -> None:
   """Test."""
-  db_obj = mock.MagicMock()
-  mock_gtfs.return_value = db_obj
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(gtfs.app, ['read'])
-  assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
-  db_obj.LoadData.assert_called_once_with(
-    'Iarnród Éireann / Irish Rail',
-    'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip',
-    freshness=10,
-    allow_unknown_file=True,
-    allow_unknown_field=False,
-    force_replace=False,
-    override=None,
-  )
-  db_obj.PrettyPrintTrip.assert_not_called()
+  with mock.patch('src.tfinta.gtfs.GTFS', autospec=True) as mock_gtfs:
+    db_obj = mock.MagicMock()
+    mock_gtfs.return_value = db_obj
+    with typeguard.suppress_type_checks():
+      result = typer_testing.CliRunner().invoke(gtfs.app, ['read'])
+    assert result.exit_code == 0
+    mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+    db_obj.LoadData.assert_called_once_with(
+      'Iarnród Éireann / Irish Rail',
+      'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip',
+      freshness=10,
+      allow_unknown_file=True,
+      allow_unknown_field=False,
+      force_replace=False,
+      override=None,
+    )
+    db_obj.PrettyPrintTrip.assert_not_called()
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-def test_main_print_basics(mock_gtfs: mock.MagicMock) -> None:
+def test_main_print_basics() -> None:
   """Test."""
-  db_obj = mock.MagicMock()
-  mock_gtfs.return_value = db_obj
-  db_obj.PrettyPrintBasics.return_value = ['foo', 'bar']
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'basics'])
-  assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
-  db_obj.LoadData.assert_not_called()
-  db_obj.PrettyPrintBasics.assert_called_once_with()
+  with (
+    mock.patch('src.tfinta.gtfs.GTFS', autospec=True) as mock_gtfs,
+    mock.patch('transcrypto.utils.logging.InitLogging') as mock_init_logging,
+  ):
+    mock_console = mock.MagicMock()
+    mock_init_logging.return_value = (mock_console, 0, False)
+    db_obj = mock.MagicMock()
+    mock_gtfs.return_value = db_obj
+    db_obj.PrettyPrintBasics.return_value = ['foo', 'bar']
+    with typeguard.suppress_type_checks():
+      result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'basics'])
+    assert result.exit_code == 0
+    mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+    db_obj.LoadData.assert_not_called()
+    db_obj.PrettyPrintBasics.assert_called_once_with()
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-def test_main_print_calendar(mock_gtfs: mock.MagicMock) -> None:
+def test_main_print_calendar() -> None:
   """Test."""
-  db_obj = mock.MagicMock()
-  mock_gtfs.return_value = db_obj
-  db_obj.PrettyPrintCalendar.return_value = ['foo', 'bar']
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'calendars'])
-  assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
-  db_obj.LoadData.assert_not_called()
-  db_obj.PrettyPrintCalendar.assert_called_once_with()
+  with (
+    mock.patch('src.tfinta.gtfs.GTFS', autospec=True) as mock_gtfs,
+    mock.patch('transcrypto.utils.logging.InitLogging') as mock_init_logging,
+  ):
+    mock_console = mock.MagicMock()
+    mock_init_logging.return_value = (mock_console, 0, False)
+    db_obj = mock.MagicMock()
+    mock_gtfs.return_value = db_obj
+    db_obj.PrettyPrintCalendar.return_value = ['foo', 'bar']
+    with typeguard.suppress_type_checks():
+      result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'calendars'])
+    assert result.exit_code == 0
+    mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+    db_obj.LoadData.assert_not_called()
+    db_obj.PrettyPrintCalendar.assert_called_once_with()
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-def test_main_print_stops(mock_gtfs: mock.MagicMock) -> None:
+def test_main_print_stops() -> None:
   """Test."""
-  db_obj = mock.MagicMock()
-  mock_gtfs.return_value = db_obj
-  db_obj.PrettyPrintStops.return_value = ['foo', 'bar']
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'stops'])
-  assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
-  db_obj.LoadData.assert_not_called()
-  db_obj.PrettyPrintStops.assert_called_once_with()
+  with (
+    mock.patch('src.tfinta.gtfs.GTFS', autospec=True) as mock_gtfs,
+    mock.patch('transcrypto.utils.logging.InitLogging') as mock_init_logging,
+  ):
+    mock_console = mock.MagicMock()
+    mock_init_logging.return_value = (mock_console, 0, False)
+    db_obj = mock.MagicMock()
+    mock_gtfs.return_value = db_obj
+    db_obj.PrettyPrintStops.return_value = ['foo', 'bar']
+    with typeguard.suppress_type_checks():
+      result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'stops'])
+    assert result.exit_code == 0
+    mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+    db_obj.LoadData.assert_not_called()
+    db_obj.PrettyPrintStops.assert_called_once_with()
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-def test_main_print_shape(mock_gtfs: mock.MagicMock) -> None:
+def test_main_print_shape() -> None:
   """Test."""
-  db_obj = mock.MagicMock()
-  mock_gtfs.return_value = db_obj
-  db_obj.PrettyPrintShape.return_value = ['foo', 'bar']
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'shape', '-i', '4669_658'])
-  assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
-  db_obj.LoadData.assert_not_called()
-  db_obj.PrettyPrintShape.assert_called_once_with(shape_id='4669_658')
+  with (
+    mock.patch('src.tfinta.gtfs.GTFS', autospec=True) as mock_gtfs,
+    mock.patch('transcrypto.utils.logging.InitLogging') as mock_init_logging,
+  ):
+    mock_console = mock.MagicMock()
+    mock_init_logging.return_value = (mock_console, 0, False)
+    db_obj = mock.MagicMock()
+    mock_gtfs.return_value = db_obj
+    db_obj.PrettyPrintShape.return_value = ['foo', 'bar']
+    with typeguard.suppress_type_checks():
+      result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'shape', '4669_658'])
+    assert result.exit_code == 0
+    mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+    db_obj.LoadData.assert_not_called()
+    db_obj.PrettyPrintShape.assert_called_once_with(shape_id='4669_658')
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-def test_main_print_trip(mock_gtfs: mock.MagicMock) -> None:
+def test_main_print_trip() -> None:
   """Test."""
-  db_obj = mock.MagicMock()
-  mock_gtfs.return_value = db_obj
-  db_obj.PrettyPrintTrip.return_value = ['foo', 'bar']
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'trip', '-i', 'tid'])
-  assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
-  db_obj.LoadData.assert_not_called()
-  db_obj.PrettyPrintTrip.assert_called_once_with(trip_id='tid')
+  with (
+    mock.patch('src.tfinta.gtfs.GTFS', autospec=True) as mock_gtfs,
+    mock.patch('transcrypto.utils.logging.InitLogging') as mock_init_logging,
+  ):
+    mock_console = mock.MagicMock()
+    mock_init_logging.return_value = (mock_console, 0, False)
+    db_obj = mock.MagicMock()
+    mock_gtfs.return_value = db_obj
+    db_obj.PrettyPrintTrip.return_value = ['foo', 'bar']
+    with typeguard.suppress_type_checks():
+      result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'trip', 'tid'])
+    assert result.exit_code == 0
+    mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+    db_obj.LoadData.assert_not_called()
+    db_obj.PrettyPrintTrip.assert_called_once_with(trip_id='tid')
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-def test_main_print_all(mock_gtfs: mock.MagicMock) -> None:
+def test_main_print_all() -> None:
   """Test."""
-  db_obj = mock.MagicMock()
-  mock_gtfs.return_value = db_obj
-  db_obj.PrettyPrintTrip.return_value = ['foo', 'bar']
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'all'])
-  assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
-  db_obj.LoadData.assert_not_called()
-  db_obj.PrettyPrintAllDatabase.assert_called_once_with()
+  with mock.patch('src.tfinta.gtfs.GTFS', autospec=True) as mock_gtfs:
+    db_obj = mock.MagicMock()
+    mock_gtfs.return_value = db_obj
+    db_obj.PrettyPrintTrip.return_value = ['foo', 'bar']
+    with typeguard.suppress_type_checks():
+      result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'all'])
+    assert result.exit_code == 0
+    mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+    db_obj.LoadData.assert_not_called()
+    db_obj.PrettyPrintAllDatabase.assert_called_once_with()
