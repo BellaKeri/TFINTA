@@ -9,6 +9,7 @@ import io
 import os.path
 import pathlib
 import types
+from collections import abc
 from typing import Self
 
 from rich import table
@@ -65,6 +66,9 @@ class ExpectedTable:
   rows: list[list[Data]]
 
 
+type ExpectedPrettyPrint = list[str | ExpectedTable]
+
+
 def AssertTable(expected_data: ExpectedTable, actual_table: table.Table, /) -> None:
   """Assert that a rich Table matches expected data structure.
 
@@ -97,3 +101,21 @@ def AssertTable(expected_data: ExpectedTable, actual_table: table.Table, /) -> N
         assert style_str == expected_cell.style, (
           f'Cell {r}/{i} style: expected {expected_cell.style!r}, got {style_str!r}'
         )
+
+
+def AssertPrettyPrint(
+  expected_data: ExpectedPrettyPrint, actual_pretty: abc.Generator[str | table.Table, None, None], /
+) -> None:
+  """Assert that a "PrettyPrint" generator matches expected data structure.
+
+  Args:
+    expected_data: List of strings or ExpectedTable objects, defining the data to validate against.
+    actual_pretty: Generator yielding strings or table.Table objects, to validate against.
+
+  """
+  for i, (expected, actual) in enumerate(zip(expected_data, actual_pretty, strict=True)):
+    if isinstance(expected, str):
+      assert expected == actual, f'Line {i}: expected {expected!r}, got {actual!r}'
+    else:
+      assert isinstance(actual, table.Table), f'Line {i}: not table, got {type(actual).__name__!r}'
+      AssertTable(expected, actual)

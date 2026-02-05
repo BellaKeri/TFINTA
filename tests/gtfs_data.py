@@ -14,6 +14,9 @@ import zoneinfo
 from src.tfinta import gtfs_data_model as dm
 from src.tfinta import tfinta_base as base
 
+from . import util
+from .util import Data as Dt
+
 
 def ZipDirBytes(src_dir: pathlib.Path, /) -> bytes:
   """Create an in-memory ZIP from every *.txt file under `src_dir` (non-recursive)."""
@@ -990,6 +993,65 @@ CALENDARS: str = """\
 |         |                |                |     |     |     |     |     |     |     | 2025-10-27·Mon ✗ |
 +---------+----------------+----------------+-----+-----+-----+-----+-----+-----+-----+------------------+\
 """
+
+CALENDARS_TABLE: util.ExpectedPrettyPrint = [
+  util.ExpectedTable(
+    columns=[
+      Dt('[bold cyan]Service[/]'),
+      Dt('[bold cyan]Start[/]'),
+      Dt('[bold cyan]End[/]'),
+      Dt('[bold cyan]Mon[/]'),
+      Dt('[bold cyan]Tue[/]'),
+      Dt('[bold cyan]Wed[/]'),
+      Dt('[bold cyan]Thu[/]'),
+      Dt('[bold cyan]Fri[/]'),
+      Dt('[bold cyan]Sat[/]'),
+      Dt('[bold cyan]Sun[/]'),
+      Dt('[bold cyan]Exceptions[/]'),
+    ],
+    rows=[
+      [
+        Dt('[bold cyan]83[/]'),
+        Dt('[bold yellow]2025-06-01·Sun[/]'),
+        Dt('[bold]2025-12-07·Sun[/]'),
+        Dt('[bold]✗[/]'),
+        Dt('[bold]✗[/]'),
+        Dt('[bold]✗[/]'),
+        Dt('[bold]✗[/]'),
+        Dt('[bold]✗[/]'),
+        Dt('[bold]✗[/]'),
+        Dt('[bold]✓[/]'),
+        Dt('∅'),
+      ],
+      [
+        Dt('[bold cyan]84[/]'),
+        Dt('[bold yellow]2025-08-04·Mon[/]'),
+        Dt('[bold]∅[/]'),
+        Dt('[bold]✗[/]'),
+        Dt('[bold]✗[/]'),
+        Dt('[bold]✗[/]'),
+        Dt('[bold]✗[/]'),
+        Dt('[bold]✗[/]'),
+        Dt('[bold]✗[/]'),
+        Dt('[bold]✗[/]'),
+        Dt('[bold]2025-08-04·Mon ✓[/]'),
+      ],
+      [
+        Dt('[bold cyan]87[/]'),
+        Dt('[bold yellow]2025-05-29·Thu[/]'),
+        Dt('[bold]2025-12-13·Sat[/]'),
+        Dt('[bold]✓[/]'),
+        Dt('[bold]✓[/]'),
+        Dt('[bold]✓[/]'),
+        Dt('[bold]✓[/]'),
+        Dt('[bold]✓[/]'),
+        Dt('[bold]✓[/]'),
+        Dt('[bold]✗[/]'),
+        Dt('[bold]2025-06-02·Mon ✗[/]\n[bold]2025-08-04·Mon ✗[/]\n[bold]2025-10-27·Mon ✗[/]'),
+      ],
+    ],
+  ),
+]
 
 STOPS = """\
 +-----------------+------+--------------------+------+---------------+------------+------+-------+-----+

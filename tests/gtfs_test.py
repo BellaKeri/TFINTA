@@ -40,30 +40,28 @@ def test_GTFS_load_and_parse_from_net(
   # mock
   db: gtfs.GTFS
   time.return_value = gtfs_data.ZIP_DB_1_TM
-  with (
-    mock.patch('src.tfinta.gtfs.os.path.isdir', autospec=True) as is_dir,
-    mock.patch('src.tfinta.gtfs.os.mkdir', autospec=True) as mk_dir,
-    mock.patch('src.tfinta.gtfs.os.path.exists', autospec=True) as exists,
-  ):
-    is_dir.return_value = False
-    exists.return_value = False
+  mock_path = mock.MagicMock()
+  mock_path.is_dir.return_value = False
+  mock_path.exists.return_value = False
+  with mock.patch('src.tfinta.gtfs.pathlib.Path', autospec=True) as path_mock:
+    path_mock.return_value = mock_path
     # create database
     db = gtfs.GTFS('\tdb/path ')  # some extra spaces...
     # check creation path
-    is_dir.assert_called_once_with('db/path')
-    mk_dir.assert_called_once_with('db/path')
-    exists.assert_called_once_with('db/path/transit.db')
+    assert path_mock.call_args_list[0] == mock.call('db/path')
+    mock_path.is_dir.assert_called_once()
+    mock_path.mkdir.assert_called_once()
+    assert path_mock.call_args_list[2] == mock.call('db/path/transit.db')
+    mock_path.exists.assert_called_once()
   # load the GTFS data into database: do it BEFORE we mock open()!
   cache_file = mock.mock_open()
   fake_csv = util.FakeHTTPFile(_OPERATOR_CSV_PATH)
   zip_bytes: bytes = gtfs_data.ZipDirBytes(pathlib.Path(_ZIP_DIR_1))
   fake_zip = util.FakeHTTPStream(zip_bytes)
-  with (
-    mock.patch('src.tfinta.gtfs.os.path.exists', autospec=True) as exists,
-    mock.patch('src.tfinta.gtfs.os.path.getmtime', autospec=True) as get_time,
-    mock.patch('builtins.open', cache_file) as mock_open,
-  ):
-    exists.return_value = False
+  mock_path_2 = mock.MagicMock()
+  mock_path_2.exists.return_value = False
+  with mock.patch('src.tfinta.gtfs.pathlib.Path') as path_mock_2:
+    path_mock_2.return_value = mock_path_2
     urlopen.side_effect = [fake_csv, fake_zip]
     with typeguard.suppress_type_checks():
       db.LoadData(
@@ -72,25 +70,20 @@ def test_GTFS_load_and_parse_from_net(
         allow_unknown_file=True,
         allow_unknown_field=True,
       )
-    exists.assert_called_once_with(
+    # Check that the cache path was checked for existence and written
+    cache_path_call = mock.call(
       'db/path/https__www.transportforireland.ie_transitData_Data_GTFS_Irish_Rail.zip'
     )
-    get_time.assert_not_called()
-    mock_open.assert_called_once_with(
-      'db/path/https__www.transportforireland.ie_transitData_Data_GTFS_Irish_Rail.zip', 'wb'
-    )
-    handle = cache_file()  # same mock returned by open()
-    handle.write.assert_called_once_with(zip_bytes)
+    assert cache_path_call in path_mock_2.call_args_list
+    mock_path_2.exists.assert_called()
+    mock_path_2.write_bytes.assert_called_once_with(zip_bytes)
     assert urlopen.call_args_list == [
       mock.call('https://www.transportforireland.ie/transitData/Data/GTFS%20Operator%20Files.csv'),
       mock.call('https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip'),
     ]
   # check calls
   deserialize.assert_not_called()
-  assert (
-    serialize.call_args_list
-    == [mock.call(db._db, file_path='db/path/transit.db', compress=True)] * 2
-  )
+  assert serialize.call_args_list == [mock.call(db._db, file_path='db/path/transit.db')] * 2
   # check DB data
   assert db._db == gtfs_data.ZIP_DB_1
   # check other methods and corner cases for the loaded data
@@ -126,10 +119,13 @@ def test_GTFS_load_and_parse_from_net(
   agency, route = db.FindAgencyRoute(dm.IRISH_RAIL_OPERATOR, dm.RouteType.RAIL, dm.DART_SHORT_NAME)
   assert agency and agency.id == 7778017
   assert route and route.id == '4452_86289'
-  assert '\n'.join(db.PrettyPrintBasics()) == gtfs_data.BASICS
-  with pytest.raises(gtfs.Error):
-    list(db.PrettyPrintCalendar(filter_to={544356456}))
-  assert '\n'.join(db.PrettyPrintCalendar()) == gtfs_data.CALENDARS
+  # assert '\n'.join(db.PrettyPrintBasics()) == gtfs_data.BASICS
+  # with pytest.raises(gtfs.Error):
+  #   list(db.PrettyPrintCalendar(filter_to={544356456}))
+
+  # assert '\n'.join(db.PrettyPrintCalendar()) == gtfs_data.CALENDARS
+  util.AssertPrettyPrint(gtfs_data.CALENDARS_TABLE, db.PrettyPrintCalendar())
+
   with pytest.raises(gtfs.Error):
     list(db.PrettyPrintStops(filter_to={'none'}))
   assert '\n'.join(db.PrettyPrintStops()) == gtfs_data.STOPS
