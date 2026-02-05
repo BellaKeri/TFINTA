@@ -10,9 +10,21 @@ from unittest import mock
 import pytest
 import typeguard
 from src.tfinta import dart, gtfs
+from transcrypto.utils import logging as tc_logging
 from typer import testing as typer_testing
 
 from . import gtfs_data
+
+
+@pytest.fixture(autouse=True)
+def reset_cli_logging_singletons() -> None:
+  """Reset global console/logging state between tests.
+
+  The CLI callback initializes a global Rich console singleton via InitLogging().
+  Tests invoke the CLI multiple times across test cases, so we must reset that
+  singleton to keep tests isolated.
+  """
+  tc_logging.ResetConsole()
 
 
 @pytest.fixture

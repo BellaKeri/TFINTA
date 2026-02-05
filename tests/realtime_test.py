@@ -14,6 +14,7 @@ import pytest
 import typeguard
 from src.tfinta import realtime
 from src.tfinta import realtime_data_model as dm
+from transcrypto.utils import logging as tc_logging
 from typer import testing as typer_testing
 
 from . import realtime_data, util
@@ -26,6 +27,17 @@ TEST_XMLS: dict[str, str] = {
   'station': os.path.join(_REALTIME_DIR, 'getStationDataByCode.xml'),
   'train': os.path.join(_REALTIME_DIR, 'getTrainMovements.xml'),
 }
+
+
+@pytest.fixture(autouse=True)
+def reset_cli_logging_singletons() -> None:
+  """Reset global console/logging state between tests.
+
+  The CLI callback initializes a global Rich console singleton via InitLogging().
+  Tests invoke the CLI multiple times across test cases, so we must reset that
+  singleton to keep tests isolated.
+  """
+  tc_logging.ResetConsole()
 
 
 class _FakeDate(datetime.date):
