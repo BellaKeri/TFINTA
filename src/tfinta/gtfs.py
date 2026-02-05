@@ -22,13 +22,15 @@ import urllib.request
 import zipfile
 import zoneinfo
 from collections import abc
-from typing import IO, Any, get_args, get_type_hints
+from typing import IO, Any, cast, get_args, get_type_hints
 
 import click
 import prettytable
 import typer
 from rich import console as rich_console
 from transcrypto.cli import clibase
+from transcrypto.core import key
+from transcrypto.utils import human
 from transcrypto.utils import logging as tc_logging
 
 from . import __version__
@@ -122,9 +124,8 @@ class GTFS:
     # load DB, or create if new
     if pathlib.Path(self._db_path).exists():
       # DB exists: load
-      with base.Timer() as tm_load:
-        self._db = base.BinDeSerialize(file_path=self._db_path, compress=True)
-      logging.info('Loaded DB from %r (%s)', self._db_path, tm_load.readable)
+      self._db = cast('dm.GTFSData', key.DeSerialize(file_path=self._db_path))
+      logging.info(f'Loaded DB from {self._db_path!r}')
       logging.info('DB freshness: %s', base.STD_TIME_STRING(self._db.tm))
     else:
       # DB does not exist: create empty
@@ -184,12 +185,11 @@ class GTFS:
 
     """
     if force or self._changed:
-      with base.Timer() as tm_save:
-        # (compressing is responsible for ~95% of save time)
-        self._db.tm = time.time()
-        base.BinSerialize(self._db, file_path=self._db_path, compress=True)
+      # (compressing is responsible for ~95% of save time)
+      self._db.tm = time.time()
+      key.Serialize(self._db, file_path=self._db_path)
       self._changed = False
-      logging.info('Saved DB to %r (%s)', self._db_path, tm_save.readable)
+      logging.info(f'Saved DB to {self._db_path!r}')
 
   # TODO: refactor to not depend on self, as this may lead to memory leaks if not careful
   @functools.lru_cache(  # noqa: B019
@@ -563,7 +563,7 @@ class GTFS:
         logging.info(
           'Loading %r data, %s, from %r%s',
           operator,
-          base.HumanizedBytes(len(gtfs_zip_bytes)),
+          human.HumanizedBytes(len(gtfs_zip_bytes)),
           link if save_cache_file else cache_file_name,
           ' => SAVING to cache' if save_cache_file else '',
         )
@@ -620,14 +620,14 @@ class GTFS:
     file_name: str = location.file_name
     if file_name not in self._file_handlers or not file_data:
       message: str = (
-        f'Unsupported GTFS file: {file_name or "<empty>"} ({base.HumanizedBytes(len(file_data))})'
+        f'Unsupported GTFS file: {file_name or "<empty>"} ({human.HumanizedBytes(len(file_data))})'
       )
       if allow_unknown_file:
         logging.warning(message)
         return
       raise ParseImplementationError(message)
     # supported type of GTFS file, so process the data into the DB
-    logging.info('Processing: %s (%s)', file_name, base.HumanizedBytes(len(file_data)))
+    logging.info('Processing: %s (%s)', file_name, human.HumanizedBytes(len(file_data)))
     # get fields data, and process CSV with a dict reader
     file_handler, _, field_types, required_fields = self._file_handlers[file_name]
     i: int = 0

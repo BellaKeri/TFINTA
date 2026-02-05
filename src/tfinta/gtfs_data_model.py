@@ -12,7 +12,7 @@ import datetime
 import enum
 import functools
 import zoneinfo
-from collections.abc import Callable
+from collections import abc
 from typing import TypedDict
 
 from . import tfinta_base as base
@@ -169,10 +169,10 @@ class StopPointType(enum.Enum):
 
 
 STOP_TYPE_STR: dict[StopPointType, str] = {
-  StopPointType.REGULAR: f'{base.GREEN}\u2713{base.NULL}',  # ✓
-  StopPointType.NOT_AVAILABLE: f'{base.RED}\u2717{base.NULL}',  # ✗
-  StopPointType.AGENCY_ONLY: f'{base.YELLOW}\u260e{base.NULL}',  # ☎
-  StopPointType.DRIVER_ONLY: f'{base.YELLOW}\u2708{base.NULL}',  # ✈
+  StopPointType.REGULAR: '[green]\u2713[/]',  # ✓
+  StopPointType.NOT_AVAILABLE: '[red]\u2717[/]',  # ✗
+  StopPointType.AGENCY_ONLY: '[yellow]\u260e[/]',  # ☎
+  StopPointType.DRIVER_ONLY: '[yellow]\u2708[/]',  # ✈
 }
 
 
@@ -613,8 +613,8 @@ class Schedule:
 
 # useful
 
-DART_DIRECTION: Callable[[Trip | Schedule], str] = (
-  lambda t: f'{base.LIGHT_BLUE}S{base.NULL}' if t.direction else f'{base.LIGHT_RED}N{base.NULL}'
+DART_DIRECTION: abc.Callable[[Trip | Schedule], str] = (
+  lambda t: '[bright_blue]S[/]' if t.direction else '[bright_red]N[/]'
 )
 
 NULL_STOP = Stop(

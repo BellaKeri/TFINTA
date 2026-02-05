@@ -11,7 +11,7 @@ import dataclasses
 import datetime
 import enum
 import functools
-from collections.abc import Callable
+from collections import abc
 from typing import TypedDict
 
 from . import tfinta_base as base
@@ -81,9 +81,9 @@ TRAIN_STATUS_STR_MAP: dict[str, TrainStatus] = {
 }
 
 TRAIN_STATUS_STR: dict[TrainStatus, str] = {
-  TrainStatus.TERMINATED: f'{base.YELLOW}\u2717{base.NULL}',  # ✗
-  TrainStatus.NOT_YET_RUNNING: f'{base.RED}\u25a0{base.NULL}',  # ■
-  TrainStatus.RUNNING: f'{base.GREEN}\u25ba{base.NULL}',  # ►
+  TrainStatus.TERMINATED: '[yellow]\u2717[/]',  # ✗
+  TrainStatus.NOT_YET_RUNNING: '[red]\u25a0[/]',  # ■
+  TrainStatus.RUNNING: '[green]\u25ba[/]',  # ►
 }
 
 
@@ -164,11 +164,11 @@ LOCATION_TYPE_STR_MAP: dict[str, LocationType] = {
 }
 
 LOCATION_TYPE_STR: dict[LocationType, str] = {
-  LocationType.ORIGIN: f'{base.GREEN}ORIGIN{base.NULL}',
-  LocationType.DESTINATION: f'{base.GREEN}DESTINATION{base.NULL}',
-  LocationType.STOP: f'{base.GREEN}\u25a0{base.NULL}',  # ■
-  LocationType.TIMING_POINT: f'{base.RED}\u23f1{base.NULL}',  # ⏱
-  LocationType.CREW_RELIEF_OR_CURRENT: f'{base.GREEN}\u25a0\u25a0{base.NULL}',  # ■■
+  LocationType.ORIGIN: '[green]ORIGIN[/]',
+  LocationType.DESTINATION: '[green]DESTINATION[/]',
+  LocationType.STOP: '[green]\u25a0[/]',  # ■
+  LocationType.TIMING_POINT: '[red]\u23f1[/]',  # ⏱
+  LocationType.CREW_RELIEF_OR_CURRENT: '[green]\u25a0\u25a0[/]',  # ■■
 }
 
 
@@ -384,4 +384,4 @@ class LatestData:
   ]
 
 
-PRETTY_AUTO: Callable[[bool], str] = lambda b: f'{base.GREEN}\u2699{base.NULL}' if b else ''  # ⚙
+PRETTY_AUTO: abc.Callable[[bool], str] = lambda b: '[green]\u2699[/]' if b else ''  # ⚙

@@ -7,57 +7,64 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import functools
-from collections.abc import Callable
+import pathlib
+import re
+import time
+from collections import abc
 from typing import Self
 
-from balparda_baselib import base as balparda_base
 from transcrypto.utils import base
 
-# copy useful stuff from balparda_baselib
+# Logging and formatting
 
-LOG_FORMAT = balparda_base.LOG_FORMAT
-MODULE_PRIVATE_DIR = balparda_base.MODULE_PRIVATE_DIR
-STD_TIME_STRING = balparda_base.STD_TIME_STRING
-STRIP_ANSI = balparda_base.STRIP_ANSI
+ANSI_ESCAPE: re.Pattern[str] = re.compile(r'\x1b\[[0-9;]*m')
+STRIP_ANSI: abc.Callable[[str], str] = lambda s: ANSI_ESCAPE.sub('', s)
 
-NULL = balparda_base.TERM_END
-BOLD = balparda_base.TERM_BOLD
-BLUE = balparda_base.TERM_BLUE
-LIGHT_BLUE = balparda_base.TERM_LIGHT_BLUE
-GREEN = balparda_base.TERM_GREEN
-RED = balparda_base.TERM_RED
-LIGHT_RED = balparda_base.TERM_LIGHT_RED
-YELLOW = balparda_base.TERM_YELLOW
-CYAN = balparda_base.TERM_CYAN
-MAGENTA = balparda_base.TERM_MAGENTA
+# Time utilities
 
-BinSerialize = balparda_base.BinSerialize
-BinDeSerialize = balparda_base.BinDeSerialize
-Timer = balparda_base.Timer
-HumanizedBytes = balparda_base.HumanizedBytes
-HumanizedDecimal = balparda_base.HumanizedDecimal
-HumanizedSeconds = balparda_base.HumanizedSeconds
+TIME_FORMAT: str = '%Y/%b/%d-%H:%M:%S-UTC'
+STD_TIME_STRING: abc.Callable[[int | float | None], str] = lambda tm: (
+  time.strftime(TIME_FORMAT, time.gmtime(tm)) if tm else '-'
+)
+
+# Path utilities
+
+
+def MODULE_PRIVATE_DIR(module_file: str, dir_name: str, /) -> str:
+  """Get a private directory path for a module.
+
+  Args:
+      module_file: The module's __file__ attribute
+      dir_name: Name of the private directory
+
+  Returns:
+      str: Absolute path to the private directory
+
+  """
+  return str(pathlib.Path(module_file).parent / dir_name)
 
 
 # data parsing utils
 
 BOOL_FIELD: dict[str, bool] = {'0': False, '1': True}
-_DT_OBJ_GTFS: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(s, '%Y%m%d')  # noqa: DTZ007
-_DT_OBJ_REALTIME: Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(  # noqa: DTZ007
+_DT_OBJ_GTFS: abc.Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(  # noqa: DTZ007
+  s, '%Y%m%d'
+)
+_DT_OBJ_REALTIME: abc.Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(  # noqa: DTZ007
   s, '%d %b %Y'
 )
-# _UTC_DATE: Callable[[str], float] = lambda s: _DT_OBJ(s).replace(
+# _UTC_DATE: abc.Callable[[str], float] = lambda s: _DT_OBJ(s).replace(
 #     tzinfo=datetime.timezone.utc).timestamp()
-DATE_OBJ_GTFS: Callable[[str], datetime.date] = lambda s: _DT_OBJ_GTFS(s).date()
-DATE_OBJ_REALTIME: Callable[[str], datetime.date] = lambda s: _DT_OBJ_REALTIME(s).date()
-DATETIME_FROM_ISO: Callable[[str], datetime.datetime] = datetime.datetime.fromisoformat
+DATE_OBJ_GTFS: abc.Callable[[str], datetime.date] = lambda s: _DT_OBJ_GTFS(s).date()
+DATE_OBJ_REALTIME: abc.Callable[[str], datetime.date] = lambda s: _DT_OBJ_REALTIME(s).date()
+DATETIME_FROM_ISO: abc.Callable[[str], datetime.datetime] = datetime.datetime.fromisoformat
 
-NULL_TEXT: str = f'{BLUE}\u2205{NULL}'  # ∅
-LIMITED_TEXT: Callable[[str | None, int], str] = (
+NULL_TEXT: str = '\u2205'  # ∅
+LIMITED_TEXT: abc.Callable[[str | None, int], str] = (
   lambda s, w: NULL_TEXT if s is None else (s if len(s) <= w else f'{s[: (w - 1)]}\u2026')
 )  # …
-PRETTY_BOOL: Callable[[bool | None], str] = lambda b: (  # ✓ and ✗
-  f'{GREEN}\u2713{NULL}' if b else f'{RED}\u2717{NULL}'
+PRETTY_BOOL: abc.Callable[[bool | None], str] = lambda b: (  # ✓ and ✗
+  '\u2713' if b else '\u2717'
 )
 
 DAY_NAME: dict[int, str] = {
@@ -70,8 +77,8 @@ DAY_NAME: dict[int, str] = {
   6: 'Sunday',
 }
 
-SHORT_DAY_NAME: Callable[[int], str] = lambda i: DAY_NAME[i][:3]
-PRETTY_DATE: Callable[[datetime.date | None], str] = lambda d: (
+SHORT_DAY_NAME: abc.Callable[[int], str] = lambda i: DAY_NAME[i][:3]
+PRETTY_DATE: abc.Callable[[datetime.date | None], str] = lambda d: (
   NULL_TEXT if d is None else f'{d.isoformat()}\u00b7{SHORT_DAY_NAME(d.weekday())}'
 )  # ·
 

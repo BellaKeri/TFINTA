@@ -26,6 +26,7 @@ import prettytable
 import typer
 from rich import console as rich_console
 from transcrypto.cli import clibase
+from transcrypto.utils import human
 from transcrypto.utils import logging as tc_logging
 
 from . import __version__
@@ -109,7 +110,7 @@ def _LoadXMLFromURL(url: str, /, timeout: float = _DEFAULT_TIMEOUT) -> xml.dom.m
       with urllib.request.urlopen(url, timeout=timeout) as url_data:  # noqa: S310
         data = url_data.read()
       # XML errors will bubble up
-      logging.info('Loaded %s from %s', base.HumanizedBytes(len(data)), url)
+      logging.info('Loaded %s from %s', human.HumanizedBytes(len(data)), url)
       return xml.dom.minidom.parseString(data)  # noqa: S318
     except urllib.error.HTTPError as err:
       if 500 <= err.code < 600:  # 5xx → retry, 4xx → fail immediately  # noqa: PLR2004
