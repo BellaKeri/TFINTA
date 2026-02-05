@@ -280,7 +280,7 @@ class DART:
     )  # ★
     for schedule, name, trips_in_train in self.WalkTrains(filter_services=day_services):
       trip_codes: str = ', '.join(
-        f'{s}/{t.id}{"" if sc == schedule else "/[red][★][/][bold]"}' for s, sc, t in trips_in_train
+        f'{s}/{t.id}{"" if sc == schedule else "/[red]★[/]"}' for s, sc, t in trips_in_train
       )
       table.add_row(
         [
@@ -294,9 +294,9 @@ class DART:
               schedule.times[0].times.departure.ToHMS()
               if schedule.times[0].times.departure
               else "∅"
-            }'
-            f'[/][bold]{trip_codes}[/]'
+            }[/]'
           ),
+          f'[bold]{trip_codes}[/]',
         ]
       )
     yield from table.get_string().splitlines()  # pyright: ignore[reportUnknownMemberType]

@@ -71,7 +71,7 @@ _RPC_CALLS: dict[str, abc.Callable[[_PossibleRPCArgs], str]] = {
   ),
   'train': lambda train_data: (
     f'{_TFI_REALTIME_URL}/getTrainMovementsXML?TrainId={str(train_data["train_code"]).strip()}'
-    f'&TrainDate={cast("datetime.date", train_data["date"]).strftime("%d%%20%b%%20%Y").lower()}'
+    f'&TrainDate={cast("datetime.date", train_data["day"]).strftime("%d%%20%b%%20%Y").lower()}'
   ),
 }
 
