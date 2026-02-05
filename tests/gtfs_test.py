@@ -13,6 +13,7 @@ import pytest
 import typeguard
 from src.tfinta import gtfs
 from src.tfinta import gtfs_data_model as dm
+from src.tfinta import tfinta_base as base
 from typer import testing as typer_testing
 
 from . import gtfs_data, util
@@ -119,23 +120,20 @@ def test_GTFS_load_and_parse_from_net(
   agency, route = db.FindAgencyRoute(dm.IRISH_RAIL_OPERATOR, dm.RouteType.RAIL, dm.DART_SHORT_NAME)
   assert agency and agency.id == 7778017
   assert route and route.id == '4452_86289'
-  # assert '\n'.join(db.PrettyPrintBasics()) == gtfs_data.BASICS
-  # with pytest.raises(gtfs.Error):
-  #   list(db.PrettyPrintCalendar(filter_to={544356456}))
-
-  # assert '\n'.join(db.PrettyPrintCalendar()) == gtfs_data.CALENDARS
+  util.AssertPrettyPrint(gtfs_data.BASICS_TABLE, db.PrettyPrintBasics())
+  with pytest.raises(gtfs.Error):
+    list(db.PrettyPrintCalendar(filter_to={544356456}))
   util.AssertPrettyPrint(gtfs_data.CALENDARS_TABLE, db.PrettyPrintCalendar())
-
   with pytest.raises(gtfs.Error):
     list(db.PrettyPrintStops(filter_to={'none'}))
-  assert '\n'.join(db.PrettyPrintStops()) == gtfs_data.STOPS
+  util.AssertPrettyPrint(gtfs_data.STOPS_TABLE, db.PrettyPrintStops())
   with pytest.raises(gtfs.Error):
     list(db.PrettyPrintShape(shape_id='none'))
-  assert '\n'.join(db.PrettyPrintShape(shape_id='4669_658')) == gtfs_data.SHAPE_4669_658
+  util.AssertPrettyPrint(gtfs_data.SHAPE_4669_658_TABLE, db.PrettyPrintShape(shape_id='4669_658'))
   with pytest.raises(gtfs.Error):
     list(db.PrettyPrintTrip(trip_id='none'))
-  assert '\n'.join(db.PrettyPrintTrip(trip_id='4452_2655')) == gtfs_data.TRIP_4452_2655
-  assert '\n'.join(db.PrettyPrintAllDatabase()) == gtfs_data.ALL_TRIPS
+  util.AssertPrettyPrint(gtfs_data.TRIP_4452_2655_TABLE, db.PrettyPrintTrip(trip_id='4452_2655'))
+  util.AssertPrettyPrint(gtfs_data.ALL_TRIPS_TABLE, db.PrettyPrintAllDatabase())
   # check corner cases for handlers
   # feed_info.txt
   loc = gtfs._TableLocation(
@@ -155,14 +153,14 @@ def test_GTFS_load_and_parse_from_net(
   )
   with pytest.raises(gtfs.RowError, match='1 row'):
     db._HandleFeedInfoRow(loc, 1, info_row)
-  with pytest.raises(gtfs.base.Error, match='invalid dates'):
+  with pytest.raises(base.Error, match='invalid dates'):
     db._HandleFeedInfoRow(loc, 0, info_row)
   info_row['feed_end_date'] = '20260530'  # the original
   with pytest.raises(gtfs.ParseIdenticalVersionError):
     db._HandleFeedInfoRow(loc, 0, info_row)
   # agency.txt - no raise to test
   # calendar.txt
-  with pytest.raises(gtfs.base.Error, match='invalid dates'):
+  with pytest.raises(base.Error, match='invalid dates'):
     db._HandleCalendarRow(
       loc,
       1,
@@ -189,7 +187,7 @@ def test_GTFS_load_and_parse_from_net(
     shape_pt_lon=10.0,
     shape_dist_traveled=-4.0,
   )
-  with pytest.raises(gtfs.base.Error, match='invalid distance'):
+  with pytest.raises(base.Error, match='invalid distance'):
     db._HandleShapesRow(loc, 1, shape)
   # trips.txt
   with pytest.raises(gtfs.RowError, match='agency in row was not found'):
@@ -235,7 +233,7 @@ def test_GTFS_load_and_parse_from_net(
     drop_off_type=None,
     dropoff_type=None,
   )
-  with pytest.raises(gtfs.base.Error, match='arrival <= departure'):
+  with pytest.raises(base.Error, match='arrival <= departure'):
     db._HandleStopTimesRow(loc, 1, stop_time)
   stop_time['departure_time'] = '10:00:10'  # valid
   stop_time['stop_id'] = 'foo'  # invalid
