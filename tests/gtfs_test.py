@@ -320,8 +320,7 @@ def test_main_print_calendar() -> None:
     db_obj = mock.MagicMock()
     mock_gtfs.return_value = db_obj
     db_obj.PrettyPrintCalendar.return_value = ['foo', 'bar']
-    with typeguard.suppress_type_checks():
-      result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'calendars'])
+    result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'calendars'])
     assert result.exit_code == 0
     mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
     db_obj.LoadData.assert_not_called()

@@ -1073,21 +1073,21 @@ files = [
 
 [[package]]
 name = "transcrypto"
-version = "2.0.0"
+version = "2.0.3"
 description = "Basic crypto primitives, not intended for actual use, but as a companion to --Criptografia, Métodos e Algoritmos--"
 optional = false
 python-versions = ">=3.12"
 groups = ["main"]
 files = [
-    {file = "transcrypto-2.0.0-py3-none-any.whl", hash = "sha256:e364b2ef097e6b5d2557286959cf2d47c9e9aec06c52f0cf248f7aac3f1b8e2d"},
-    {file = "transcrypto-2.0.0.tar.gz", hash = "sha256:50e3adcb7abf3d8c612b984fc2c3e9d2324142659f0ddb78f03d7a1bf1c2af31"},
+    {file = "transcrypto-2.0.3-py3-none-any.whl", hash = "sha256:ae42304b3377418e2396f657f7615dee759ebd689c03843ca5ea93975a6e4677"},
+    {file = "transcrypto-2.0.3.tar.gz", hash = "sha256:fa11542b11daba78d2e3ed4979d177a1bdb0534d6618e7d4787372b5d2943c92"},
 ]
 
 [package.dependencies]
 cryptography = ">=46.0"
 gmpy2 = ">=2.2"
 platformdirs = ">=4.5"
-rich = ">=14.3"
+rich = ">=14.3,<14.3.2 || >14.3.2"
 typer = ">=0.21"
 zstandard = ">=0.25"
 
@@ -1272,4 +1272,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "e877c1d9904850824833c02a4b427a11ef69c0ecb8e2dbfa1c902af0ca40125a"
+content-hash = "764739c579fa6696142e6092cf39e773df1fa7edf48aebc1d6fe8fc36232a80b"

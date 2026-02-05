@@ -1054,7 +1054,7 @@ app.add_typer(print_app, name='print')
   epilog=('Example:\n\n\n\n$ poetry run realtime print stations\n\n<<prints all stations>>'),
 )
 @clibase.CLIErrorGuard
-def PrintStations(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def PrintStations(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: RealtimeConfig = ctx.obj
   realtime = RealtimeRail()
   for line in realtime.PrettyPrintStations():
@@ -1067,7 +1067,7 @@ def PrintStations(*, ctx: typer.Context) -> None:  # documentation is help/epilo
   epilog=('Example:\n\n\n\n$ poetry run realtime print running\n\n<<prints all running trains>>'),
 )
 @clibase.CLIErrorGuard
-def PrintRunning(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def PrintRunning(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: RealtimeConfig = ctx.obj
   realtime = RealtimeRail()
   for line in realtime.PrettyPrintRunning():
@@ -1084,7 +1084,7 @@ def PrintRunning(*, ctx: typer.Context) -> None:  # documentation is help/epilog
 @clibase.CLIErrorGuard
 def PrintStation(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   code: str = typer.Argument(
     ...,
     help='Either a 5-letter station code (ex: "LURGN") or a search string that can '
@@ -1111,7 +1111,7 @@ def PrintStation(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def PrintTrain(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   code: str = typer.Argument(..., help='Train code (ex: "E108")'),
   day: int = typer.Argument(
     _TODAY_INT,
@@ -1132,6 +1132,6 @@ def PrintTrain(  # documentation is help/epilog/args # noqa: D103
   epilog=('Example:\n\n\n\n$ poetry run realtime markdown > realtime.md\n\n<<saves CLI doc>>'),
 )
 @clibase.CLIErrorGuard
-def Markdown(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def Markdown(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: RealtimeConfig = ctx.obj
   config.console.print(clibase.GenerateTyperHelpMarkdown(app, prog_name='realtime'))

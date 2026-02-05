@@ -1465,7 +1465,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def ReadCommand(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   freshness: int = typer.Option(
     _DEFAULT_DAYS_FRESHNESS,
     '-f',
@@ -1522,7 +1522,7 @@ app.add_typer(print_app, name='print')
   epilog=('Example:\n\n\n\n$ poetry run gtfs print all\n\n<<prints all GTFS data>>'),
 )
 @clibase.CLIErrorGuard
-def PrintAll(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def PrintAll(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: GTFSConfig = ctx.obj
   database = GTFS(DEFAULT_DATA_DIR)
   for line in database.PrettyPrintAllDatabase():
@@ -1535,7 +1535,7 @@ def PrintAll(*, ctx: typer.Context) -> None:  # documentation is help/epilog/arg
   epilog=('Example:\n\n\n\n$ poetry run gtfs print basics\n\n<<prints basic GTFS data>>'),
 )
 @clibase.CLIErrorGuard
-def PrintBasics(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def PrintBasics(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: GTFSConfig = ctx.obj
   database = GTFS(DEFAULT_DATA_DIR)
   for line in database.PrettyPrintBasics():
@@ -1548,7 +1548,7 @@ def PrintBasics(*, ctx: typer.Context) -> None:  # documentation is help/epilog/
   epilog=('Example:\n\n\n\n$ poetry run gtfs print calendars\n\n<<prints GTFS service calendars>>'),
 )
 @clibase.CLIErrorGuard
-def PrintCalendars(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def PrintCalendars(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: GTFSConfig = ctx.obj
   database = GTFS(DEFAULT_DATA_DIR)
   for line in database.PrettyPrintCalendar():
@@ -1561,7 +1561,7 @@ def PrintCalendars(*, ctx: typer.Context) -> None:  # documentation is help/epil
   epilog=('Example:\n\n\n\n$ poetry run gtfs print stops\n\n<<prints all GTFS stops>>'),
 )
 @clibase.CLIErrorGuard
-def PrintStops(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def PrintStops(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: GTFSConfig = ctx.obj
   database = GTFS(DEFAULT_DATA_DIR)
   for line in database.PrettyPrintStops():
@@ -1578,7 +1578,7 @@ def PrintStops(*, ctx: typer.Context) -> None:  # documentation is help/epilog/a
 @clibase.CLIErrorGuard
 def PrintShape(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   shape_id: str = typer.Argument(..., help='Shape ID to print'),
 ) -> None:
   config: GTFSConfig = ctx.obj
@@ -1599,7 +1599,7 @@ def PrintShape(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def PrintTrip(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   trip_id: str = typer.Argument(..., help='Trip ID to print'),
 ) -> None:
   config: GTFSConfig = ctx.obj
@@ -1614,6 +1614,6 @@ def PrintTrip(  # documentation is help/epilog/args # noqa: D103
   epilog=('Example:\n\n\n\n$ poetry run gtfs markdown > gtfs.md\n\n<<saves CLI doc>>'),
 )
 @clibase.CLIErrorGuard
-def Markdown(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def Markdown(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: GTFSConfig = ctx.obj
   config.console.print(clibase.GenerateTyperHelpMarkdown(app, prog_name='gtfs'))

@@ -577,7 +577,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def ReadCommand(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   freshness: int = typer.Option(
     _DEFAULT_DAYS_FRESHNESS,
     '-f',
@@ -618,7 +618,7 @@ app.add_typer(print_app, name='print')
   epilog=('Example:\n\n\n\n$ poetry run dart print all\n\n<<prints all DART data>>'),
 )
 @clibase.CLIErrorGuard
-def PrintAll(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def PrintAll(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: DARTConfig = ctx.obj
   database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
   for line in DART(database).PrettyPrintAllDatabase():
@@ -631,7 +631,7 @@ def PrintAll(*, ctx: typer.Context) -> None:  # documentation is help/epilog/arg
   epilog=('Example:\n\n\n\n$ poetry run dart print calendars\n\n<<prints DART service calendars>>'),
 )
 @clibase.CLIErrorGuard
-def PrintCalendars(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def PrintCalendars(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: DARTConfig = ctx.obj
   database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
   for line in DART(database).PrettyPrintCalendar():
@@ -644,7 +644,7 @@ def PrintCalendars(*, ctx: typer.Context) -> None:  # documentation is help/epil
   epilog=('Example:\n\n\n\n$ poetry run dart print stops\n\n<<prints all DART stations>>'),
 )
 @clibase.CLIErrorGuard
-def PrintStops(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def PrintStops(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: DARTConfig = ctx.obj
   database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
   for line in DART(database).PrettyPrintStops():
@@ -661,7 +661,7 @@ def PrintStops(*, ctx: typer.Context) -> None:  # documentation is help/epilog/a
 @clibase.CLIErrorGuard
 def PrintTrips(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   day: int = typer.Argument(
     _TODAY_INT,
     min=_MIN_DATE,
@@ -687,7 +687,7 @@ def PrintTrips(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def PrintStation(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   station: str = typer.Argument(
     ..., help='Station to print chart for; finds by ID (stops.txt/stop_id) or by name (stop_name)'
   ),
@@ -715,7 +715,7 @@ def PrintStation(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def PrintTrip(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   train: str = typer.Argument(..., help='DART train code, like "E108" for example'),
 ) -> None:
   config: DARTConfig = ctx.obj
@@ -730,6 +730,6 @@ def PrintTrip(  # documentation is help/epilog/args # noqa: D103
   epilog=('Example:\n\n\n\n$ poetry run dart markdown > dart.md\n\n<<saves CLI doc>>'),
 )
 @clibase.CLIErrorGuard
-def Markdown(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def Markdown(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: DARTConfig = ctx.obj
   config.console.print(clibase.GenerateTyperHelpMarkdown(app, prog_name='dart'))
