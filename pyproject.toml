@@ -64,8 +64,8 @@ dependencies = [
 # if you change/add a line here also edit [tool.poetry.scripts] below and re-run `poetry sync`
 
 dart = "tfinta.dart:Run"
-gtfs = "tfinta.gtfs:main"
-realtime = "tfinta.realtime:main"
+gtfs = "tfinta.gtfs:Run"
+realtime = "tfinta.realtime:Run"
 
 ####################################################################################################
 [tool.poetry.scripts]
