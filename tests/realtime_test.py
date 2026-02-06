@@ -11,7 +11,7 @@ from typing import Self
 from unittest import mock
 
 import pytest
-import typeguard
+from click import testing as click_testing
 from src.tfinta import realtime
 from src.tfinta import realtime_data_model as dm
 from transcrypto.utils import logging as tc_logging
@@ -52,7 +52,7 @@ class _FakeDate(datetime.date):
 @pytest.mark.parametrize(
   'call_names, call_obj, expected_obj, expected_str',
   [
-    (  # type:ignore
+    (
       [
         ('stations', {}),
       ],
@@ -105,13 +105,12 @@ def test_RealtimeRail_StationsCall(
   mock_open.side_effect = [util.FakeHTTPFile(TEST_XMLS[c]) for c, _ in call_names]
   # call
   rt = realtime.RealtimeRail()
-  with typeguard.suppress_type_checks():
-    return_str: str = '\n'.join(call_obj(rt, **call_names[0][1]))
+  return_str: str = '\n'.join(call_obj(rt, **call_names[0][1]))
   # check data
   assert rt._latest == expected_obj
   assert return_str == expected_str
   assert mock_open.call_args_list == [
-    mock.call(realtime.RealtimeRail._RPC_CALLS[c](**p), timeout=10.0) for c, p in call_names
+    mock.call(realtime._RPC_CALLS[c](**p), timeout=10.0) for c, p in call_names
   ]
 
 
@@ -121,8 +120,9 @@ def test_main_print_stations(mock_realtime: mock.MagicMock) -> None:
   db_obj = mock.MagicMock()
   mock_realtime.return_value = db_obj
   db_obj.PrettyPrintStations.return_value = ['foo', 'bar']
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(realtime.app, ['print', 'stations'])
+  result: click_testing.Result = typer_testing.CliRunner().invoke(
+    realtime.app, ['print', 'stations']
+  )
   assert result.exit_code == 0
   mock_realtime.assert_called_once_with()
   db_obj.PrettyPrintStations.assert_called_once_with()
@@ -134,8 +134,9 @@ def test_main_print_running(mock_realtime: mock.MagicMock) -> None:
   db_obj = mock.MagicMock()
   mock_realtime.return_value = db_obj
   db_obj.PrettyPrintRunning.return_value = ['foo', 'bar']
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(realtime.app, ['print', 'running'])
+  result: click_testing.Result = typer_testing.CliRunner().invoke(
+    realtime.app, ['print', 'running']
+  )
   assert result.exit_code == 0
   mock_realtime.assert_called_once_with()
   db_obj.PrettyPrintRunning.assert_called_once_with()
@@ -148,8 +149,9 @@ def test_main_print_station(mock_realtime: mock.MagicMock) -> None:
   mock_realtime.return_value = db_obj
   db_obj.StationCodeFromNameFragmentOrCode.return_value = 'MHIDE'
   db_obj.PrettyPrintStation.return_value = ['foo', 'bar']
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(realtime.app, ['print', 'station', '-c', 'malahide'])
+  result: click_testing.Result = typer_testing.CliRunner().invoke(
+    realtime.app, ['print', 'station', '-c', 'malahide']
+  )
   assert result.exit_code == 0
   mock_realtime.assert_called_once_with()
   db_obj.StationCodeFromNameFragmentOrCode.assert_called_once_with('malahide')
@@ -162,10 +164,9 @@ def test_main_print_train(mock_realtime: mock.MagicMock) -> None:
   db_obj = mock.MagicMock()
   mock_realtime.return_value = db_obj
   db_obj.PrettyPrintTrain.return_value = ['foo', 'bar']
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(
-      realtime.app, ['print', 'train', '-c', 'E108', '-d', '20250701']
-    )
+  result: click_testing.Result = typer_testing.CliRunner().invoke(
+    realtime.app, ['print', 'train', '-c', 'E108', '-d', '20250701']
+  )
   assert result.exit_code == 0
   mock_realtime.assert_called_once_with()
   db_obj.PrettyPrintTrain.assert_called_once_with(train_code='E108', day=datetime.date(2025, 7, 1))

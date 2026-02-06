@@ -9,11 +9,12 @@ from unittest import mock
 
 import pytest
 import typeguard
+from click import testing as click_testing
 from src.tfinta import dart, gtfs
 from transcrypto.utils import logging as tc_logging
 from typer import testing as typer_testing
 
-from . import gtfs_data
+from . import gtfs_data, util
 
 
 @pytest.fixture(autouse=True)
@@ -29,7 +30,12 @@ def reset_cli_logging_singletons() -> None:
 
 @pytest.fixture
 def gtfs_object() -> gtfs.GTFS:
-  """A GTFS object with all gtfs_data.ZIP_DB_1 data loaded."""
+  """Return a GTFS object with all gtfs_data.ZIP_DB_1 data loaded.
+
+  Returns:
+    GTFS object with gtfs_data.ZIP_DB_1 data loaded.
+
+  """
   # create object with all the disk features disabled
   db: gtfs.GTFS
   with (
@@ -59,25 +65,22 @@ def test_DART(gtfs_object: gtfs.GTFS) -> None:
   assert db.ServicesForDay(datetime.date(2025, 8, 4)) == {84}
   assert db.ServicesForDay(datetime.date(2025, 6, 22)) == {83}
   assert db.ServicesForDay(datetime.date(2025, 6, 23)) == set()
-  print(db._dart_trips)
   assert db._dart_trips == gtfs_data.DART_TRIPS_ZIP_1
   with pytest.raises(gtfs.Error), typeguard.suppress_type_checks():
     list(db.PrettyDaySchedule(day=None))  # type: ignore
-  actual_output = '\n'.join(db.PrettyDaySchedule(day=datetime.date(2025, 8, 4)))
-  print(f'\n\nACTUAL OUTPUT:\n{actual_output}\n\nEND ACTUAL OUTPUT\n\n')
-  assert actual_output == gtfs_data.TRIPS_SCHEDULE_2025_08_04
+  util.AssertPrettyPrint(
+    gtfs_data.TRIPS_SCHEDULE_2025_08_04, db.PrettyDaySchedule(day=datetime.date(2025, 8, 4))
+  )
   with pytest.raises(gtfs.Error):
     list(db.PrettyStationSchedule(stop_id=' \t', day=datetime.date(2025, 8, 4)))
-  assert (
-    gtfs.base.STRIP_ANSI(
-      '\n'.join(db.PrettyStationSchedule(stop_id='8350IR0123', day=datetime.date(2025, 8, 4)))
-    )
-    == gtfs_data.STATION_SCHEDULE_2025_08_04
+  util.AssertPrettyPrint(
+    gtfs_data.STATION_SCHEDULE_2025_08_04,
+    db.PrettyStationSchedule(stop_id='8350IR0123', day=datetime.date(2025, 8, 4)),
   )
   with pytest.raises(gtfs.Error):
     list(db.PrettyPrintTrip(trip_name=' \t'))
-  assert '\n'.join(db.PrettyPrintTrip(trip_name='E818')) == gtfs_data.TRIP_E818
-  assert '\n'.join(db.PrettyPrintAllDatabase()) == gtfs_data.ALL_DATA
+  util.AssertPrettyPrint(gtfs_data.TRIP_E818, db.PrettyPrintTrip(trip_name='E818'))
+  util.AssertPrettyPrint(gtfs_data.ALL_DATA, db.PrettyPrintAllDatabase())
 
 
 @mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
@@ -86,8 +89,7 @@ def test_main_load(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None
   """Test."""
   db_obj = mock.MagicMock()
   mock_gtfs.return_value = db_obj
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(dart.app, ['read'])
+  result: click_testing.Result = typer_testing.CliRunner().invoke(dart.app, ['read'])
   assert result.exit_code == 0
   mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
   db_obj.LoadData.assert_called_once_with(
@@ -110,8 +112,7 @@ def test_main_print_calendars(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMo
   mock_gtfs.return_value = db_obj
   mock_dart.return_value = dart_obj
   dart_obj.PrettyPrintCalendar.return_value = ['foo', 'bar']
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(dart.app, ['print', 'calendars'])
+  result: click_testing.Result = typer_testing.CliRunner().invoke(dart.app, ['print', 'calendars'])
   assert result.exit_code == 0
   mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
   db_obj.LoadData.assert_not_called()
@@ -127,8 +128,7 @@ def test_main_print_stops(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) 
   mock_gtfs.return_value = db_obj
   mock_dart.return_value = dart_obj
   dart_obj.PrettyPrintStops.return_value = ['foo', 'bar']
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(dart.app, ['print', 'stops'])
+  result: click_testing.Result = typer_testing.CliRunner().invoke(dart.app, ['print', 'stops'])
   assert result.exit_code == 0
   mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
   db_obj.LoadData.assert_not_called()
@@ -144,8 +144,9 @@ def test_main_print_trips(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) 
   mock_gtfs.return_value = db_obj
   mock_dart.return_value = dart_obj
   dart_obj.PrettyDaySchedule.return_value = ['foo', 'bar']
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(dart.app, ['print', 'trips', '-d', '20250804'])
+  result: click_testing.Result = typer_testing.CliRunner().invoke(
+    dart.app, ['print', 'trips', '20250804']
+  )
   assert result.exit_code == 0
   mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
   db_obj.LoadData.assert_not_called()
@@ -162,10 +163,9 @@ def test_main_print_station(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock
   mock_dart.return_value = dart_obj
   db_obj.StopIDFromNameFragmentOrID.return_value = 'bray'
   dart_obj.PrettyStationSchedule.return_value = ['foo', 'bar']
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(
-      dart.app, ['print', 'station', '-s', 'daly', '-d', '20250804']
-    )
+  result: click_testing.Result = typer_testing.CliRunner().invoke(
+    dart.app, ['print', 'station', 'daly', '20250804']
+  )
   assert result.exit_code == 0
   mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
   db_obj.LoadData.assert_not_called()
@@ -184,8 +184,9 @@ def test_main_print_trip(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -
   mock_gtfs.return_value = db_obj
   mock_dart.return_value = dart_obj
   dart_obj.PrettyStationSchedule.return_value = ['foo', 'bar']
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(dart.app, ['print', 'trip', '-c', 'E108'])
+  result: click_testing.Result = typer_testing.CliRunner().invoke(
+    dart.app, ['print', 'trip', 'E108']
+  )
   assert result.exit_code == 0
   mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
   db_obj.LoadData.assert_not_called()
@@ -201,8 +202,7 @@ def test_main_print_all(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) ->
   mock_gtfs.return_value = db_obj
   mock_dart.return_value = dart_obj
   dart_obj.PrettyStationSchedule.return_value = ['foo', 'bar']
-  with typeguard.suppress_type_checks():
-    result = typer_testing.CliRunner().invoke(dart.app, ['print', 'all'])
+  result: click_testing.Result = typer_testing.CliRunner().invoke(dart.app, ['print', 'all'])
   assert result.exit_code == 0
   mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
   db_obj.LoadData.assert_not_called()

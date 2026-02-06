@@ -11,6 +11,7 @@ from unittest import mock
 
 import pytest
 import typeguard
+from click import testing as click_testing
 from src.tfinta import gtfs
 from src.tfinta import gtfs_data_model as dm
 from src.tfinta import tfinta_base as base
@@ -286,7 +287,7 @@ def test_main_load() -> None:
   with mock.patch('src.tfinta.gtfs.GTFS', autospec=True) as mock_gtfs:
     db_obj = mock.MagicMock()
     mock_gtfs.return_value = db_obj
-    result = typer_testing.CliRunner().invoke(gtfs.app, ['read'])
+    result: click_testing.Result = typer_testing.CliRunner().invoke(gtfs.app, ['read'])
     assert result.exit_code == 0
     mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
     db_obj.LoadData.assert_called_once_with(
@@ -312,7 +313,7 @@ def test_main_print_basics() -> None:
     db_obj = mock.MagicMock()
     mock_gtfs.return_value = db_obj
     db_obj.PrettyPrintBasics.return_value = ['foo', 'bar']
-    result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'basics'])
+    result: click_testing.Result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'basics'])
     assert result.exit_code == 0
     mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
     db_obj.LoadData.assert_not_called()
@@ -330,7 +331,9 @@ def test_main_print_calendar() -> None:
     db_obj = mock.MagicMock()
     mock_gtfs.return_value = db_obj
     db_obj.PrettyPrintCalendar.return_value = ['foo', 'bar']
-    result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'calendars'])
+    result: click_testing.Result = typer_testing.CliRunner().invoke(
+      gtfs.app, ['print', 'calendars']
+    )
     assert result.exit_code == 0
     mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
     db_obj.LoadData.assert_not_called()
@@ -348,7 +351,7 @@ def test_main_print_stops() -> None:
     db_obj = mock.MagicMock()
     mock_gtfs.return_value = db_obj
     db_obj.PrettyPrintStops.return_value = ['foo', 'bar']
-    result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'stops'])
+    result: click_testing.Result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'stops'])
     assert result.exit_code == 0
     mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
     db_obj.LoadData.assert_not_called()
@@ -366,7 +369,9 @@ def test_main_print_shape() -> None:
     db_obj = mock.MagicMock()
     mock_gtfs.return_value = db_obj
     db_obj.PrettyPrintShape.return_value = ['foo', 'bar']
-    result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'shape', '4669_658'])
+    result: click_testing.Result = typer_testing.CliRunner().invoke(
+      gtfs.app, ['print', 'shape', '4669_658']
+    )
     assert result.exit_code == 0
     mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
     db_obj.LoadData.assert_not_called()
@@ -384,7 +389,9 @@ def test_main_print_trip() -> None:
     db_obj = mock.MagicMock()
     mock_gtfs.return_value = db_obj
     db_obj.PrettyPrintTrip.return_value = ['foo', 'bar']
-    result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'trip', 'tid'])
+    result: click_testing.Result = typer_testing.CliRunner().invoke(
+      gtfs.app, ['print', 'trip', 'tid']
+    )
     assert result.exit_code == 0
     mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
     db_obj.LoadData.assert_not_called()
@@ -397,7 +404,7 @@ def test_main_print_all() -> None:
     db_obj = mock.MagicMock()
     mock_gtfs.return_value = db_obj
     db_obj.PrettyPrintTrip.return_value = ['foo', 'bar']
-    result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'all'])
+    result: click_testing.Result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'all'])
     assert result.exit_code == 0
     mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
     db_obj.LoadData.assert_not_called()

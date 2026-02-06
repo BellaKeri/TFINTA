@@ -1060,6 +1060,116 @@ CALENDARS_TABLE: util.ExpectedPrettyPrint = [
   ),
 ]
 
+# DART-specific calendar (services 83 and 84 only)
+DART_CALENDARS_TABLE: util.ExpectedPrettyPrint = [
+  util.ExpectedTable(
+    columns=[
+      '[bold cyan]Service[/]',
+      '[bold cyan]Start[/]',
+      '[bold cyan]End[/]',
+      '[bold cyan]Mon[/]',
+      '[bold cyan]Tue[/]',
+      '[bold cyan]Wed[/]',
+      '[bold cyan]Thu[/]',
+      '[bold cyan]Fri[/]',
+      '[bold cyan]Sat[/]',
+      '[bold cyan]Sun[/]',
+      '[bold cyan]Exceptions[/]',
+    ],
+    rows=[
+      [
+        '[bold cyan]83[/]',
+        '[bold yellow]2025-06-01·Sun[/]',
+        '[bold]2025-12-07·Sun[/]',
+        '[bold]✗[/]',
+        '[bold]✗[/]',
+        '[bold]✗[/]',
+        '[bold]✗[/]',
+        '[bold]✗[/]',
+        '[bold]✗[/]',
+        '[bold]✓[/]',
+        '∅',
+      ],
+      [
+        '[bold cyan]84[/]',
+        '[bold yellow]2025-08-04·Mon[/]',
+        '[bold]∅[/]',
+        '[bold]✗[/]',
+        '[bold]✗[/]',
+        '[bold]✗[/]',
+        '[bold]✗[/]',
+        '[bold]✗[/]',
+        '[bold]✗[/]',
+        '[bold]✗[/]',
+        '[bold]2025-08-04·Mon ✓[/]',
+      ],
+    ],
+  ),
+]
+
+# DART-specific stops (4 stations only)
+DART_STOPS_TABLE: util.ExpectedPrettyPrint = [
+  util.ExpectedTable(
+    columns=[
+      '[bold cyan]Stop[/]',
+      '[bold cyan]Code[/]',
+      '[bold cyan]Name[/]',
+      '[bold cyan]Type[/]',
+      '[bold cyan]Location °[/]',
+      '[bold cyan]Location[/]',
+      '[bold cyan]Zone[/]',
+      '[bold cyan]Desc.[/]',
+      '[bold cyan]URL[/]',
+    ],
+    rows=[
+      [
+        '[bold cyan]8350IR0123[/]\n[bold red]  └─ 8350IR0122[/]',
+        '[bold]∅[/]',
+        '[bold yellow]Bray (Daly)[/]\n[bold red]  └─ Greystones[/]',
+        '[bold]STOP[/]',
+        '[bold yellow]53°12′13.36″N[/]\n[bold yellow]6°6′0.70″W[/]',  # noqa: RUF001
+        '[bold]53.2037120[/]\n[bold]-6.1001940[/]',
+        '[bold]∅[/]',
+        '[bold]∅[/]',
+        '[bold]∅[/]',
+      ],
+      [
+        '[bold cyan]8350IR0122[/]',
+        '[bold]∅[/]',
+        '[bold yellow]Greystones[/]',
+        '[bold]STOP[/]',
+        '[bold yellow]53°8′38.49″N[/]\n[bold yellow]6°3′40.06″W[/]',  # noqa: RUF001
+        '[bold]53.1440260[/]\n[bold]-6.0611280[/]',
+        '[bold]∅[/]',
+        '[bold]∅[/]',
+        '[bold]∅[/]',
+      ],
+      [
+        '[bold cyan]8250IR0021[/]',
+        '[bold]∅[/]',
+        '[bold yellow]Killiney[/]',
+        '[bold]STOP[/]',
+        '[bold yellow]53°15′20.56″N[/]\n[bold yellow]6°6′47.40″W[/]',  # noqa: RUF001
+        '[bold]53.2557100[/]\n[bold]-6.1131670[/]',
+        '[bold]∅[/]',
+        '[bold]∅[/]',
+        '[bold]∅[/]',
+      ],
+      [
+        '[bold cyan]8250IR0022[/]',
+        '[bold]∅[/]',
+        '[bold yellow]Shankill[/]',
+        '[bold]STOP[/]',
+        '[bold yellow]53°14′11.48″N[/]\n[bold yellow]6°7′2.02″W[/]',  # noqa: RUF001
+        '[bold]53.2365220[/]\n[bold]-6.1172280[/]',
+        '[bold]∅[/]',
+        '[bold]∅[/]',
+        '[bold]∅[/]',
+      ],
+    ],
+  ),
+]
+
 BASICS_TABLE: util.ExpectedPrettyPrint = [
   '[magenta]Agency [bold]Iarnród Éireann / Irish Rail (7778017)[/]',
   '  https://www.irishrail.ie/en-ie/ (Europe/London)',
@@ -2702,155 +2812,210 @@ DART_TRIPS_ZIP_1 = collections.OrderedDict(
   }
 )
 
-TRIPS_SCHEDULE_2025_08_04: str = """\
-[bold magenta]DART Schedule[/]
+TRIPS_SCHEDULE_2025_08_04: util.ExpectedPrettyPrint = [
+  '[bold magenta]DART Schedule[/]',
+  '',
+  'Day:      [bold yellow]2025-08-04[/] [bold](Monday)[/]',
+  'Services: [bold yellow]84[/]',
+  '',
+  util.ExpectedTable(
+    columns=[
+      '[bold cyan]N/S[/]',
+      '[bold cyan]Train[/]',
+      '[bold cyan]Start[/]',
+      '[bold cyan]End[/]',
+      '[bold cyan]Depart Time[/]',
+      '[bold cyan]Service/Trip Codes/[/][red][★Alt.Times][/]',
+    ],
+    rows=[
+      [
+        '[bold][bright_red]N[/][/]',
+        '[bold yellow]E818[/]',
+        '[bold]Greystones[/]',
+        '[bold]Killiney[/]',
+        '[bold yellow]19:18:00[/]',
+        '[bold]84/4452_2662, 84/4669_4802/[red]★[/][/]',
+      ],
+      [
+        '[bold][bright_blue]S[/][/]',
+        '[bold yellow]E666[/]',
+        '[bold]Shankill[/]',
+        '[bold]Killiney[/]',
+        '[bold yellow]21:36:00[/]',
+        '[bold]84/4669_4666[/]',
+      ],
+    ],
+  ),
+]
 
-Day:      [bold yellow]2025-08-04[/] [bold](Monday)[/]
-Services: [bold yellow]84[/]
+STATION_SCHEDULE_2025_08_04: util.ExpectedPrettyPrint = [
+  '[magenta]DART Schedule for Station [bold]Bray (Daly) - 8350IR0123[/]',
+  '',
+  'Day:          [bold yellow]2025-08-04[/] [bold](Monday)[/]',
+  'Services:     [bold yellow]84[/]',
+  'Destinations: [bold yellow]Killiney[/]',
+  '',
+  util.ExpectedTable(
+    columns=[
+      '[bold cyan]N/S[/]',
+      '[bold cyan]Train[/]',
+      '[bold cyan]Destination[/]',
+      '[bold cyan]Arrival[/]',
+      '[bold cyan]Departure[/]',
+      '[bold cyan]Service/Trip Codes/[/][red][★Alt.Times][/]',
+    ],
+    rows=[
+      [
+        '[bold][bright_red]N[/][/]',
+        '[bold yellow]E818[/]',
+        '[bold yellow]Killiney[/]',
+        '[bold]19:28:00[/]',
+        '[bold yellow]19:31:00[/]',
+        '[bold]84/4452_2662, 84/4669_4802/[red][★][/][bold][/]',
+      ],
+    ],
+  ),
+]
 
-+-----+-------+------------+----------+-------------+---------------------------------+
-| N/S | Train |   Start    |   End    | Depart Time | Service/Trip Codes/[★Alt.Times] |
-+-----+-------+------------+----------+-------------+---------------------------------+
-|  N  |  E818 | Greystones | Killiney |   19:18:00  |  84/4452_2662, 84/4669_4802/[★] |
-|  S  |  E666 |  Shankill  | Killiney |   21:36:00  |           84/4669_4666          |
-+-----+-------+------------+----------+-------------+---------------------------------+\
-"""
+TRIP_E666: util.ExpectedPrettyPrint = [
+  '[magenta]DART Trip [bold]E666[/]',
+  '',
+  'Agency:        [bold yellow]Iarnród Éireann / Irish Rail[/]',
+  'Route:         [bold yellow]4452_86289[/]',
+  '  Short name:  [bold yellow]DART[/]',
+  '  Long name:   [bold yellow]Bray - Howth[/]',
+  '  Description: [bold]∅[/]',
+  'Headsign:      [bold]Malahide[/]',
+  '',
+  util.ExpectedTable(
+    columns=[
+      '[bold cyan]Trip ID[/]',
+      '[bold magenta]4669_4999[/]',
+      '[bold magenta]4452_2666[/]',
+      '[bold magenta]4669_4666[/]',
+    ],
+    rows=[
+      ['Service', '[bold yellow]83[/]', '[bold yellow]83[/]', '[bold yellow]84[/]'],
+      [
+        'N/S',
+        '[bold][bright_red]N[/][/]',
+        '[bold][bright_red]N[/][/]',
+        '[bold][bright_blue]S[/][/]',
+      ],
+      ['Shape', '[bold]4669_657[/]', '[bold]4452_42[/]', '[bold]4669_68[/]'],
+      ['Block', '[bold]4669_7778…[/]', '[bold]4452_7766…[/]', '[bold]4669_7778…[/]'],
+      [
+        '#',
+        '[bold cyan]Stop[/]\n[bold cyan]Dropoff[/]\n[bold cyan]Pickup[/]',
+        '[bold cyan]Stop[/]\n[bold cyan]Dropoff[/]\n[bold cyan]Pickup[/]',
+        '[bold cyan]Stop[/]\n[bold cyan]Dropoff[/]\n[bold cyan]Pickup[/]',
+      ],
+      [
+        '[bold cyan]1[/]',
+        '[bold yellow]Greystones[/]\n[bold]21:18:00[red]✗[/][/]\n[bold]21:18:00[green]✓[/][/]',
+        '[bold yellow]Greystones[/]\n[bold]21:18:00[red]✗[/][/]\n[bold]21:18:00[green]✓[/][/]',
+        '\n[bold red]✗[/]',
+      ],
+      [
+        '[bold cyan]2[/]',
+        '[bold yellow]Bray (Dal…[/]\n[bold]21:28:00[green]✓[/][/]\n[bold]21:31:00[green]✓[/][/]',
+        '[bold yellow]Bray (Dal…[/]\n[bold]21:28:00[green]✓[/][/]\n[bold]21:31:00[green]✓[/][/]',
+        '\n[bold red]✗[/]',
+      ],
+      [
+        '[bold cyan]3[/]',
+        '\n[bold red]✗[/]',
+        '[bold yellow]Shankill[/]\n[bold]21:35:00[green]✓[/][/]\n[bold]21:36:00[green]✓[/][/]',
+        '[bold yellow]Shankill[/]\n[bold]21:35:00[green]✓[/][/]\n[bold]21:36:00[green]✓[/][/]',
+      ],
+      [
+        '[bold cyan]4[/]',
+        '\n[bold red]✗[/]',
+        '[bold yellow]Killiney[/]\n[bold]21:38:00[green]✓[/][/]\n[bold]21:38:00[green]✓[/][/]',
+        '[bold yellow]Killiney[/]\n[bold]21:38:00[green]✓[/][/]\n[bold]21:38:00[green]✓[/][/]',
+      ],
+    ],
+  ),
+]
 
-STATION_SCHEDULE_2025_08_04: str = """\
-DART Schedule for Station Bray (Daly) - 8350IR0123
+TRIP_E818: util.ExpectedPrettyPrint = [
+  '[magenta]DART Trip [bold]E818[/]',
+  '',
+  'Agency:        [bold yellow]Iarnród Éireann / Irish Rail[/]',
+  'Route:         [bold yellow]4452_86289[/]',
+  '  Short name:  [bold yellow]DART[/]',
+  '  Long name:   [bold yellow]Bray - Howth[/]',
+  '  Description: [bold]∅[/]',
+  'Headsign:      [bold]Malahide[/]',
+  '',
+  util.ExpectedTable(
+    columns=[
+      '[bold cyan]Trip ID[/]',
+      '[bold magenta]4452_2655[/]',
+      '[bold magenta]4452_2662[/]',
+      '[bold magenta]4669_4802[/]',
+    ],
+    rows=[
+      ['Service', '[bold yellow]83[/]', '[bold yellow]84[/]', '[bold yellow]84[/]'],
+      [
+        'N/S',
+        '[bold][bright_red]N[/][/]',
+        '[bold][bright_red]N[/][/]',
+        '[bold][bright_red]N[/][/]',
+      ],
+      ['Shape', '[bold]4452_42[/]', '[bold]4452_42[/]', '[bold]4669_68[/]'],
+      ['Block', '[bold]4452_7778…[/]', '[bold]4452_7778…[/]', '[bold]4669_7778…[/]'],
+      [
+        '#',
+        '[bold cyan]Stop[/]\n[bold cyan]Dropoff[/]\n[bold cyan]Pickup[/]',
+        '[bold cyan]Stop[/]\n[bold cyan]Dropoff[/]\n[bold cyan]Pickup[/]',
+        '[bold cyan]Stop[/]\n[bold cyan]Dropoff[/]\n[bold cyan]Pickup[/]',
+      ],
+      [
+        '[bold cyan]1[/]',
+        '[bold yellow]Greystones[/]\n[bold]19:18:00[red]✗[/][/]\n[bold]19:18:00[green]✓[/][/]',
+        '[bold yellow]Greystones[/]\n[bold]19:18:00[red]✗[/][/]\n[bold]19:18:00[green]✓[/][/]',
+        '[bold yellow]Greystones[/]\n[bold]19:18:00[red]✗[/][/]\n[bold]19:18:00[green]✓[/][/]',
+      ],
+      [
+        '[bold cyan]2[/]',
+        '[bold yellow]Bray (Dal…[/]\n[bold]19:28:00[green]✓[/][/]\n[bold]19:31:00[green]✓[/][/]',
+        '[bold yellow]Bray (Dal…[/]\n[bold]19:28:00[green]✓[/][/]\n[bold]19:31:00[green]✓[/][/]',
+        '[bold yellow]Bray (Dal…[/]\n[bold]19:28:00[green]✓[/][/]\n[bold]19:31:00[green]✓[/][/]',
+      ],
+      [
+        '[bold cyan]3[/]',
+        '[bold yellow]Shankill[/]\n[bold]19:35:00[green]✓[/][/]\n[bold]19:36:00[green]✓[/][/]',
+        '[bold yellow]Shankill[/]\n[bold]19:35:00[green]✓[/][/]\n[bold]19:36:00[green]✓[/][/]',
+        '[bold yellow]Shankill[/]\n[bold]19:35:00[green]✓[/][/]\n[bold]19:36:00[green]✓[/][/]',
+      ],
+      [
+        '[bold cyan]4[/]',
+        '[bold yellow]Killiney[/]\n[bold]19:38:00[green]✓[/][/]\n[bold]19:38:00[green]✓[/][/]',
+        '[bold yellow]Killiney[/]\n[bold]19:38:00[green]✓[/][/]\n[bold]19:38:00[green]✓[/][/]',
+        '[bold yellow]Killiney[/]\n[bold]19:40:00[green]✓[/][/]\n[bold]19:40:00[green]✓[/][/]',
+      ],
+    ],
+  ),
+]
 
-Day:          2025-08-04 (Monday)
-Services:     84
-Destinations: Killiney
-
-+-----+-------+-------------+----------+-----------+---------------------------------+
-| N/S | Train | Destination | Arrival  | Departure | Service/Trip Codes/[★Alt.Times] |
-+-----+-------+-------------+----------+-----------+---------------------------------+
-|  N  |  E818 |   Killiney  | 19:28:00 |  19:31:00 |  84/4452_2662, 84/4669_4802/[★] |
-+-----+-------+-------------+----------+-----------+---------------------------------+\
-"""
-
-TRIP_E666: str = """\
-DART Trip E666
-
-Agency:        Iarnród Éireann / Irish Rail
-Route:         4452_86289
-  Short name:  DART
-  Long name:   Bray - Howth
-  Description: ∅
-Headsign:      Malahide
-
-+---------+------------+------------+------------+
-| Trip ID | 4669_4999  | 4452_2666  | 4669_4666  |
-+---------+------------+------------+------------+
-| Service |     83     |     83     |     84     |
-+---------+------------+------------+------------+
-|   N/S   |     N      |     N      |     S      |
-+---------+------------+------------+------------+
-|  Shape  |  4669_657  |  4452_42   |  4669_68   |
-+---------+------------+------------+------------+
-|  Block  | 4669_7778… | 4452_7766… | 4669_7778… |
-+---------+------------+------------+------------+
-|    #    |    Stop    |    Stop    |    Stop    |
-|         |  Dropoff   |  Dropoff   |  Dropoff   |
-|         |   Pickup   |   Pickup   |   Pickup   |
-+---------+------------+------------+------------+
-|    1    | Greystones | Greystones |            |
-|         | 21:18:00✗  | 21:18:00✗  |     ✗      |
-|         | 21:18:00✓  | 21:18:00✓  |            |
-+---------+------------+------------+------------+
-|    2    | Bray (Dal… | Bray (Dal… |            |
-|         | 21:28:00✓  | 21:28:00✓  |     ✗      |
-|         | 21:31:00✓  | 21:31:00✓  |            |
-+---------+------------+------------+------------+
-|    3    |            |  Shankill  |  Shankill  |
-|         |     ✗      | 21:35:00✓  | 21:35:00✓  |
-|         |            | 21:36:00✓  | 21:36:00✓  |
-+---------+------------+------------+------------+
-|    4    |            |  Killiney  |  Killiney  |
-|         |     ✗      | 21:38:00✓  | 21:38:00✓  |
-|         |            | 21:38:00✓  | 21:38:00✓  |
-+---------+------------+------------+------------+
-"""
-
-TRIP_E818: str = """\
-DART Trip E818
-
-Agency:        Iarnród Éireann / Irish Rail
-Route:         4452_86289
-  Short name:  DART
-  Long name:   Bray - Howth
-  Description: ∅
-Headsign:      Malahide
-
-+---------+------------+------------+------------+
-| Trip ID | 4452_2655  | 4452_2662  | 4669_4802  |
-+---------+------------+------------+------------+
-| Service |     83     |     84     |     84     |
-+---------+------------+------------+------------+
-|   N/S   |     N      |     N      |     N      |
-+---------+------------+------------+------------+
-|  Shape  |  4452_42   |  4452_42   |  4669_68   |
-+---------+------------+------------+------------+
-|  Block  | 4452_7778… | 4452_7778… | 4669_7778… |
-+---------+------------+------------+------------+
-|    #    |    Stop    |    Stop    |    Stop    |
-|         |  Dropoff   |  Dropoff   |  Dropoff   |
-|         |   Pickup   |   Pickup   |   Pickup   |
-+---------+------------+------------+------------+
-|    1    | Greystones | Greystones | Greystones |
-|         | 19:18:00✗  | 19:18:00✗  | 19:18:00✗  |
-|         | 19:18:00✓  | 19:18:00✓  | 19:18:00✓  |
-+---------+------------+------------+------------+
-|    2    | Bray (Dal… | Bray (Dal… | Bray (Dal… |
-|         | 19:28:00✓  | 19:28:00✓  | 19:28:00✓  |
-|         | 19:31:00✓  | 19:31:00✓  | 19:31:00✓  |
-+---------+------------+------------+------------+
-|    3    |  Shankill  |  Shankill  |  Shankill  |
-|         | 19:35:00✓  | 19:35:00✓  | 19:35:00✓  |
-|         | 19:36:00✓  | 19:36:00✓  | 19:36:00✓  |
-+---------+------------+------------+------------+
-|    4    |  Killiney  |  Killiney  |  Killiney  |
-|         | 19:38:00✓  | 19:38:00✓  | 19:40:00✓  |
-|         | 19:38:00✓  | 19:38:00✓  | 19:40:00✓  |
-+---------+------------+------------+------------+\
-"""
-
-ALL_DATA = f"""\
-██ ✿ CALENDAR ✿ ███████████████████████████████████████████████████████████████████
-
-+---------+----------------+----------------+-----+-----+-----+-----+-----+-----+-----+------------------+
-| Service |     Start      |      End       | Mon | Tue | Wed | Thu | Fri | Sat | Sun |    Exceptions    |
-+---------+----------------+----------------+-----+-----+-----+-----+-----+-----+-----+------------------+
-|    83   | 2025-06-01·Sun | 2025-12-07·Sun |  ✗  |  ✗  |  ✗  |  ✗  |  ✗  |  ✗  |  ✓  |        ∅         |
-+---------+----------------+----------------+-----+-----+-----+-----+-----+-----+-----+------------------+
-|    84   | 2025-08-04·Mon |       ∅        |  ✗  |  ✗  |  ✗  |  ✗  |  ✗  |  ✗  |  ✗  | 2025-08-04·Mon ✓ |
-+---------+----------------+----------------+-----+-----+-----+-----+-----+-----+-----+------------------+
-
-██ ✿ STOPS ✿ ██████████████████████████████████████████████████████████████████████
-
-+-----------------+------+-----------------+------+---------------+------------+------+-------+-----+
-|       Stop      | Code |       Name      | Type |   Location °  |  Location  | Zone | Desc. | URL |
-+-----------------+------+-----------------+------+---------------+------------+------+-------+-----+
-|    8350IR0123   |  ∅   |   Bray (Daly)   | STOP | 53°12′13.36″N | 53.2037120 |  ∅   |   ∅   |  ∅  |
-|   └─ 8350IR0122 |      |   └─ Greystones |      |   6°6′0.70″W  | -6.1001940 |      |       |     |
-+-----------------+------+-----------------+------+---------------+------------+------+-------+-----+
-|    8350IR0122   |  ∅   |    Greystones   | STOP |  53°8′38.49″N | 53.1440260 |  ∅   |   ∅   |  ∅  |
-|                 |      |                 |      |  6°3′40.06″W  | -6.0611280 |      |       |     |
-+-----------------+------+-----------------+------+---------------+------------+------+-------+-----+
-|    8250IR0021   |  ∅   |     Killiney    | STOP | 53°15′20.56″N | 53.2557100 |  ∅   |   ∅   |  ∅  |
-|                 |      |                 |      |  6°6′47.40″W  | -6.1131670 |      |       |     |
-+-----------------+------+-----------------+------+---------------+------------+------+-------+-----+
-|    8250IR0022   |  ∅   |     Shankill    | STOP | 53°14′11.48″N | 53.2365220 |  ∅   |   ∅   |  ∅  |
-|                 |      |                 |      |   6°7′2.02″W  | -6.1172280 |      |       |     |
-+-----------------+------+-----------------+------+---------------+------------+------+-------+-----+
-
-██ ✿ TRIPS ✿ ██████████████████████████████████████████████████████████████████████
-
-{TRIP_E666}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-{TRIP_E818}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-"""
+ALL_DATA: util.ExpectedPrettyPrint = [
+  '██ ✿ CALENDAR ✿ ███████████████████████████████████████████████████████████████████',
+  '',
+  *DART_CALENDARS_TABLE,
+  '',
+  '██ ✿ STOPS ✿ ██████████████████████████████████████████████████████████████████████',
+  '',
+  *DART_STOPS_TABLE,
+  '',
+  '██ ✿ TRIPS ✿ ██████████████████████████████████████████████████████████████████████',
+  '',
+  *TRIP_E666,
+  '',
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  '',
+  *TRIP_E818,
+  '',
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  '',
+]
