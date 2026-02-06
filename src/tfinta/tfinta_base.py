@@ -7,12 +7,12 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import functools
-import pathlib
 import re
 import time
 from collections import abc
 from typing import Self
 
+import platformdirs
 from transcrypto.utils import base
 
 # Logging and formatting
@@ -29,19 +29,7 @@ STD_TIME_STRING: abc.Callable[[int | float | None], str] = lambda tm: (
 
 # Path utilities
 
-
-def MODULE_PRIVATE_DIR(module_file: str, dir_name: str, /) -> str:
-  """Get a private directory path for a module.
-
-  Args:
-      module_file: The module's __file__ attribute
-      dir_name: Name of the private directory
-
-  Returns:
-      str: Absolute path to the private directory
-
-  """
-  return str(pathlib.Path(module_file).parent / dir_name)
+DEFAULT_DATA_DIR: str = str(platformdirs.user_data_path('tfinta'))
 
 
 # data parsing utils
@@ -61,8 +49,8 @@ DATETIME_FROM_ISO: abc.Callable[[str], datetime.datetime] = datetime.datetime.fr
 
 NULL_TEXT: str = '\u2205'  # ∅
 LIMITED_TEXT: abc.Callable[[str | None, int], str] = (
-  lambda s, w: NULL_TEXT if s is None else (s if len(s) <= w else f'{s[: (w - 1)]}\u2026')
-)  # …
+  lambda s, w: NULL_TEXT if s is None else (s if len(s) <= w else f'{s[: (w - 1)]}\u2026')  # …
+)
 PRETTY_BOOL: abc.Callable[[bool | None], str] = lambda b: (  # ✓ and ✗
   '\u2713' if b else '\u2717'
 )

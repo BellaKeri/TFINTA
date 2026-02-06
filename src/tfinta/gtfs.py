@@ -37,8 +37,6 @@ from . import __version__
 from . import gtfs_data_model as dm
 from . import tfinta_base as base
 
-# TODO: use less of os.path.join and more of pathlib.Path for path manipulations
-
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class GTFSConfig(clibase.CLIConfig):
@@ -50,7 +48,7 @@ _DEFAULT_DAYS_FRESHNESS = 10
 _DAYS_CACHE_FRESHNESS = 1
 _SECONDS_IN_DAY = 60 * 60 * 24
 DAYS_OLD: abc.Callable[[float], float] = lambda t: (time.time() - t) / _SECONDS_IN_DAY
-DEFAULT_DATA_DIR: str = base.MODULE_PRIVATE_DIR(__file__, '.tfinta-data')
+DEFAULT_DATA_DIR: str = base.DEFAULT_DATA_DIR
 _DB_FILE_NAME = 'transit.db'
 
 # cache sizes (in entries)

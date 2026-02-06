@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import datetime
-import os.path
 import pathlib
 from unittest import mock
 
@@ -21,9 +20,9 @@ from typer import testing as typer_testing
 from . import gtfs_data, util
 
 # mock test files
-_OPERATOR_CSV_PATH: str = os.path.join(util.DATA_DIR, 'GTFS Operator Files - 20250621.csv')  # noqa: PTH118
+_OPERATOR_CSV_PATH: pathlib.Path = util.DATA_DIR / 'GTFS Operator Files - 20250621.csv'
 # the zip directory has a very reduced version of the real data in 202506
-_ZIP_DIR_1: str = os.path.join(util.DATA_DIR, 'zip_1')  # noqa: PTH118
+_ZIP_DIR_1: pathlib.Path = util.DATA_DIR / 'zip_1'
 
 
 @pytest.fixture(autouse=True)
@@ -289,7 +288,7 @@ def test_main_load() -> None:
     mock_gtfs.return_value = db_obj
     result: click_testing.Result = typer_testing.CliRunner().invoke(gtfs.app, ['read'])
     assert result.exit_code == 0
-    mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+    mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
     db_obj.LoadData.assert_called_once_with(
       'Iarnród Éireann / Irish Rail',
       'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip',
@@ -315,7 +314,7 @@ def test_main_print_basics() -> None:
     db_obj.PrettyPrintBasics.return_value = ['foo', 'bar']
     result: click_testing.Result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'basics'])
     assert result.exit_code == 0
-    mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+    mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
     db_obj.LoadData.assert_not_called()
     db_obj.PrettyPrintBasics.assert_called_once_with()
 
@@ -335,7 +334,7 @@ def test_main_print_calendar() -> None:
       gtfs.app, ['print', 'calendars']
     )
     assert result.exit_code == 0
-    mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+    mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
     db_obj.LoadData.assert_not_called()
     db_obj.PrettyPrintCalendar.assert_called_once_with()
 
@@ -353,7 +352,7 @@ def test_main_print_stops() -> None:
     db_obj.PrettyPrintStops.return_value = ['foo', 'bar']
     result: click_testing.Result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'stops'])
     assert result.exit_code == 0
-    mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+    mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
     db_obj.LoadData.assert_not_called()
     db_obj.PrettyPrintStops.assert_called_once_with()
 
@@ -373,7 +372,7 @@ def test_main_print_shape() -> None:
       gtfs.app, ['print', 'shape', '4669_658']
     )
     assert result.exit_code == 0
-    mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+    mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
     db_obj.LoadData.assert_not_called()
     db_obj.PrettyPrintShape.assert_called_once_with(shape_id='4669_658')
 
@@ -393,7 +392,7 @@ def test_main_print_trip() -> None:
       gtfs.app, ['print', 'trip', 'tid']
     )
     assert result.exit_code == 0
-    mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+    mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
     db_obj.LoadData.assert_not_called()
     db_obj.PrettyPrintTrip.assert_called_once_with(trip_id='tid')
 
@@ -406,6 +405,6 @@ def test_main_print_all() -> None:
     db_obj.PrettyPrintTrip.return_value = ['foo', 'bar']
     result: click_testing.Result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'all'])
     assert result.exit_code == 0
-    mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+    mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
     db_obj.LoadData.assert_not_called()
     db_obj.PrettyPrintAllDatabase.assert_called_once_with()

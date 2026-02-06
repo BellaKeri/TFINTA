@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import dataclasses
 import io
-import os.path
 import pathlib
 import types
 from collections import abc
@@ -15,8 +14,8 @@ from typing import Self
 from rich import table
 
 # test dir
-_TEST_DIR: str = os.path.split(__file__)[0]
-DATA_DIR: str = os.path.join(_TEST_DIR, 'data')  # noqa: PTH118
+_TEST_DIR: pathlib.Path = pathlib.Path(__file__).parent
+DATA_DIR: pathlib.Path = _TEST_DIR / 'data'
 
 
 class FakeHTTPStream(io.BytesIO):
@@ -46,7 +45,8 @@ class FakeHTTPFile(FakeHTTPStream):
   Accepts *a file path* at construction.
   """
 
-  def __init__(self, payload_path: str, /) -> None:  # noqa: D107
+  def __init__(self, payload_path: str | pathlib.Path, /) -> None:
+    """Construct."""
     super().__init__(pathlib.Path(payload_path).read_bytes())
 
 

@@ -91,7 +91,7 @@ def test_main_load(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None
   mock_gtfs.return_value = db_obj
   result: click_testing.Result = typer_testing.CliRunner().invoke(dart.app, ['read'])
   assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
   db_obj.LoadData.assert_called_once_with(
     'Iarnród Éireann / Irish Rail',
     'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip',
@@ -114,7 +114,7 @@ def test_main_print_calendars(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMo
   dart_obj.PrettyPrintCalendar.return_value = ['foo', 'bar']
   result: click_testing.Result = typer_testing.CliRunner().invoke(dart.app, ['print', 'calendars'])
   assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
   db_obj.LoadData.assert_not_called()
   mock_dart.assert_called_once_with(db_obj)
   dart_obj.PrettyPrintCalendar.assert_called_once_with()
@@ -130,7 +130,7 @@ def test_main_print_stops(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) 
   dart_obj.PrettyPrintStops.return_value = ['foo', 'bar']
   result: click_testing.Result = typer_testing.CliRunner().invoke(dart.app, ['print', 'stops'])
   assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
   db_obj.LoadData.assert_not_called()
   mock_dart.assert_called_once_with(db_obj)
   dart_obj.PrettyPrintStops.assert_called_once_with()
@@ -148,7 +148,7 @@ def test_main_print_trips(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) 
     dart.app, ['print', 'trips', '20250804']
   )
   assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
   db_obj.LoadData.assert_not_called()
   mock_dart.assert_called_once_with(db_obj)
   dart_obj.PrettyDaySchedule.assert_called_once_with(day=datetime.date(2025, 8, 4))
@@ -167,7 +167,7 @@ def test_main_print_station(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock
     dart.app, ['print', 'station', 'daly', '20250804']
   )
   assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
   db_obj.LoadData.assert_not_called()
   db_obj.StopIDFromNameFragmentOrID.assert_called_once_with('daly')
   mock_dart.assert_called_once_with(db_obj)
@@ -188,7 +188,7 @@ def test_main_print_trip(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -
     dart.app, ['print', 'trip', 'E108']
   )
   assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
   db_obj.LoadData.assert_not_called()
   mock_dart.assert_called_once_with(db_obj)
   dart_obj.PrettyPrintTrip.assert_called_once_with(trip_name='E108')
@@ -204,7 +204,7 @@ def test_main_print_all(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) ->
   dart_obj.PrettyStationSchedule.return_value = ['foo', 'bar']
   result: click_testing.Result = typer_testing.CliRunner().invoke(dart.app, ['print', 'all'])
   assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with('/Users/balparda/py/TFINTA/src/tfinta/.tfinta-data')
+  mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
   db_obj.LoadData.assert_not_called()
   mock_dart.assert_called_once_with(db_obj)
   dart_obj.PrettyPrintAllDatabase.assert_called_once_with()

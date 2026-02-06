@@ -31,8 +31,10 @@ precommit:
 	poetry run pre-commit run --all-files
 
 docs:
-	@echo "Generating dart.md"
+	@echo "Generating gtfs.md & dart.md & realtime.md..."
+	poetry run gtfs markdown > gtfs.md
 	poetry run dart markdown > dart.md
+	poetry run realtime markdown > realtime.md
 
 req:
 	poetry export --format requirements.txt --without-hashes --output requirements.txt
