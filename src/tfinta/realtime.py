@@ -294,7 +294,7 @@ class RealtimeRail:
             f'repeated elements: {rpc_name}/{args}/{row_count}/{field_name}: {xml_data}'
           )
         child = xml_data[0].firstChild
-        if child is None or (field_value := child.nodeValue) is None or not field_value.strip():  # type:ignore
+        if child is None or (field_value := child.nodeValue) is None or not field_value.strip():
           # field is empty
           if field_required:
             raise ParseError(
