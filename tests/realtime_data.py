@@ -165,7 +165,7 @@ RUNNING_OBJ = dm.LatestData(
 )
 
 _STATION_OBJ_QUERY = dm.StationLineQueryData(
-  tm_server=datetime.datetime(2025, 6, 29, 9, 14, 27, 863000),
+  tm_server=datetime.datetime(2025, 6, 29, 9, 14, 27, 863000),  # noqa: DTZ001
   tm_query=base.DayTime(time=33267),
   station_name='Malahide with extra looooooooooooooooooong name',
   station_code='MHIDE',
@@ -533,7 +533,7 @@ STATIONS_TABLE: util.ExpectedPrettyPrint = [
         '[bold]BRAY[/]',
         '[bold yellow]Bray[/]',
         '[bold]∅[/]',
-        '[bold yellow]51°52′7.68″N[/]\n[bold yellow]8°19′27.01″W[/]',
+        '[bold yellow]51°52′7.68″N[/]\n[bold yellow]8°19′27.01″W[/]',  # noqa: RUF001
         '[bold]51.8688000[/]\n[bold]-8.3241700[/]',
       ],
       [
@@ -557,7 +557,7 @@ STATIONS_TABLE: util.ExpectedPrettyPrint = [
         '[bold]COBH[/]',
         '[bold yellow]Cobh[/]',
         '[bold]∅[/]',
-        '[bold yellow]51°50′56.76″N[/]\n[bold yellow]8°17′58.42″W[/]',
+        '[bold yellow]51°50′56.76″N[/]\n[bold yellow]8°17′58.42″W[/]',  # noqa: RUF001
         '[bold]51.8491000[/]\n[bold]-8.2995600[/]',
       ],
       [
@@ -573,38 +573,12 @@ STATIONS_TABLE: util.ExpectedPrettyPrint = [
         '[bold]MHIDE[/]',
         '[bold yellow]Malahide with extra looooooooooooooooooong name[/]',
         '[bold]∅[/]',
-        '[bold yellow]54°36′44.28″N[/]\n[bold yellow]5°55′2.78″W[/]',
+        '[bold yellow]54°36′44.28″N[/]\n[bold yellow]5°55′2.78″W[/]',  # noqa: RUF001
         '[bold]54.6123000[/]\n[bold]-5.9174400[/]',
       ],
     ],
   ),
 ]
-
-STATIONS_STR: str = """\
-[magenta]Irish Rail Stations @ [bold]2025/Jun/29-08:14:27-UTC[/]
-
-+------+-------+-------------------------------------------------+-----------------+---------------+------------+
-|  ID  |  Code |                       Name                      |      Alias      |   Location °  |  Location  |
-+------+-------+-------------------------------------------------+-----------------+---------------+------------+
-|  64  |  BRAY |                       Bray                      |        ∅        |  51°52′7.68″N | 51.8688000 |
-|      |       |                                                 |                 |  8°19′27.01″W | -8.3241700 |
-+------+-------+-------------------------------------------------+-----------------+---------------+------------+
-| 1517 | CENTJ |                 CENTRAL JUNCTION                | Dublin Connolly |       ∅       |     ∅      |
-|      |       |                                                 |                 |       ∅       |     ∅      |
-+------+-------+-------------------------------------------------+-----------------+---------------+------------+
-| 1516 | CITYJ |                  CITY JUNCTION                  |  Dublin Belfast |       ∅       |     ∅      |
-|      |       |                                                 |                 |       ∅       |     ∅      |
-+------+-------+-------------------------------------------------+-----------------+---------------+------------+
-|  66  |  COBH |                       Cobh                      |        ∅        | 51°50′56.76″N | 51.8491000 |
-|      |       |                                                 |                 |  8°17′58.42″W | -8.2995600 |
-+------+-------+-------------------------------------------------+-----------------+---------------+------------+
-| 1519 | MOIRA |                      MOIRA                      |  Dublin Belfast |       ∅       |     ∅      |
-|      |       |                                                 |                 |       ∅       |     ∅      |
-+------+-------+-------------------------------------------------+-----------------+---------------+------------+
-| 228  | MHIDE | Malahide with extra looooooooooooooooooong name |        ∅        | 54°36′44.28″N | 54.6123000 |
-|      |       |                                                 |                 |  5°55′2.78″W  | -5.9174400 |
-+------+-------+-------------------------------------------------+-----------------+---------------+------------+\
-"""
 
 RUNNING_TABLE: util.ExpectedPrettyPrint = [
   '[magenta]Irish Rail Running Trains @ [bold]2025/Jun/29-08:14:27-UTC[/]',
@@ -621,87 +595,74 @@ RUNNING_TABLE: util.ExpectedPrettyPrint = [
       [
         '[bold cyan]A152[/]\n[bold][green]►[/][/]',
         '[bold]Northbound[/]',
-        '[bold yellow]54°0′2.52″N[/]\n[bold yellow]6°24′46.48″W[/]',
+        '[bold yellow]54°0′2.52″N[/]\n[bold yellow]6°24′46.48″W[/]',  # noqa: RUF001
         '[bold]54.0007000[/]\n[bold]-6.4129100[/]',
-        '[bold]13:50 - Dublin Connolly to Belfast (5 mins late)[/]\n[bold]Arrived Dundalk next stop Newry[/]',
+        (
+          '[bold]13:50 - Dublin Connolly to Belfast (5 mins late)[/]\n'
+          '[bold]Arrived Dundalk next stop Newry[/]'
+        ),
       ],
       [
         '[bold cyan]A407[/]\n[bold][green]►[/][/]',
         '[bold]To Dublin Heus…[/]',
         '[bold]∅[/]\n[bold]∅[/]',
         '[bold]∅[/]\n[bold]∅[/]',
-        '[bold]14:20 - Limerick to Dublin Heuston (-1 mins late)[/]\n[bold]Departed LJ461 next stop Thurles[/]',
+        (
+          '[bold]14:20 - Limerick to Dublin Heuston (-1 mins late)[/]\n'
+          '[bold]Departed LJ461 next stop Thurles[/]'
+        ),
       ],
       [
         '[bold cyan]A218[/]\n[bold][red]■[/][/]',
         '[bold]To Cork[/]',
-        '[bold yellow]53°20′47.04″N[/]\n[bold yellow]6°17′40.60″W[/]',
+        '[bold yellow]53°20′47.04″N[/]\n[bold yellow]6°17′40.60″W[/]',  # noqa: RUF001
         '[bold]53.3464000[/]\n[bold]-6.2946100[/]',
         '[bold]Dublin Heuston to Cork[/]\n[bold]Expected Departure 15:00[/]',
       ],
       [
         '[bold cyan]A908[/]\n[bold][red]■[/][/]',
         '[bold]Northbound[/]',
-        '[bold yellow]53°21′11.16″N[/]\n[bold yellow]6°14′45.28″W[/]',
+        '[bold yellow]53°21′11.16″N[/]\n[bold yellow]6°14′45.28″W[/]',  # noqa: RUF001
         '[bold]53.3531000[/]\n[bold]-6.2459100[/]',
         '[bold]Dublin Connolly to Sligo[/]\n[bold]Expected Departure 15:05[/]',
       ],
       [
         '[bold cyan]E218[/]\n[bold][red]■[/][/]',
         '[bold]Southbound[/]',
-        '[bold yellow]53°27′3.24″N[/]\n[bold yellow]6°9′23.36″W[/]',
+        '[bold yellow]53°27′3.24″N[/]\n[bold yellow]6°9′23.36″W[/]',  # noqa: RUF001
         '[bold]53.4509000[/]\n[bold]-6.1564900[/]',
         '[bold]Malahide to Bray[/]\n[bold]Expected Departure 15:04[/]',
       ],
       [
         '[bold cyan]B957[/]\n[bold][yellow]✗[/][/]',
         '[bold]Southbound[/]',
-        '[bold yellow]53°21′11.16″N[/]\n[bold yellow]6°14′45.28″W[/]',
+        '[bold yellow]53°21′11.16″N[/]\n[bold yellow]6°14′45.28″W[/]',  # noqa: RUF001
         '[bold]53.3531000[/]\n[bold]-6.2459100[/]',
-        '[bold]13:55 - Maynooth to Dublin Connolly(13 mins late)[/]\n[bold]TERMINATED Dublin Connolly at 14:51[/]',
+        (
+          '[bold]13:55 - Maynooth to Dublin Connolly(13 mins late)[/]\n'
+          '[bold]TERMINATED Dublin Connolly at 14:51[/]'
+        ),
       ],
       [
         '[bold cyan]P375[/]\n[bold][yellow]✗[/][/]',
         '[bold]Southbound[/]',
-        '[bold yellow]53°22′59.16″N[/]\n[bold yellow]6°25′27.12″W[/]',
+        '[bold yellow]53°22′59.16″N[/]\n[bold yellow]6°25′27.12″W[/]',  # noqa: RUF001
         '[bold]53.3831000[/]\n[bold]-6.4242000[/]',
-        '[bold]14:40 - M3 Parkway to Clonsilla(0 mins late)[/]\n[bold]TERMINATED Clonsilla at 14:49[/]',
+        (
+          '[bold]14:40 - M3 Parkway to Clonsilla(0 mins late)[/]\n'
+          '[bold]TERMINATED Clonsilla at 14:49[/]'
+        ),
       ],
     ],
   ),
 ]
 
-RUNNING_STR: str = """\
-[magenta]Irish Rail Running Trains @ [bold]2025/Jun/29-08:14:27-UTC[/]
-
-+-------+-----------------+---------------+------------+---------------------------------------------------+
-| Train |    Direction    |   Location °  |  Location  |                      Message                      |
-+-------+-----------------+---------------+------------+---------------------------------------------------+
-|  A152 |    Northbound   |  54°0′2.52″N  | 54.0007000 |  13:50 - Dublin Connolly to Belfast (5 mins late) |
-|   ►   |                 |  6°24′46.48″W | -6.4129100 |          Arrived Dundalk next stop Newry          |
-+-------+-----------------+---------------+------------+---------------------------------------------------+
-|  A407 | To Dublin Heus… |       ∅       |     ∅      | 14:20 - Limerick to Dublin Heuston (-1 mins late) |
-|   ►   |                 |       ∅       |     ∅      |          Departed LJ461 next stop Thurles         |
-+-------+-----------------+---------------+------------+---------------------------------------------------+
-|  A218 |     To Cork     | 53°20′47.04″N | 53.3464000 |               Dublin Heuston to Cork              |
-|   ■   |                 |  6°17′40.60″W | -6.2946100 |              Expected Departure 15:00             |
-+-------+-----------------+---------------+------------+---------------------------------------------------+
-|  A908 |    Northbound   | 53°21′11.16″N | 53.3531000 |              Dublin Connolly to Sligo             |
-|   ■   |                 |  6°14′45.28″W | -6.2459100 |              Expected Departure 15:05             |
-+-------+-----------------+---------------+------------+---------------------------------------------------+
-|  E218 |    Southbound   |  53°27′3.24″N | 53.4509000 |                  Malahide to Bray                 |
-|   ■   |                 |  6°9′23.36″W  | -6.1564900 |              Expected Departure 15:04             |
-+-------+-----------------+---------------+------------+---------------------------------------------------+
-|  B957 |    Southbound   | 53°21′11.16″N | 53.3531000 | 13:55 - Maynooth to Dublin Connolly(13 mins late) |
-|   ✗   |                 |  6°14′45.28″W | -6.2459100 |        TERMINATED Dublin Connolly at 14:51        |
-+-------+-----------------+---------------+------------+---------------------------------------------------+
-|  P375 |    Southbound   | 53°22′59.16″N | 53.3831000 |    14:40 - M3 Parkway to Clonsilla(0 mins late)   |
-|   ✗   |                 |  6°25′27.12″W | -6.4242000 |           TERMINATED Clonsilla at 14:49           |
-+-------+-----------------+---------------+------------+---------------------------------------------------+\
-"""
-
 STATION_TABLE: util.ExpectedPrettyPrint = [
-  '[magenta]Irish Rail Station [bold]Malahide with extra looooooooooooooooooong name (MHIDE)[/][magenta] Board @ [bold]2025/Jun/29-08:14:27-UTC[/]',
+  (
+    '[magenta]Irish Rail Station '
+    '[bold]Malahide with extra looooooooooooooooooong name (MHIDE)[/][magenta] '
+    'Board @ [bold]2025/Jun/29-08:14:27-UTC[/]'
+  ),
   '',
   util.ExpectedTable(
     columns=[
@@ -763,30 +724,6 @@ STATION_TABLE: util.ExpectedPrettyPrint = [
     ],
   ),
 ]
-
-STATION_STR: str = """\
-Irish Rail Station Malahide with extra looooooooooooooooooong name (MHIDE) Board @ 2025/Jun/29-08:14:27-UTC
-
-+-------+-----------------+-----------------+-----+----------+----------+------+----------------+-----------------+
-| Train |      Origin     |      Dest.      | Due | Arrival  | Depart.  | Late |     Status     |     Location    |
-+-------+-----------------+-----------------+-----+----------+----------+------+----------------+-----------------+
-|  P702 |       BRAY      |      CENTJ      |  +9 | 09:22:00 | 09:23:00 |      |                |                 |
-|  (S)  |       Bray      | Dublin Connolly |     |          | 09:27:00 |  +5  |    En Route    | Arrived Rush a… |
-|  DMU  |     08:45:00    |     09:45:00    |     |          |          |      |                |                 |
-+-------+-----------------+-----------------+-----+----------+----------+------+----------------+-----------------+
-|  E802 |       BRAY      |      MHIDE      | +52 | 10:06:00 |    ∅     |      |                |                 |
-|  (N)  |       Bray      |     Malahide    |     | 10:07:00 |          |  +1  |    En Route    | Arrived Salthi… |
-|  DART |     08:51:00    |     10:06:00    |     |          |          |      |                |                 |
-+-------+-----------------+-----------------+-----+----------+----------+------+----------------+-----------------+
-|  E205 |      MHIDE      |       BRAY      | +70 |    ∅     | 10:24:00 |      |                |                 |
-|  (S)  |     Malahide    |       Bray      |     |          |          |      | No Information |        ∅        |
-|  DART |     10:24:00    |     11:39:00    |     |          |          |      |                |                 |
-+-------+-----------------+-----------------+-----+----------+----------+------+----------------+-----------------+
-|  D802 |      CENTJ      |       BRAY      | +81 | 10:35:00 | 10:38:00 |      |                |                 |
-|  (N)  | Dublin Connolly |       Bray      |     |          | 10:39:00 |  -1  | No Information |        ∅        |
-|  DMU  |     10:10:00    |     11:15:00    |     |          |          |      |                |                 |
-+-------+-----------------+-----------------+-----+----------+----------+------+----------------+-----------------+\
-"""
 
 TRAIN_TABLE: util.ExpectedPrettyPrint = [
   '[magenta]Irish Rail Train [bold]E108[/][magenta] @ [bold]2025/Jun/29-08:14:27-UTC[/]',
@@ -872,43 +809,3 @@ TRAIN_TABLE: util.ExpectedPrettyPrint = [
     ],
   ),
 ]
-
-TRAIN_STR: str = """\
-Irish Rail Train E108 @ 2025/Jun/29-08:14:27-UTC
-
-Day:         2025-06-29·Sun
-Origin:      Malahide (MHIDE)
-Destination: Bray (BRAY)
-
-+---------+---------------+--------------+------------+-----------------+------------+-----------+
-|    #    |      Stop     | Arr.(Expect) | A.(Actual) | Depart.(Expect) | D.(Actual) | Late(Min) |
-+---------+---------------+--------------+------------+-----------------+------------+-----------+
-|    1    |     MHIDE     |      ∅       |  09:19:24  |     09:30:00    |  09:30:24  |     ∅     |
-|         |    Malahide   |      ⚙       |            |        ⚙        |            |           |
-|         |     ORIGIN    |              |            |                 |            |           |
-+---------+---------------+--------------+------------+-----------------+------------+-----------+
-|    2    |      COBH     |   09:33:30   |  09:33:12  |     09:34:00    |  09:34:30  |   -0.30   |
-|         |      Cobh     |   09:33:54   |            |     09:33:42    |            |           |
-|         |       ■       |      ⚙       |            |        ⚙        |            |           |
-+---------+---------------+--------------+------------+-----------------+------------+-----------+
-|    3    |     GRGRD     |   09:36:00   |  09:35:36  |     09:36:30    |  09:36:54  |   -0.40   |
-|         |  Clongriffin  |   09:36:30   |            |     09:36:06    |            |           |
-|         |       ■■      |      ⚙       |            |        ⚙        |            |           |
-+---------+---------------+--------------+------------+-----------------+------------+-----------+
-|    4    |      BRAY     |   10:44:30   |  10:43:06  |     10:45:30    |  10:45:06  |   -1.40   |
-|         |      Bray     |   10:44:54   |            |     10:44:06    |            |           |
-|         |       ■       |      ⚙       |            |        ⚙        |            |           |
-+---------+---------------+--------------+------------+-----------------+------------+-----------+
-|    5    |     CITYJ     |   10:46:30   |     ∅      |     10:46:30    |     ∅      |     ∅     |
-|         | CITY JUNCTION |   10:46:06   |            |     10:46:06    |            |           |
-|         |       ⏱       |              |            |                 |            |           |
-+---------+---------------+--------------+------------+-----------------+------------+-----------+
-|    6    |     MOIRA     |   10:51:00   |  10:49:54  |     10:51:00    |  10:50:18  |   -1.10   |
-|         |      ????     |   10:50:36   |            |     10:49:54    |            |           |
-|         |       ⏱       |      ⚙       |            |        ⚙        |            |           |
-+---------+---------------+--------------+------------+-----------------+------------+-----------+
-|    7    |      BRAY     |   10:55:00   |  10:55:06  |        ∅        |     ∅      |   +0.10   |
-| CURRENT |      Bray     |   10:54:18   |            |                 |            |           |
-|         |  DESTINATION  |      ⚙       |            |                 |            |           |
-+---------+---------------+--------------+------------+-----------------+------------+-----------+\
-"""

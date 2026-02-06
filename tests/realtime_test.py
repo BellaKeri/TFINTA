@@ -20,13 +20,13 @@ from typer import testing as typer_testing
 
 from . import realtime_data, util
 
-_REALTIME_DIR: str = os.path.join(util.DATA_DIR, 'realtime')
+_REALTIME_DIR: str = os.path.join(util.DATA_DIR, 'realtime')  # noqa: PTH118
 
 TEST_XMLS: dict[str, str] = {
-  'stations': os.path.join(_REALTIME_DIR, 'getAllStations.xml'),
-  'running': os.path.join(_REALTIME_DIR, 'getCurrentTrains.xml'),
-  'station': os.path.join(_REALTIME_DIR, 'getStationDataByCode.xml'),
-  'train': os.path.join(_REALTIME_DIR, 'getTrainMovements.xml'),
+  'stations': os.path.join(_REALTIME_DIR, 'getAllStations.xml'),  # noqa: PTH118
+  'running': os.path.join(_REALTIME_DIR, 'getCurrentTrains.xml'),  # noqa: PTH118
+  'station': os.path.join(_REALTIME_DIR, 'getStationDataByCode.xml'),  # noqa: PTH118
+  'train': os.path.join(_REALTIME_DIR, 'getTrainMovements.xml'),  # noqa: PTH118
 }
 
 
@@ -46,12 +46,17 @@ class _FakeDate(datetime.date):
 
   @classmethod
   def today(cls) -> Self:
-    """Test date."""
+    """Test date.
+
+    Returns:
+      Test date.
+
+    """
     return cls(2025, 6, 29)
 
 
 @pytest.mark.parametrize(
-  'call_names, call_obj, expected_obj, expected_output',
+  ('call_names', 'call_obj', 'expected_obj', 'expected_output'),
   [
     (
       [
@@ -87,7 +92,7 @@ class _FakeDate(datetime.date):
       realtime_data.TRAIN_OBJ,
       realtime_data.TRAIN_TABLE,
     ),
-  ],
+  ],  # pyright: ignore[reportUnknownArgumentType]
 )
 @mock.patch('src.tfinta.realtime.time.time', autospec=True)
 @mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
@@ -101,7 +106,7 @@ def test_RealtimeRail_StationsCall(
   monkeypatch: pytest.MonkeyPatch,
 ) -> None:
   """Test."""
-  monkeypatch.setattr(realtime.datetime, 'date', _FakeDate)
+  monkeypatch.setattr(realtime.datetime, 'date', _FakeDate)  # type: ignore
   mock_time.return_value = realtime_data.RT_TIME
   mock_open.side_effect = [util.FakeHTTPFile(TEST_XMLS[c]) for c, _ in call_names]
   # call
