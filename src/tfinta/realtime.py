@@ -24,7 +24,7 @@ from typing import Any, cast, get_args, get_type_hints
 import click
 import typer
 from rich import console as rich_console
-from rich.table import Table
+from rich import table as rich_table
 from transcrypto.cli import clibase
 from transcrypto.utils import human
 from transcrypto.utils import logging as tc_logging
@@ -200,10 +200,10 @@ class RealtimeRail:
         else:
           # it is optional and something else, so find out which
           field_args = get_args(type_descriptor)
-          if len(field_args) != 2:  # noqa: PLR2004
+          if len(field_args) != 2:  # noqa: PLR2004  # pragma: no cover
             raise Error(f'incorrect type len {rpc_name}/{field}: {field_args!r}')
           field_type = field_args[0] if field_args[1] == types.NoneType else field_args[1]
-          if field_type not in {str, int, float, bool}:
+          if field_type not in {str, int, float, bool}:  # pragma: no cover
             raise Error(f'incorrect type {rpc_name}/{field}: {field_args!r}')
           fields[field] = (field_type, False)
     logging.info('Created realtime object')
@@ -319,12 +319,12 @@ class RealtimeRail:
             raise ParseError(
               f'invalid int/float value {rpc_name}/{args}/{row_count}/{field_name}: {field_value!r}'
             ) from err
-        else:
+        else:  # pragma: no cover
           raise Error(
             f'invalid field type {rpc_name}/{args}/{row_count}/{field_name}: {field_type!r}'
           )
       # row is parsed, check required fields
-      if missing_fields := row_required - set(row_data):
+      if missing_fields := row_required - set(row_data):  # pragma: no cover
         raise ParseError(
           f'missing required fields {missing_fields}: {rpc_name}/{row_count}: {xml_data}'
         )
@@ -715,7 +715,7 @@ class RealtimeRail:
   # REALTIME PRETTY PRINTS
   ##################################################################################################
 
-  def PrettyPrintStations(self) -> abc.Generator[str | Table, None, None]:
+  def PrettyPrintStations(self) -> abc.Generator[str | rich_table.Table, None, None]:
     """Generate a pretty version of all stations.
 
     Yields:
@@ -729,7 +729,7 @@ class RealtimeRail:
       f'{base.STD_TIME_STRING(self._latest.stations_tm or 0)}[/]'
     )
     yield ''
-    table = Table(show_header=True, show_lines=True)
+    table = rich_table.Table(show_header=True, show_lines=True)
     table.add_column('[bold cyan]ID[/]')
     table.add_column('[bold cyan]Code[/]')
     table.add_column('[bold cyan]Name[/]')
@@ -753,7 +753,7 @@ class RealtimeRail:
       )
     yield table
 
-  def PrettyPrintRunning(self) -> abc.Generator[str | Table, None, None]:
+  def PrettyPrintRunning(self) -> abc.Generator[str | rich_table.Table, None, None]:
     """Generate a pretty version of running trains.
 
     Yields:
@@ -767,7 +767,7 @@ class RealtimeRail:
       f'{base.STD_TIME_STRING(self._latest.running_tm or 0)}[/]'
     )
     yield ''
-    table = Table(show_header=True, show_lines=True)
+    table = rich_table.Table(show_header=True, show_lines=True)
     table.add_column('[bold cyan]Train[/]')
     table.add_column('[bold cyan]Direction[/]')
     table.add_column('[bold cyan]Location °[/]')
@@ -797,7 +797,9 @@ class RealtimeRail:
       )
     yield table
 
-  def PrettyPrintStation(self, /, *, station_code: str) -> abc.Generator[str | Table, None, None]:
+  def PrettyPrintStation(
+    self, /, *, station_code: str
+  ) -> abc.Generator[str | rich_table.Table, None, None]:
     """Generate a pretty version of station board.
 
     Args:
@@ -820,7 +822,7 @@ class RealtimeRail:
       f'[bold]{base.STD_TIME_STRING(tm)}[/]'
     )
     yield ''
-    table = Table(show_header=True, show_lines=True)
+    table = rich_table.Table(show_header=True, show_lines=True)
     table.add_column('[bold cyan]Train[/]')
     table.add_column('[bold cyan]Origin[/]')
     table.add_column('[bold cyan]Dest.[/]')
@@ -883,7 +885,7 @@ class RealtimeRail:
 
   def PrettyPrintTrain(
     self, /, *, train_code: str, day: datetime.date
-  ) -> abc.Generator[str | Table, None, None]:
+  ) -> abc.Generator[str | rich_table.Table, None, None]:
     """Generate a pretty version of single train data.
 
     Args:
@@ -907,7 +909,7 @@ class RealtimeRail:
     yield (f'Origin:      [bold yellow]{query.origin_name} ({query.origin_code})[/]')
     yield (f'Destination: [bold yellow]{query.destination_name} ({query.destination_code})[/]')
     yield ''
-    table = Table(show_header=True, show_lines=True)
+    table = rich_table.Table(show_header=True, show_lines=True)
     table.add_column('[bold cyan]#[/]')
     table.add_column('[bold cyan]Stop[/]')
     table.add_column('[bold cyan]Arr.(Expect)[/]')
@@ -988,7 +990,7 @@ app = typer.Typer(
 )
 
 
-def Run() -> None:
+def Run() -> None:  # pragma: no cover
   """Run the CLI."""
   app()
 

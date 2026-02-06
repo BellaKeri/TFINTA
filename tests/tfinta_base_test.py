@@ -110,8 +110,56 @@ def test_Point_error(latitude: float, longitude: float) -> None:
     base.Point(latitude=latitude, longitude=longitude)
 
 
+def test_DayRange_not_nullable() -> None:
+  """Test DayRange raises when not nullable and arrival/departure is None."""
+  with pytest.raises(base.Error, match='not nullable'):
+    base.DayRange(arrival=None, departure=base.DayTime(time=0))
+  with pytest.raises(base.Error, match='not nullable'):
+    base.DayRange(arrival=base.DayTime(time=0), departure=None)
+  with pytest.raises(base.Error, match='not nullable'):
+    base.DayRange(arrival=None, departure=None)
+
+
+def test_DayRange_lt() -> None:
+  """Test DayRange __lt__ comparison branches."""
+  t10 = base.DayTime(time=10)
+  t20 = base.DayTime(time=20)
+  t30 = base.DayTime(time=30)
+  # different departures → compare by departure
+  r1 = base.DayRange(arrival=t10, departure=t20)
+  r2 = base.DayRange(arrival=t10, departure=t30)
+  assert r1 < r2
+  assert not r2 < r1
+  # same departures, different arrivals → compare by arrival
+  r3 = base.DayRange(arrival=t10, departure=t20)
+  r4 = base.DayRange(arrival=t20, departure=t20)
+  assert r3 < r4
+  assert not r4 < r3
+  # fallback: one has departure/arrival, other doesn't
+  r5 = base.DayRange(arrival=t10, departure=t20, nullable=True)
+  r6 = base.DayRange(arrival=t10, departure=None, nullable=True)
+  assert r5 < r6  # self.departure and not other.departure
+  assert not r6 < r5
+  r7 = base.DayRange(arrival=t10, departure=None, nullable=True)
+  r8 = base.DayRange(arrival=None, departure=None, nullable=True)
+  assert r7 < r8  # self.arrival and not other.arrival
+
+
 def test_DaysRange_error() -> None:
   """Test."""
   base.DaysRange(start=datetime.date(2000, 1, 1), end=datetime.date(2010, 1, 1))
   with pytest.raises(base.Error, match='invalid dates'):
     base.DaysRange(start=datetime.date(2010, 1, 1), end=datetime.date(2000, 1, 1))
+
+
+def test_DaysRange_lt() -> None:
+  """Test DaysRange __lt__ comparison branches."""
+  r1 = base.DaysRange(start=datetime.date(2025, 1, 1), end=datetime.date(2025, 6, 1))
+  r2 = base.DaysRange(start=datetime.date(2025, 1, 1), end=datetime.date(2025, 12, 1))
+  r3 = base.DaysRange(start=datetime.date(2025, 2, 1), end=datetime.date(2025, 3, 1))
+  # same start, different end
+  assert r1 < r2
+  assert not r2 < r1
+  # different start
+  assert r1 < r3
+  assert not r3 < r1

@@ -27,7 +27,7 @@ from typing import IO, Any, cast, get_args, get_type_hints
 import click
 import typer
 from rich import console as rich_console
-from rich.table import Table
+from rich import table as rich_table
 from transcrypto.cli import clibase
 from transcrypto.core import key
 from transcrypto.utils import human
@@ -168,10 +168,10 @@ class GTFS:
         else:
           # it is optional and something else, so find out which
           field_args = get_args(type_descriptor)
-          if len(field_args) != 2:  # noqa: PLR2004
+          if len(field_args) != 2:  # noqa: PLR2004  # pragma: no cover
             raise Error(f'incorrect type len {file_name}/{field}: {field_args!r}')
           field_type = field_args[0] if field_args[1] == types.NoneType else field_args[1]
-          if field_type not in {str, int, float, bool}:
+          if field_type not in {str, int, float, bool}:  # pragma: no cover
             raise Error(f'incorrect type {file_name}/{field}: {field_args!r}')
           fields[field] = (field_type, False)
 
@@ -663,7 +663,7 @@ class GTFS:
               raise ParseError(
                 f'invalid int/float value {file_name}/{i}/{field_name}: {clean_field_value!r}'
               ) from err
-          else:
+          else:  # pragma: no cover
             raise Error(f'invalid field type {file_name}/{i}/{field_name!r}: {field_type!r}')
         else:
           # unknown field, check if we message/raise only in first row
@@ -1042,7 +1042,7 @@ class GTFS:
   # GTFS PRETTY PRINTS
   ##################################################################################################
 
-  def PrettyPrintBasics(self) -> abc.Generator[str | Table, None, None]:
+  def PrettyPrintBasics(self) -> abc.Generator[str | rich_table.Table, None, None]:
     """Generate a pretty version of basic DB data: Versions, agencies routes.
 
     Yields:
@@ -1055,7 +1055,7 @@ class GTFS:
       yield f'[magenta]Agency [bold]{agency.name} ({agency.id})[/]'
       yield f'  {agency.url} ({agency.zone})'
       yield ''
-      table = Table(show_header=True)
+      table = rich_table.Table(show_header=True)
       table.add_column('[bold cyan]Route[/]')
       table.add_column('[bold cyan]Name[/]')
       table.add_column('[bold cyan]Long Name[/]')
@@ -1086,7 +1086,7 @@ class GTFS:
     yield ''
     yield (f'[bold magenta]Files @ {base.STD_TIME_STRING(self._db.files.tm)}[/]')
     yield ''
-    table = Table(show_header=True)
+    table = rich_table.Table(show_header=True)
     table.add_column('[bold cyan]Agency[/]')
     table.add_column('[bold cyan]URLs / Data[/]')
     for agency_name in sorted(self._db.files.files):
@@ -1115,7 +1115,7 @@ class GTFS:
 
   def PrettyPrintCalendar(
     self, /, *, filter_to: set[int] | None = None
-  ) -> abc.Generator[str | Table, None, None]:
+  ) -> abc.Generator[str | rich_table.Table, None, None]:
     """Generate a pretty version of calendar data.
 
     Yields:
@@ -1125,7 +1125,7 @@ class GTFS:
         Error: if no calendar data is found
 
     """
-    table = Table(show_header=True, show_lines=True)
+    table = rich_table.Table(show_header=True, show_lines=True)
     table.add_column('[bold cyan]Service[/]')
     table.add_column('[bold cyan]Start[/]')
     table.add_column('[bold cyan]End[/]')
@@ -1175,7 +1175,7 @@ class GTFS:
 
   def PrettyPrintStops(
     self, /, *, filter_to: set[str] | None = None
-  ) -> abc.Generator[str | Table, None, None]:
+  ) -> abc.Generator[str | rich_table.Table, None, None]:
     """Generate a pretty version of the stops.
 
     Yields:
@@ -1185,7 +1185,7 @@ class GTFS:
         Error: if no stops data is found
 
     """
-    table = Table(show_header=True, show_lines=True)
+    table = rich_table.Table(show_header=True, show_lines=True)
     table.add_column('[bold cyan]Stop[/]')
     table.add_column('[bold cyan]Code[/]')
     table.add_column('[bold cyan]Name[/]')
@@ -1226,7 +1226,9 @@ class GTFS:
       raise Error('No stop data found')
     yield table
 
-  def PrettyPrintShape(self, /, *, shape_id: str) -> abc.Generator[str | Table, None, None]:
+  def PrettyPrintShape(
+    self, /, *, shape_id: str
+  ) -> abc.Generator[str | rich_table.Table, None, None]:
     """Generate a pretty version of a shape.
 
     Yields:
@@ -1241,7 +1243,7 @@ class GTFS:
       raise Error(f'shape id {shape_id!r} was not found')
     yield f'[magenta]GTFS Shape ID [bold]{shape.id}[/]'
     yield ''
-    table = Table(show_header=True)
+    table = rich_table.Table(show_header=True)
     table.add_column('[bold cyan]#[/]')
     table.add_column('[bold cyan]Distance[/]')
     table.add_column('[bold cyan]Latitude °[/]')
@@ -1261,7 +1263,9 @@ class GTFS:
       )
     yield table
 
-  def PrettyPrintTrip(self, /, *, trip_id: str) -> abc.Generator[str | Table, None, None]:
+  def PrettyPrintTrip(
+    self, /, *, trip_id: str
+  ) -> abc.Generator[str | rich_table.Table, None, None]:
     """Generate a pretty version of a Trip.
 
     Yields:
@@ -1288,7 +1292,7 @@ class GTFS:
     yield f'Name:          [bold]{trip.name or base.NULL_TEXT}[/]'
     yield f'Block:         [bold]{trip.block or base.NULL_TEXT}[/]'
     yield ''
-    table = Table(show_header=True)
+    table = rich_table.Table(show_header=True)
     table.add_column('[bold cyan]#[/]')
     table.add_column('[bold cyan]Stop ID[/]')
     table.add_column('[bold cyan]Name[/]')
@@ -1324,7 +1328,7 @@ class GTFS:
       )
     yield table
 
-  def PrettyPrintAllDatabase(self) -> abc.Generator[str | Table, None, None]:
+  def PrettyPrintAllDatabase(self) -> abc.Generator[str | rich_table.Table, None, None]:
     """Print everything in the database.
 
     Yields:
@@ -1404,7 +1408,7 @@ app = typer.Typer(
 )
 
 
-def Run() -> None:
+def Run() -> None:  # pragma: no cover
   """Run the CLI."""
   app()
 

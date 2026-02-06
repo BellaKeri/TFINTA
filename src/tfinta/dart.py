@@ -14,7 +14,7 @@ from collections import abc
 import click
 import typer
 from rich import console as rich_console
-from rich.table import Table
+from rich import table as rich_table
 from transcrypto.cli import clibase
 from transcrypto.utils import logging as tc_logging
 
@@ -223,7 +223,7 @@ class DART:
   # DART PRETTY PRINTS
   ##################################################################################################
 
-  def PrettyPrintCalendar(self) -> abc.Generator[str | Table, None, None]:
+  def PrettyPrintCalendar(self) -> abc.Generator[str | rich_table.Table, None, None]:
     """Generate a pretty version of calendar data.
 
     Yields:
@@ -232,7 +232,7 @@ class DART:
     """
     yield from self._gtfs.PrettyPrintCalendar(filter_to=self.Services())
 
-  def PrettyPrintStops(self) -> abc.Generator[str | Table, None, None]:
+  def PrettyPrintStops(self) -> abc.Generator[str | rich_table.Table, None, None]:
     """Generate a pretty version of the stops.
 
     Yields:
@@ -247,7 +247,9 @@ class DART:
     }
     yield from self._gtfs.PrettyPrintStops(filter_to=all_stops)
 
-  def PrettyDaySchedule(self, /, *, day: datetime.date) -> abc.Generator[str | Table, None, None]:
+  def PrettyDaySchedule(
+    self, /, *, day: datetime.date
+  ) -> abc.Generator[str | rich_table.Table, None, None]:
     """Generate a pretty version of a DART day's schedule.
 
     Args:
@@ -268,7 +270,7 @@ class DART:
     day_services: set[int] = self.ServicesForDay(day)
     yield (f'Services: [bold yellow]{", ".join(str(s) for s in sorted(day_services))}[/]')
     yield ''
-    table = Table(show_header=True)
+    table = rich_table.Table(show_header=True)
     table.add_column('[bold cyan]N/S[/]')
     table.add_column('[bold cyan]Train[/]')
     table.add_column('[bold cyan]Start[/]')
@@ -296,7 +298,7 @@ class DART:
 
   def PrettyStationSchedule(
     self, /, *, stop_id: str, day: datetime.date
-  ) -> abc.Generator[str | Table, None, None]:
+  ) -> abc.Generator[str | rich_table.Table, None, None]:
     """Generate a pretty version of a DART station (stop) day's schedule.
 
     Args:
@@ -325,7 +327,7 @@ class DART:
     destinations: set[str] = {self._gtfs.StopNameTranslator(k[0]) for k in day_dart_schedule}
     yield f'Destinations: [bold yellow]{", ".join(sorted(destinations))}[/]'
     yield ''
-    table = Table(show_header=True)
+    table = rich_table.Table(show_header=True)
     table.add_column('[bold cyan]N/S[/]')
     table.add_column('[bold cyan]Train[/]')
     table.add_column('[bold cyan]Destination[/]')
@@ -357,7 +359,9 @@ class DART:
       last_departure = tm.times.departure.time if tm.times.departure else 0
     yield table
 
-  def PrettyPrintTrip(self, /, *, trip_name: str) -> abc.Generator[str | Table, None, None]:  # noqa: C901, PLR0912, PLR0915
+  def PrettyPrintTrip(  # noqa: C901, PLR0912, PLR0915
+    self, /, *, trip_name: str
+  ) -> abc.Generator[str | rich_table.Table, None, None]:
     """Generate a pretty version of a train (physical) trip, may be 2 Trips.
 
     Args:
@@ -433,7 +437,7 @@ class DART:
     yield (f'  Description: [bold]{route.description or "∅"}[/]')
     yield (f'Headsign:      [bold]{trips[0].headsign or "∅"}[/]')
     yield ''
-    table = Table(show_header=True, show_lines=True)
+    table = rich_table.Table(show_header=True, show_lines=True)
     table.add_column('[bold cyan]Trip ID[/]')
     for t in trips:
       table.add_column(f'[bold magenta]{t.id}[/]')
@@ -473,7 +477,7 @@ class DART:
       table.add_row(*table_row)
     yield table
 
-  def PrettyPrintAllDatabase(self) -> abc.Generator[str | Table, None, None]:
+  def PrettyPrintAllDatabase(self) -> abc.Generator[str | rich_table.Table, None, None]:
     """Print everything in the database.
 
     Yields:
@@ -516,7 +520,7 @@ app = typer.Typer(
 )
 
 
-def Run() -> None:
+def Run() -> None:  # pragma: no cover
   """Run the CLI."""
   app()
 
