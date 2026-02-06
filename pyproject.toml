@@ -71,8 +71,8 @@ realtime = "tfinta.realtime:Run"
 # keep this in sync with [project.scripts] above
 
 dart = "tfinta.dart:Run"
-gtfs = "tfinta.gtfs:main"
-realtime = "tfinta.realtime:main"
+gtfs = "tfinta.gtfs:Run"
+realtime = "tfinta.realtime:Run"
 
 ####################################################################################################
 [project.urls]
