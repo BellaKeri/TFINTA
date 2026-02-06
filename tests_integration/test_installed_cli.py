@@ -228,3 +228,8 @@ def test_installed_cli_smoke(tmp_path: pathlib.Path) -> None:
   assert 'expected output' in r.stdout
   assert '\x1b[' not in r.stdout
   assert '\x1b[' not in r.stderr
+  # simple realtime command
+  r = _Run([str(realtime_cli), '--no-color', 'some', 'command'])
+  assert 'expected output' in r.stdout
+  assert '\x1b[' not in r.stdout
+  assert '\x1b[' not in r.stderr
