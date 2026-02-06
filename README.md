@@ -38,7 +38,7 @@ Unless required by applicable law or agreed to in writing, software distributed 
 TFINTA (Transport for Ireland Data) is a small, batteries-included toolkit for working with publicly-available Irish public-transport datasets—right from your shell or from pure Python.
 
 | What you get | CLI entry-point | What it does |
-| ------------- | --------------- | :------------- |
+| :------------- | :---------------: | :------------- |
 | Static GTFS schedules for bus, rail, ferry, Luas… | `gtfs` | Download the national GTFS bundle, cache it, and let you inspect any table (agency, stops, routes, shapes, trips, calendars…). |
 | Irish Rail / DART schedules (their separate GTFS feed) | `dart` | Same idea, but focused on heavy-rail only—extra helpers for station boards and service calendars. |
 | Live train movements via the Irish Rail XML feed | `realtime` | Query the current running trains or a live arrivals/departures board for any station. |
@@ -119,7 +119,7 @@ import tfinta
 # See the Command Reference and package docs for specific API calls.
 
 from tfinta import dart
-print('Use the `dart` module or `gtfs`/`realtime` modules programmatically; see docs.')
+print('Use the dart, gtfs or realtime modules programmatically; see docs.')
 ```
 
 For full command and option details, see the Command Reference below.
@@ -174,7 +174,7 @@ For full command and option details, see the Command Reference below.
     <TrainDate>01 Jun 2025</TrainDate>
     <PublicMessage>D501\nCork to Cobh\nExpected Departure 08:00</PublicMessage>
     <Direction>To Cobh</Direction>
-</objTrainPositions>Taranis Travel - Android/iPhone App
+</objTrainPositions>
 ```
 
 ### GTFS Schedule Files
