@@ -218,18 +218,54 @@ def test_installed_cli_smoke(tmp_path: pathlib.Path) -> None:
   assert r.stdout.strip() == expected_version
   r = _Run([str(realtime_cli), '--version'])
   assert r.stdout.strip() == expected_version
-  # basic command smoke tests; use --no-color to avoid ANSI codes in asserts.
-  r = _Run([str(gtfs_cli), '--no-color', 'some', 'command'])
-  assert 'expected output' in r.stdout
-  assert '\x1b[' not in r.stdout  # no ANSI escape sequences
-  assert '\x1b[' not in r.stderr
-  # simple dart command
-  r = _Run([str(dart_cli), '--no-color', 'some', 'command'])
-  assert 'expected output' in r.stdout
-  assert '\x1b[' not in r.stdout
-  assert '\x1b[' not in r.stderr
-  # simple realtime command
-  r = _Run([str(realtime_cli), '--no-color', 'some', 'command'])
-  assert 'expected output' in r.stdout
-  assert '\x1b[' not in r.stdout
-  assert '\x1b[' not in r.stderr
+  # basic command smoke tests
+  _GTFS_call(gtfs_cli, vpy)
+  _DART_call(dart_cli, vpy)
+  _realtime_call(realtime_cli)
+
+
+def _GTFS_call(gtfs_cli: pathlib.Path, vpy: pathlib.Path) -> None:
+  # gtfs: read data and print basics; use --no-color to avoid ANSI codes in asserts.
+  r = _Run([str(gtfs_cli), '--no-color', 'read'])
+  assert 'loaded successfully' in r.stdout.lower()
+  assert '\x1b[' not in r.stdout and '\x1b[' not in r.stderr  # no ANSI codes
+  # verify GTFS created a local DB under the installed package location
+  r2 = _Run([str(vpy), '-c', 'import tfinta,os; print(os.path.dirname(tfinta.__file__))'])
+  module_dir = pathlib.Path(r2.stdout.strip())
+  data_dir = module_dir / '.tfinta-data'
+  db_file = data_dir / 'transit.db'
+  assert data_dir.exists() and db_file.exists()
+  r = _Run([str(gtfs_cli), '--no-color', 'print', 'basics'])
+  # match presence of DART routes with a 5355_123769 route id fragment
+  assert 'DART' in r.stdout and '5355_' in r.stdout
+  assert '\x1b[' not in r.stdout and '\x1b[' not in r.stderr  # no ANSI codes
+  # remove created data to isolate the next CLI's read step
+  shutil.rmtree(data_dir)
+
+
+def _DART_call(dart_cli: pathlib.Path, vpy: pathlib.Path) -> None:
+  # dart: read data and print station info; use --no-color to avoid ANSI codes in asserts.
+  r = _Run([str(dart_cli), '--no-color', 'read'])
+  assert 'loaded successfully' in r.stdout.lower()
+  assert '\x1b[' not in r.stdout and '\x1b[' not in r.stderr  # no ANSI codes
+  # verify DART also created the local DB file in the installed package location
+  r2 = _Run([str(vpy), '-c', 'import tfinta,os; print(os.path.dirname(tfinta.__file__))'])
+  module_dir = pathlib.Path(r2.stdout.strip())
+  data_dir = module_dir / '.tfinta-data'
+  db_file = data_dir / 'transit.db'
+  assert data_dir.exists() and db_file.exists()
+  r = _Run([str(dart_cli), '--no-color', 'print', 'station', 'Tara'])
+  # ensure output contains the expected station header, station code, a known
+  # destination and a service/trip id fragment (more specific than just non-empty)
+  assert 'Tara Street' in r.stdout and '8220IR0025' in r.stdout and 'Bray' in r.stdout
+  assert '\x1b[' not in r.stdout and '\x1b[' not in r.stderr  # no ANSI codes
+  # remove created data to isolate the next CLI's read step
+  shutil.rmtree(data_dir)
+
+
+def _realtime_call(realtime_cli: pathlib.Path) -> None:
+  # realtime: print stations; use --no-color to avoid ANSI codes in asserts.
+  r = _Run([str(realtime_cli), '--no-color', 'print', 'stations'])
+  # table output varies; assert Bray station id and code exist
+  assert 'BRAY' in r.stdout and 'Bray' in r.stdout and '140' in r.stdout
+  assert '\x1b[' not in r.stdout and '\x1b[' not in r.stderr  # no ANSI codes
