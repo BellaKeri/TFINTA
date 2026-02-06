@@ -38,7 +38,7 @@ Unless required by applicable law or agreed to in writing, software distributed 
 TFINTA (Transport for Ireland Data) is a small, batteries-included toolkit for working with publicly-available Irish public-transport datasets—right from your shell or from pure Python.
 
 | What you get | CLI entry-point | What it does |
-|:-------------|:---------------:|:-------------|
+| ------------- | --------------- | :------------- |
 | Static GTFS schedules for bus, rail, ferry, Luas… | `gtfs` | Download the national GTFS bundle, cache it, and let you inspect any table (agency, stops, routes, shapes, trips, calendars…). |
 | Irish Rail / DART schedules (their separate GTFS feed) | `dart` | Same idea, but focused on heavy-rail only—extra helpers for station boards and service calendars. |
 | Live train movements via the Irish Rail XML feed | `realtime` | Query the current running trains or a live arrivals/departures board for any station. |
@@ -71,14 +71,58 @@ poetry add tfinta  # (or pip install tfinta)
 
 ### Quick start
 
+A compact set of commands to get you started quickly from installation to inspecting static schedules and live train positions.
+
+- Install the package (poetry or pip):
+
 ```shell
-poetry add tfinta             # 1: Install the library
-poetry run gtfs read          # 2: Download latest GTFS feed (cached for 7 days)
-poetry run gtfs print basics  # 3: View some basics (files, agencies, routes)
-poetry run dart print stops   # 4: Show all DART stops
-poetry run dart print trips -d 20250701  # 5: Show all DART trips for 1st Jul 2025
-poetry run realtime print running        # 6: See the trains currently running on the network
+poetry add tfinta  # or: pip install tfinta
 ```
+
+- Download and cache the official GTFS bundle (cached by default for 7 days):
+
+```shell
+poetry run gtfs read
+```
+
+- Inspect the downloaded GTFS files and some high-level metadata:
+
+```shell
+poetry run gtfs print basics   # lists files, agencies, routes and brief stats
+```
+
+- Work with DART (Irish Rail) schedule data:
+
+```shell
+poetry run dart print stops                # show all DART stops
+poetry run dart print trips -d 20250701    # show DART trips for 2025-07-01
+```
+
+- Query live train positions / running trains from the realtime feed:
+
+```shell
+poetry run realtime print running          # currently running trains on the network
+```
+
+Notes and tips:
+
+- Downloads and parsed GTFS data are cached to avoid repeated network requests; the default cache lifetime is 7 days. See the Command Reference for cache control and refresh flags.
+- All CLI commands are also available when invoked via `poetry run <command>` if you use Poetry-managed virtualenvs.
+
+Quick Python usage:
+
+```python
+import tfinta
+
+# Use the library from Python: the package exposes helpers to load
+# cached databases as pandas DataFrames and to iterate typed dataclasses.
+# See the Command Reference and package docs for specific API calls.
+
+from tfinta import dart
+print('Use the `dart` module or `gtfs`/`realtime` modules programmatically; see docs.')
+```
+
+For full command and option details, see the Command Reference below.
 
 ### Command Reference
 
