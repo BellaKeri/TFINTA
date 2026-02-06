@@ -11,6 +11,7 @@ from typing import Self
 from unittest import mock
 
 import pytest
+import typeguard
 from click import testing as click_testing
 from src.tfinta import realtime
 from src.tfinta import realtime_data_model as dm
@@ -50,7 +51,7 @@ class _FakeDate(datetime.date):
 
 
 @pytest.mark.parametrize(
-  'call_names, call_obj, expected_obj, expected_str',
+  'call_names, call_obj, expected_obj, expected_output',
   [
     (
       [
@@ -58,7 +59,7 @@ class _FakeDate(datetime.date):
       ],
       realtime.RealtimeRail.PrettyPrintStations,
       realtime_data.STATIONS_OBJ,
-      realtime_data.STATIONS_STR,
+      realtime_data.STATIONS_TABLE,
     ),
     (
       [
@@ -66,7 +67,7 @@ class _FakeDate(datetime.date):
       ],
       realtime.RealtimeRail.PrettyPrintRunning,
       realtime_data.RUNNING_OBJ,
-      realtime_data.RUNNING_STR,
+      realtime_data.RUNNING_TABLE,
     ),
     (
       [
@@ -75,7 +76,7 @@ class _FakeDate(datetime.date):
       ],
       realtime.RealtimeRail.PrettyPrintStation,
       realtime_data.STATION_OBJ,
-      realtime_data.STATION_STR,
+      realtime_data.STATION_TABLE,
     ),
     (
       [
@@ -84,7 +85,7 @@ class _FakeDate(datetime.date):
       ],
       realtime.RealtimeRail.PrettyPrintTrain,
       realtime_data.TRAIN_OBJ,
-      realtime_data.TRAIN_STR,
+      realtime_data.TRAIN_TABLE,
     ),
   ],
 )
@@ -96,7 +97,7 @@ def test_RealtimeRail_StationsCall(
   call_names: list[tuple[str, realtime._PossibleRPCArgs]],
   call_obj: Callable[..., Generator[str, None, None]],
   expected_obj: dm.LatestData,
-  expected_str: str,
+  expected_output: util.ExpectedPrettyPrint,
   monkeypatch: pytest.MonkeyPatch,
 ) -> None:
   """Test."""
@@ -105,13 +106,13 @@ def test_RealtimeRail_StationsCall(
   mock_open.side_effect = [util.FakeHTTPFile(TEST_XMLS[c]) for c, _ in call_names]
   # call
   rt = realtime.RealtimeRail()
-  return_str: str = '\n'.join(call_obj(rt, **call_names[0][1]))
+  with typeguard.suppress_type_checks():
+    util.AssertPrettyPrint(expected_output, call_obj(rt, **call_names[0][1]))
   # check data
   assert rt._latest == expected_obj
-  assert return_str == expected_str
-  assert mock_open.call_args_list == [
-    mock.call(realtime._RPC_CALLS[c](**p), timeout=10.0) for c, p in call_names
-  ]
+  assert len(mock_open.call_args_list) == len(call_names)
+  for i, (c, p) in enumerate(call_names):
+    assert mock_open.call_args_list[i] == mock.call(realtime._RPC_CALLS[c](p), timeout=10.0)
 
 
 @mock.patch('src.tfinta.realtime.RealtimeRail', autospec=True)
@@ -150,7 +151,7 @@ def test_main_print_station(mock_realtime: mock.MagicMock) -> None:
   db_obj.StationCodeFromNameFragmentOrCode.return_value = 'MHIDE'
   db_obj.PrettyPrintStation.return_value = ['foo', 'bar']
   result: click_testing.Result = typer_testing.CliRunner().invoke(
-    realtime.app, ['print', 'station', '-c', 'malahide']
+    realtime.app, ['print', 'station', 'malahide']
   )
   assert result.exit_code == 0
   mock_realtime.assert_called_once_with()
@@ -165,7 +166,7 @@ def test_main_print_train(mock_realtime: mock.MagicMock) -> None:
   mock_realtime.return_value = db_obj
   db_obj.PrettyPrintTrain.return_value = ['foo', 'bar']
   result: click_testing.Result = typer_testing.CliRunner().invoke(
-    realtime.app, ['print', 'train', '-c', 'E108', '-d', '20250701']
+    realtime.app, ['print', 'train', 'E108', '20250701']
   )
   assert result.exit_code == 0
   mock_realtime.assert_called_once_with()
