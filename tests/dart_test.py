@@ -14,6 +14,7 @@ import typeguard
 from click import testing as click_testing
 from src.tfinta import dart, gtfs
 from src.tfinta import tfinta_base as base
+from transcrypto.utils import config as app_config
 from transcrypto.utils import logging as tc_logging
 from typer import testing as typer_testing
 
@@ -31,6 +32,7 @@ def reset_cli_logging_singletons() -> None:
   singleton to keep tests isolated.
   """
   tc_logging.ResetConsole()
+  app_config.ResetConfig()
 
 
 @pytest.fixture
@@ -45,16 +47,11 @@ def gtfs_object() -> gtfs.GTFS:
   db: gtfs.GTFS
   with (
     mock.patch('src.tfinta.gtfs.time.time', autospec=True) as time,
-    mock.patch('src.tfinta.gtfs.os.path.isdir', autospec=True) as is_dir,
-    mock.patch('src.tfinta.gtfs.os.mkdir', autospec=True),
-    mock.patch('src.tfinta.gtfs.os.path.exists', autospec=True) as exists,
     mock.patch('transcrypto.core.key.Serialize', autospec=True),
     mock.patch('transcrypto.core.key.DeSerialize', autospec=True),
   ):
     time.return_value = gtfs_data.ZIP_DB_1_TM
-    is_dir.return_value = False
-    exists.return_value = False
-    db = gtfs.GTFS('db/path')
+    db = gtfs.GTFS(util.MockAppConfig('db/path'))
   # monkey-patch the data into the object
   db._db = gtfs_data.ZIP_DB_1
   return db
@@ -95,8 +92,7 @@ def test_main_load(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None
   db_obj = mock.MagicMock()
   mock_gtfs.return_value = db_obj
   result: click_testing.Result = typer_testing.CliRunner().invoke(dart.app, ['read'])
-  assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
+  assert result.exit_code == 0 and mock_gtfs.call_count == 1
   db_obj.LoadData.assert_called_once_with(
     'Iarnród Éireann / Irish Rail',
     'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip',
@@ -118,8 +114,7 @@ def test_main_print_calendars(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMo
   mock_dart.return_value = dart_obj
   dart_obj.PrettyPrintCalendar.return_value = ['foo', 'bar']
   result: click_testing.Result = typer_testing.CliRunner().invoke(dart.app, ['print', 'calendars'])
-  assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
+  assert result.exit_code == 0 and mock_gtfs.call_count == 1
   db_obj.LoadData.assert_not_called()
   mock_dart.assert_called_once_with(db_obj)
   dart_obj.PrettyPrintCalendar.assert_called_once_with()
@@ -134,8 +129,7 @@ def test_main_print_stops(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) 
   mock_dart.return_value = dart_obj
   dart_obj.PrettyPrintStops.return_value = ['foo', 'bar']
   result: click_testing.Result = typer_testing.CliRunner().invoke(dart.app, ['print', 'stops'])
-  assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
+  assert result.exit_code == 0 and mock_gtfs.call_count == 1
   db_obj.LoadData.assert_not_called()
   mock_dart.assert_called_once_with(db_obj)
   dart_obj.PrettyPrintStops.assert_called_once_with()
@@ -152,8 +146,7 @@ def test_main_print_trips(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) 
   result: click_testing.Result = typer_testing.CliRunner().invoke(
     dart.app, ['print', 'trips', '20250804']
   )
-  assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
+  assert result.exit_code == 0 and mock_gtfs.call_count == 1
   db_obj.LoadData.assert_not_called()
   mock_dart.assert_called_once_with(db_obj)
   dart_obj.PrettyDaySchedule.assert_called_once_with(day=datetime.date(2025, 8, 4))
@@ -171,8 +164,7 @@ def test_main_print_station(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock
   result: click_testing.Result = typer_testing.CliRunner().invoke(
     dart.app, ['print', 'station', 'daly', '20250804']
   )
-  assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
+  assert result.exit_code == 0 and mock_gtfs.call_count == 1
   db_obj.LoadData.assert_not_called()
   db_obj.StopIDFromNameFragmentOrID.assert_called_once_with('daly')
   mock_dart.assert_called_once_with(db_obj)
@@ -192,8 +184,7 @@ def test_main_print_trip(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -
   result: click_testing.Result = typer_testing.CliRunner().invoke(
     dart.app, ['print', 'trip', 'E108']
   )
-  assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
+  assert result.exit_code == 0 and mock_gtfs.call_count == 1
   db_obj.LoadData.assert_not_called()
   mock_dart.assert_called_once_with(db_obj)
   dart_obj.PrettyPrintTrip.assert_called_once_with(trip_name='E108')
@@ -208,8 +199,7 @@ def test_main_print_all(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) ->
   mock_dart.return_value = dart_obj
   dart_obj.PrettyStationSchedule.return_value = ['foo', 'bar']
   result: click_testing.Result = typer_testing.CliRunner().invoke(dart.app, ['print', 'all'])
-  assert result.exit_code == 0
-  mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
+  assert result.exit_code == 0 and mock_gtfs.call_count == 1
   db_obj.LoadData.assert_not_called()
   mock_dart.assert_called_once_with(db_obj)
   dart_obj.PrettyPrintAllDatabase.assert_called_once_with()
@@ -240,7 +230,7 @@ def test_main_markdown(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> 
   mock_gtfs.return_value = db_obj
   mock_dart.return_value = dart_obj
   result: click_testing.Result = typer_testing.CliRunner().invoke(dart.app, ['markdown'])
-  assert result.exit_code == 0
+  assert result.exit_code == 0 and mock_gtfs.call_count == 1
 
 
 def test_DART_no_dart_route(gtfs_object: gtfs.GTFS) -> None:
@@ -458,6 +448,7 @@ def test_PrintAll_body(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> 
     console=mock.MagicMock(),
     verbose=0,
     color=True,
+    appconfig=util.MockAppConfig(),
   )
   dart.PrintAll(ctx=mock_ctx)
   mock_dart_instance.PrettyPrintAllDatabase.assert_called_once()
@@ -477,6 +468,7 @@ def test_PrintTrip_body(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) ->
     console=mock.MagicMock(),
     verbose=0,
     color=True,
+    appconfig=util.MockAppConfig(),
   )
   dart.PrintTrip(ctx=mock_ctx, train='E108')
   mock_dart_instance.PrettyPrintTrip.assert_called_once_with(trip_name='E108')

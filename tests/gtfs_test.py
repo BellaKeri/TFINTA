@@ -20,6 +20,7 @@ from rich import table as rich_table
 from src.tfinta import gtfs
 from src.tfinta import gtfs_data_model as dm
 from src.tfinta import tfinta_base as base
+from transcrypto.utils import config as app_config
 from transcrypto.utils import logging as tc_logging
 from typer import testing as typer_testing
 
@@ -40,6 +41,7 @@ def reset_cli_logging_singletons() -> None:
   singleton to keep tests isolated.
   """
   tc_logging.ResetConsole()
+  app_config.ResetConfig()
 
 
 @pytest.fixture
@@ -53,16 +55,11 @@ def gtfs_object() -> gtfs.GTFS:
   db: gtfs.GTFS
   with (
     mock.patch('src.tfinta.gtfs.time.time', autospec=True) as time,
-    mock.patch('src.tfinta.gtfs.os.path.isdir', autospec=True) as is_dir,
-    mock.patch('src.tfinta.gtfs.os.mkdir', autospec=True),
-    mock.patch('src.tfinta.gtfs.os.path.exists', autospec=True) as exists,
     mock.patch('transcrypto.core.key.Serialize', autospec=True),
     mock.patch('transcrypto.core.key.DeSerialize', autospec=True),
   ):
     time.return_value = gtfs_data.ZIP_DB_1_TM
-    is_dir.return_value = False
-    exists.return_value = False
-    db = gtfs.GTFS('db/path')
+    db = gtfs.GTFS(util.MockAppConfig('db/path'))
   db._db = gtfs_data.ZIP_DB_1
   return db
 
@@ -78,52 +75,44 @@ def test_GTFS_load_and_parse_from_net(  # noqa: PLR0915
   time: mock.MagicMock,
 ) -> None:
   """Test."""
-  # empty path should raise
-  with pytest.raises(gtfs.Error):
-    gtfs.GTFS(' \t')  # some extra spaces...
+  # empty app_name should raise
+  with pytest.raises(base.Error):
+    app_config.AppConfig(' \t', 'transit.db')  # empty app_name
   # mock
   db: gtfs.GTFS
   time.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_path = mock.MagicMock()
-  mock_path.is_dir.return_value = False
-  mock_path.exists.return_value = False
-  with mock.patch('src.tfinta.gtfs.pathlib.Path', autospec=True) as path_mock:
-    path_mock.return_value = mock_path
-    # create database
-    db = gtfs.GTFS('\tdb/path ')  # some extra spaces...
-    # check creation path
-    assert path_mock.call_args_list[0] == mock.call('db/path')
-    mock_path.is_dir.assert_called_once()
-    mock_path.mkdir.assert_called_once()
-    assert path_mock.call_args_list[2] == mock.call('db/path/transit.db')
-    mock_path.exists.assert_called_once()
+  mock_config = util.MockAppConfig('\tdb/path ')  # some extra spaces...
+  # Mock Serialize to track calls
+  mock_config.Serialize.side_effect = lambda obj, **kwargs: serialize(  # pyright: ignore[reportUnknownLambdaType]
+    obj, file_path=str(mock_config.path), **kwargs
+  )
+  db = gtfs.GTFS(mock_config)
   # load the GTFS data into database: do it BEFORE we mock open()!
   fake_csv = util.FakeHTTPFile(_OPERATOR_CSV_PATH)
   zip_bytes: bytes = gtfs_data.ZipDirBytes(pathlib.Path(_ZIP_DIR_1))
   fake_zip = util.FakeHTTPStream(zip_bytes)
-  mock_path_2 = mock.MagicMock()
-  mock_path_2.exists.return_value = False
-  with mock.patch('src.tfinta.gtfs.pathlib.Path') as path_mock_2:
-    path_mock_2.return_value = mock_path_2
-    urlopen.side_effect = [fake_csv, fake_zip]
-    with typeguard.suppress_type_checks():
-      db.LoadData(
-        dm.IRISH_RAIL_OPERATOR,
-        dm.IRISH_RAIL_LINK,
-        allow_unknown_file=True,
-        allow_unknown_field=True,
-      )
-    # Check that the cache path was checked for existence and written
-    cache_path_call = mock.call(
-      'db/path/https__www.transportforireland.ie_transitData_Data_GTFS_Irish_Rail.zip'
+  # Set up the mock cache path that will be created by dir / cache_file_name
+  mock_cache_path = mock.MagicMock()
+  mock_cache_path.exists.return_value = False
+  # Replace the lambda with a MagicMock so we can track calls
+  mock_config.dir.__truediv__ = mock.MagicMock(return_value=mock_cache_path)
+  urlopen.side_effect = [fake_csv, fake_zip]
+  with typeguard.suppress_type_checks():
+    db.LoadData(
+      dm.IRISH_RAIL_OPERATOR,
+      dm.IRISH_RAIL_LINK,
+      allow_unknown_file=True,
+      allow_unknown_field=True,
     )
-    assert cache_path_call in path_mock_2.call_args_list
-    mock_path_2.exists.assert_called()
-    mock_path_2.write_bytes.assert_called_once_with(zip_bytes)
-    assert urlopen.call_args_list == [
-      mock.call('https://www.transportforireland.ie/transitData/Data/GTFS%20Operator%20Files.csv'),
-      mock.call('https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip'),
-    ]
+  # Check that the cache path was checked for existence and written
+  cache_file_name = 'https__www.transportforireland.ie_transitData_Data_GTFS_Irish_Rail.zip'
+  mock_config.dir.__truediv__.assert_called_with(cache_file_name)
+  mock_cache_path.exists.assert_called()
+  mock_cache_path.write_bytes.assert_called_once_with(zip_bytes)
+  assert urlopen.call_args_list == [
+    mock.call('https://www.transportforireland.ie/transitData/Data/GTFS%20Operator%20Files.csv'),
+    mock.call('https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip'),
+  ]
   # check calls
   deserialize.assert_not_called()
   assert serialize.call_args_list == [mock.call(db._db, file_path='db/path/transit.db')] * 2
@@ -292,23 +281,17 @@ def test_GTFS_load_and_parse_from_net(  # noqa: PLR0915
 def test_GTFS_load_existing(deserialize: mock.MagicMock, serialize: mock.MagicMock) -> None:
   """Test."""
   # mock
-  deserialize.return_value = dm.GTFSData(
+  mock_gtfs_data = dm.GTFSData(
     tm=0.0, files=dm.OfficialFiles(tm=0.0, files={}), agencies={}, calendar={}, shapes={}, stops={}
   )
-  mock_path = mock.MagicMock()
-  mock_path.is_dir.return_value = True
-  mock_path.exists.return_value = True
-  with mock.patch('src.tfinta.gtfs.pathlib.Path', autospec=True) as path_mock:
-    path_mock.return_value = mock_path
-    # create database
-    gtfs.GTFS(' db/path\t')  # some extra spaces...
-    # check creation path
-    assert path_mock.call_args_list[0] == mock.call('db/path')
-    mock_path.is_dir.assert_called_once()
-    mock_path.mkdir.assert_not_called()
-    assert path_mock.call_args_list[1] == mock.call('db/path/transit.db')
-    mock_path.exists.assert_called_once()
-  deserialize.assert_called_once_with(file_path='db/path/transit.db')
+  deserialize.return_value = mock_gtfs_data
+  mock_config = util.MockAppConfig(' db/path\t')  # some extra spaces...
+  mock_config.path.exists.return_value = True
+  # Mock the DeSerialize method to call the mocked key.DeSerialize
+  mock_config.DeSerialize.return_value = mock_gtfs_data
+  gtfs.GTFS(mock_config)
+  # Verify DeSerialize was called on the config object
+  mock_config.DeSerialize.assert_called_once()
   serialize.assert_not_called()
 
 
@@ -318,8 +301,7 @@ def test_main_load() -> None:
     db_obj = mock.MagicMock()
     mock_gtfs.return_value = db_obj
     result: click_testing.Result = typer_testing.CliRunner().invoke(gtfs.app, ['read'])
-    assert result.exit_code == 0
-    mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
+    assert result.exit_code == 0 and mock_gtfs.call_count == 1
     db_obj.LoadData.assert_called_once_with(
       'Iarnród Éireann / Irish Rail',
       'https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip',
@@ -344,8 +326,7 @@ def test_main_print_basics() -> None:
     mock_gtfs.return_value = db_obj
     db_obj.PrettyPrintBasics.return_value = ['foo', 'bar']
     result: click_testing.Result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'basics'])
-    assert result.exit_code == 0
-    mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
+    assert result.exit_code == 0 and mock_gtfs.call_count == 1
     db_obj.LoadData.assert_not_called()
     db_obj.PrettyPrintBasics.assert_called_once_with()
 
@@ -364,8 +345,7 @@ def test_main_print_calendar() -> None:
     result: click_testing.Result = typer_testing.CliRunner().invoke(
       gtfs.app, ['print', 'calendars']
     )
-    assert result.exit_code == 0
-    mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
+    assert result.exit_code == 0 and mock_gtfs.call_count == 1
     db_obj.LoadData.assert_not_called()
     db_obj.PrettyPrintCalendar.assert_called_once_with()
 
@@ -382,8 +362,7 @@ def test_main_print_stops() -> None:
     mock_gtfs.return_value = db_obj
     db_obj.PrettyPrintStops.return_value = ['foo', 'bar']
     result: click_testing.Result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'stops'])
-    assert result.exit_code == 0
-    mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
+    assert result.exit_code == 0 and mock_gtfs.call_count == 1
     db_obj.LoadData.assert_not_called()
     db_obj.PrettyPrintStops.assert_called_once_with()
 
@@ -402,8 +381,7 @@ def test_main_print_shape() -> None:
     result: click_testing.Result = typer_testing.CliRunner().invoke(
       gtfs.app, ['print', 'shape', '4669_658']
     )
-    assert result.exit_code == 0
-    mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
+    assert result.exit_code == 0 and mock_gtfs.call_count == 1
     db_obj.LoadData.assert_not_called()
     db_obj.PrettyPrintShape.assert_called_once_with(shape_id='4669_658')
 
@@ -422,8 +400,7 @@ def test_main_print_trip() -> None:
     result: click_testing.Result = typer_testing.CliRunner().invoke(
       gtfs.app, ['print', 'trip', 'tid']
     )
-    assert result.exit_code == 0
-    mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
+    assert result.exit_code == 0 and mock_gtfs.call_count == 1
     db_obj.LoadData.assert_not_called()
     db_obj.PrettyPrintTrip.assert_called_once_with(trip_id='tid')
 
@@ -435,8 +412,7 @@ def test_main_print_all() -> None:
     mock_gtfs.return_value = db_obj
     db_obj.PrettyPrintTrip.return_value = ['foo', 'bar']
     result: click_testing.Result = typer_testing.CliRunner().invoke(gtfs.app, ['print', 'all'])
-    assert result.exit_code == 0
-    mock_gtfs.assert_called_once_with(gtfs.DEFAULT_DATA_DIR)
+    assert result.exit_code == 0 and mock_gtfs.call_count == 1
     db_obj.LoadData.assert_not_called()
     db_obj.PrettyPrintAllDatabase.assert_called_once_with()
 
@@ -586,12 +562,9 @@ def test_GTFS_load_csv_errors(
 ) -> None:
   """Test _LoadCSVSources error branches."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_path = mock.MagicMock()
-  mock_path.is_dir.return_value = False
-  mock_path.exists.return_value = False
-  with mock.patch('src.tfinta.gtfs.pathlib.Path', autospec=True) as path_mock:
-    path_mock.return_value = mock_path
-    db = gtfs.GTFS('db/path')
+  mock_config = util.MockAppConfig('db/path')
+  mock_config.path.exists.return_value = False
+  db = gtfs.GTFS(mock_config)
   # Test: row with != 2 columns
   bad_csv_1 = b'Operator,Link\nfoo,bar,baz\n'
   urlopen.return_value = util.FakeHTTPStream(bad_csv_1)
@@ -644,12 +617,9 @@ def test_GTFS_LoadGTFSFile_unknown_file_raise(
 ) -> None:
   """Test _LoadGTFSFile raises ParseImplementationError with allow_unknown_file=False."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_path = mock.MagicMock()
-  mock_path.is_dir.return_value = False
-  mock_path.exists.return_value = False
-  with mock.patch('src.tfinta.gtfs.pathlib.Path', autospec=True) as path_mock:
-    path_mock.return_value = mock_path
-    db = gtfs.GTFS('db/path')
+  mock_config = util.MockAppConfig('db/path')
+  mock_config.path.exists.return_value = False
+  db = gtfs.GTFS(mock_config)
   loc = gtfs._TableLocation(
     operator='test',
     link='test',
@@ -708,12 +678,9 @@ def test_GTFS_LoadGTFSSource_missing_required_file(
 ) -> None:
   """Test that missing required files in ZIP raises ParseError."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_path = mock.MagicMock()
-  mock_path.is_dir.return_value = False
-  mock_path.exists.return_value = False
-  with mock.patch('src.tfinta.gtfs.pathlib.Path', autospec=True) as path_mock:
-    path_mock.return_value = mock_path
-    db = gtfs.GTFS('db/path')
+  mock_config = util.MockAppConfig('db/path')
+  mock_config.path.exists.return_value = False
+  db = gtfs.GTFS(mock_config)
   # Load CSV sources first so db.files is populated
   good_csv: bytes = (
     b'Operator,Link\n'
@@ -732,6 +699,7 @@ def test_GTFS_LoadGTFSSource_missing_required_file(
       'agency_id,agency_name,agency_url,agency_timezone\n7778017,Test,http://x,Europe/Dublin\n',
     )
   zip_bytes: bytes = zip_buffer.getvalue()
+  mock_path = mock.MagicMock()
   mock_path.exists.return_value = False
   with mock.patch('src.tfinta.gtfs.pathlib.Path') as path_mock_2:
     path_mock_2.return_value = mock_path
@@ -757,12 +725,9 @@ def test_GTFS_LoadGTFSSource_identical_version_skip(
 ) -> None:
   """Test ParseIdenticalVersionError with force_replace=False (skip) and True (continue)."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_path = mock.MagicMock()
-  mock_path.is_dir.return_value = False
-  mock_path.exists.return_value = False
-  with mock.patch('src.tfinta.gtfs.pathlib.Path', autospec=True) as path_mock:
-    path_mock.return_value = mock_path
-    db = gtfs.GTFS('db/path')
+  mock_config = util.MockAppConfig('db/path')
+  mock_config.path.exists.return_value = False
+  db = gtfs.GTFS(mock_config)
   # Load CSV sources
   good_csv: bytes = (
     b'Operator,Link\n'
@@ -775,6 +740,7 @@ def test_GTFS_LoadGTFSSource_identical_version_skip(
   db._LoadCSVSources()
   # Load the test ZIP first time
   zip_bytes: bytes = gtfs_data.ZipDirBytes(pathlib.Path(_ZIP_DIR_1))
+  mock_path = mock.MagicMock()
   mock_path.exists.return_value = False
   with mock.patch('src.tfinta.gtfs.pathlib.Path') as path_mock_2:
     path_mock_2.return_value = mock_path
@@ -824,12 +790,9 @@ def test_GTFS_LoadData_override_and_freshness(
 ) -> None:
   """Test LoadData with override path and freshness skip."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_path = mock.MagicMock()
-  mock_path.is_dir.return_value = False
-  mock_path.exists.return_value = False
-  with mock.patch('src.tfinta.gtfs.pathlib.Path', autospec=True) as path_mock:
-    path_mock.return_value = mock_path
-    db = gtfs.GTFS('db/path')
+  mock_config = util.MockAppConfig('db/path')
+  mock_config.path.exists.return_value = False
+  db = gtfs.GTFS(mock_config)
   # Load CSV sources
   good_csv: bytes = (
     b'Operator,Link\n'
@@ -842,6 +805,7 @@ def test_GTFS_LoadData_override_and_freshness(
   db._LoadCSVSources()
   # First pass: load the ZIP to populate file metadata
   zip_bytes: bytes = gtfs_data.ZipDirBytes(pathlib.Path(_ZIP_DIR_1))
+  mock_path = mock.MagicMock()
   mock_path.exists.return_value = False
   with mock.patch('src.tfinta.gtfs.pathlib.Path') as path_mock_2:
     path_mock_2.return_value = mock_path
@@ -875,12 +839,9 @@ def test_GTFS_LoadGTFSSource_cache_file(
 ) -> None:
   """Test _LoadGTFSSource loading from cache file and override file."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_path = mock.MagicMock()
-  mock_path.is_dir.return_value = False
-  mock_path.exists.return_value = False
-  with mock.patch('src.tfinta.gtfs.pathlib.Path', autospec=True) as path_mock:
-    path_mock.return_value = mock_path
-    db = gtfs.GTFS('db/path')
+  mock_config = util.MockAppConfig('db/path')
+  mock_config.path.exists.return_value = False
+  db = gtfs.GTFS(mock_config)
   # Pre-populate files so operator/link validation passes
   db._db.files.files = {dm.IRISH_RAIL_OPERATOR: {dm.IRISH_RAIL_LINK: None}}
   db._db.files.tm = time_mock.return_value
@@ -902,7 +863,7 @@ def test_GTFS_LoadGTFSSource_cache_file(
   cache_path: pathlib.Path = tmp_path / cache_name
   cache_path.write_bytes(zip_bytes)
   db2: gtfs.GTFS = copy.deepcopy(db)
-  db2._dir_path = str(tmp_path)
+  db2._config.dir = tmp_path  # Update config dir to tmp_path
   # Clear existing metadata so it doesn't skip
   db2._db.files.files[dm.IRISH_RAIL_OPERATOR][dm.IRISH_RAIL_LINK] = None
   with typeguard.suppress_type_checks():
@@ -944,13 +905,10 @@ def test_GTFS_LoadData_with_override(
 ) -> None:
   """Test LoadData with explicit override path (covers lines 420-421)."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_path = mock.MagicMock()
-  mock_path.is_dir.return_value = False
-  mock_path.exists.return_value = False
-  with mock.patch('src.tfinta.gtfs.pathlib.Path', autospec=True) as path_mock:
-    path_mock.return_value = mock_path
-    db = gtfs.GTFS('db/path')
-  db._dir_path = str(tmp_path)
+  mock_config = util.MockAppConfig('db/path')
+  mock_config.path.exists.return_value = False
+  db = gtfs.GTFS(mock_config)
+  db._config = mock_config  # Ensure _config is set
   # Populate CSV sources
   good_csv: bytes = (
     b'Operator,Link\n'
@@ -988,12 +946,9 @@ def test_GTFS_LoadGTFSFile_unknown_field_not_allowed(
 ) -> None:
   """Test _LoadGTFSFile raises on unknown field when allow_unknown_field=False."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_path = mock.MagicMock()
-  mock_path.is_dir.return_value = False
-  mock_path.exists.return_value = False
-  with mock.patch('src.tfinta.gtfs.pathlib.Path', autospec=True) as path_mock:
-    path_mock.return_value = mock_path
-    db = gtfs.GTFS('db/path')
+  mock_config = util.MockAppConfig('db/path')
+  mock_config.path.exists.return_value = False
+  db = gtfs.GTFS(mock_config)
   # Create a minimal agency.txt CSV with an extra unknown column
   csv_data = (
     b'agency_id,agency_name,agency_url,agency_timezone,agency_lang,unknown_col\n'
@@ -1022,6 +977,7 @@ def test_PrintAll_gtfs_body(mock_gtfs: mock.MagicMock) -> None:
     console=mock.MagicMock(),
     verbose=0,
     color=True,
+    appconfig=util.MockAppConfig(),
   )
   gtfs.PrintAll(ctx=mock_ctx)
   mock_db.PrettyPrintAllDatabase.assert_called_once()

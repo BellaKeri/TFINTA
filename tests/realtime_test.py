@@ -18,6 +18,7 @@ from click import testing as click_testing
 from src.tfinta import realtime
 from src.tfinta import realtime_data_model as dm
 from src.tfinta import tfinta_base as base
+from transcrypto.utils import config as app_config
 from transcrypto.utils import logging as tc_logging
 from typer import testing as typer_testing
 
@@ -42,6 +43,7 @@ def reset_cli_logging_singletons() -> None:
   singleton to keep tests isolated.
   """
   tc_logging.ResetConsole()
+  app_config.ResetConfig()
 
 
 class _FakeDate(datetime.date):
@@ -1126,10 +1128,12 @@ def test_main_realtime_invalid_date() -> None:
 def test_Markdown_realtime_body(_rt: mock.MagicMock) -> None:  # noqa: PT019
   """Test realtime Markdown by directly calling it to cover body line."""
   mock_ctx = mock.MagicMock()
+  mock_config = util.MockAppConfig()
   mock_ctx.obj = realtime.RealtimeConfig(
     console=mock.MagicMock(),
     verbose=0,
     color=True,
+    appconfig=mock_config,
   )
   realtime.Markdown(ctx=mock_ctx)
   mock_ctx.obj.console.print.assert_called_once()

@@ -10,6 +10,7 @@ import pathlib
 import types
 from collections import abc
 from typing import Self
+from unittest import mock
 
 from rich import table
 
@@ -112,3 +113,29 @@ def AssertPrettyPrint(
     else:
       assert isinstance(actual, table.Table), f'Line {i}: not table, got {type(actual).__name__!r}'
       AssertTable(expected, actual)
+
+
+def MockAppConfig(dir_path: str = 'db/path', config_file: str = 'transit.db') -> mock.MagicMock:
+  """Create a mock AppConfig object for testing.
+
+  Args:
+    dir_path: Directory path for the config
+    config_file: Config file name
+
+  Returns:
+    Mock AppConfig object with dir and path attributes
+
+  """
+  mock_config = mock.MagicMock()
+  mock_config.app_name = 'TFINTA'
+  mock_config.main_config = config_file
+  # Create mock path objects that don't hit the filesystem
+  mock_dir = mock.MagicMock(spec=pathlib.Path)
+  mock_dir.__str__.return_value = dir_path.strip()  # pyright: ignore[reportAttributeAccessIssue]
+  mock_dir.__truediv__ = lambda _self, _other: mock_path  # pyright: ignore[reportUnknownLambdaType] # For path / file operations
+  mock_path = mock.MagicMock(spec=pathlib.Path)
+  mock_path.__str__.return_value = f'{dir_path.strip()}/{config_file}'  # pyright: ignore[reportAttributeAccessIssue]
+  mock_path.exists = mock.MagicMock(return_value=False)  # Default to not existing
+  mock_config.dir = mock_dir
+  mock_config.path = mock_path
+  return mock_config
