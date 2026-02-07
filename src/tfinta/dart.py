@@ -97,8 +97,8 @@ class DART:
         schedule object for this trip
 
     """
-    stops: tuple[dm.TrackStop] = tuple(
-      dm.TrackStop(  # type:ignore
+    stops: tuple[dm.TrackStop, ...] = tuple(
+      dm.TrackStop(
         stop=trip.stops[i].stop,
         name=self._gtfs.StopNameTranslator(trip.stops[i].stop),  # needs this for sorting later!!
         headsign=trip.stops[i].headsign,

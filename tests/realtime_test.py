@@ -111,7 +111,7 @@ def test_RealtimeRail_StationsCall(
   monkeypatch: pytest.MonkeyPatch,
 ) -> None:
   """Test."""
-  monkeypatch.setattr(realtime.datetime, 'date', _FakeDate)  # type: ignore
+  monkeypatch.setattr(realtime.datetime, 'date', _FakeDate)
   mock_time.return_value = realtime_data.RT_TIME
   mock_open.side_effect = [util.FakeHTTPFile(TEST_XMLS[c]) for c, _ in call_names]
   # call
@@ -255,7 +255,7 @@ def test_LoadXMLFromURL_retry_then_success(
   """Test _LoadXMLFromURL succeeds after retries."""
   xml_data = b'<root><data>test</data></root>'
   mock_open.side_effect = [
-    urllib.error.HTTPError('http://test', 500, 'Error', {}, None),  # type: ignore
+    urllib.error.HTTPError('http://test', 500, 'Error', {}, None),  # pyright: ignore[reportArgumentType]
     util.FakeHTTPStream(xml_data),  # success
   ]
   result: minidom.Document = realtime._LoadXMLFromURL('http://test')
@@ -353,8 +353,7 @@ def test_TrainDataCall_empty_result(mock_open: mock.MagicMock, mock_time: mock.M
   mock_open.return_value = util.FakeHTTPStream(empty_xml)
   rt = realtime.RealtimeRail()
   query, stops = rt.TrainDataCall('E108', datetime.date(2025, 6, 29))
-  assert query is None
-  assert stops == []
+  assert query is None and stops == []
 
 
 @mock.patch('src.tfinta.realtime.time.time', autospec=True)
@@ -535,8 +534,7 @@ def test_HandleStationLineXMLRow_unknown_origin_dest(
   query, lines = rt.StationBoardCall('MHIDE')
   assert query is not None
   assert len(lines) == 1
-  assert lines[0].origin_code == '???'
-  assert lines[0].destination_code == '???'
+  assert lines[0].origin_code == '???' and lines[0].destination_code == '???'
 
 
 @mock.patch('src.tfinta.realtime.time.time', autospec=True)
@@ -917,9 +915,8 @@ def test_PrettyPrintStation_lazy_stations(
   rt._latest.stations = {}
   rt._latest.stations_tm = None
   mock_open.side_effect = [util.FakeHTTPFile(TEST_XMLS['stations'])]
-  # This should trigger the lazy load of stations (line 814)
-  output = list(rt.PrettyPrintStation(station_code='MHIDE'))
-  assert len(output) > 0
+  # This should trigger the lazy load of stations
+  assert len(list(rt.PrettyPrintStation(station_code='MHIDE'))) > 0
 
 
 # realtime_data_model.py comparison tests
@@ -987,20 +984,20 @@ def test_StationLine_lt() -> None:
     'expected': base.DayRange(arrival=base.DayTime(time=0), departure=base.DayTime(time=0)),
   }
   # Different due_in
-  l1 = dm.StationLine(due_in=base.DayTime(time=5), **base_kwargs)  # type: ignore
-  l2 = dm.StationLine(due_in=base.DayTime(time=10), **base_kwargs)  # type: ignore
+  l1 = dm.StationLine(due_in=base.DayTime(time=5), **base_kwargs)  # pyright: ignore[reportArgumentType]
+  l2 = dm.StationLine(due_in=base.DayTime(time=10), **base_kwargs)  # pyright: ignore[reportArgumentType]
   assert l1 < l2
   # Same due_in, different expected
   kw_same_due = {**base_kwargs, 'due_in': base.DayTime(time=5)}
   exp1 = base.DayRange(arrival=base.DayTime(time=100), departure=base.DayTime(time=200))
   exp2 = base.DayRange(arrival=base.DayTime(time=300), departure=base.DayTime(time=400))
-  l3 = dm.StationLine(expected=exp1, **{k: v for k, v in kw_same_due.items() if k != 'expected'})  # type: ignore
-  l4 = dm.StationLine(expected=exp2, **{k: v for k, v in kw_same_due.items() if k != 'expected'})  # type: ignore
+  l3 = dm.StationLine(expected=exp1, **{k: v for k, v in kw_same_due.items() if k != 'expected'})  # pyright: ignore[reportArgumentType]
+  l4 = dm.StationLine(expected=exp2, **{k: v for k, v in kw_same_due.items() if k != 'expected'})  # pyright: ignore[reportArgumentType]
   assert l3 < l4
   # Same due_in, same expected, different destination_name
   kw_same_all = {**base_kwargs, 'due_in': base.DayTime(time=5)}
-  l5 = dm.StationLine(**{**kw_same_all, 'destination_name': 'Alpha'})  # type: ignore
-  l6 = dm.StationLine(**{**kw_same_all, 'destination_name': 'Zeta'})  # type: ignore
+  l5 = dm.StationLine(**{**kw_same_all, 'destination_name': 'Alpha'})  # pyright: ignore[reportArgumentType]
+  l6 = dm.StationLine(**{**kw_same_all, 'destination_name': 'Zeta'})  # pyright: ignore[reportArgumentType]
   assert l5 < l6
 
 
@@ -1128,7 +1125,7 @@ def test_main_realtime_invalid_date() -> None:
 def test_Markdown_realtime_body(_rt: mock.MagicMock) -> None:  # noqa: PT019
   """Test realtime Markdown by directly calling it to cover body line."""
   mock_ctx = mock.MagicMock()
-  mock_config = util.MockAppConfig()
+  mock_config: mock.MagicMock = util.MockAppConfig()
   mock_ctx.obj = realtime.RealtimeConfig(
     console=mock.MagicMock(),
     verbose=0,

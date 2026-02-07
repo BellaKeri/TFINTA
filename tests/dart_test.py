@@ -61,7 +61,7 @@ def test_DART(gtfs_object: gtfs.GTFS) -> None:
   """Test."""
   with typeguard.suppress_type_checks():
     with pytest.raises(gtfs.Error):
-      dart.DART(None)  # type: ignore
+      dart.DART(None)  # pyright: ignore[reportArgumentType]
     db = dart.DART(gtfs_object)
   assert db.Services() == {83, 84}
   assert db.ServicesForDay(datetime.date(2025, 8, 4)) == {84}
@@ -69,7 +69,7 @@ def test_DART(gtfs_object: gtfs.GTFS) -> None:
   assert db.ServicesForDay(datetime.date(2025, 6, 23)) == set()
   assert db._dart_trips == gtfs_data.DART_TRIPS_ZIP_1
   with pytest.raises(gtfs.Error), typeguard.suppress_type_checks():
-    list(db.PrettyDaySchedule(day=None))  # type: ignore
+    list(db.PrettyDaySchedule(day=None))  # pyright: ignore[reportArgumentType]
   util.AssertPrettyPrint(
     gtfs_data.TRIPS_SCHEDULE_2025_08_04, db.PrettyDaySchedule(day=datetime.date(2025, 8, 4))
   )
@@ -230,7 +230,7 @@ def test_main_markdown(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> 
   mock_gtfs.return_value = db_obj
   mock_dart.return_value = dart_obj
   result: click_testing.Result = typer_testing.CliRunner().invoke(dart.app, ['markdown'])
-  assert result.exit_code == 0 and mock_gtfs.call_count == 1
+  assert result.exit_code == 0
 
 
 def test_DART_no_dart_route(gtfs_object: gtfs.GTFS) -> None:

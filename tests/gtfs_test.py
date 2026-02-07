@@ -20,6 +20,7 @@ from rich import table as rich_table
 from src.tfinta import gtfs
 from src.tfinta import gtfs_data_model as dm
 from src.tfinta import tfinta_base as base
+from transcrypto.utils import base as tc_base
 from transcrypto.utils import config as app_config
 from transcrypto.utils import logging as tc_logging
 from typer import testing as typer_testing
@@ -76,12 +77,12 @@ def test_GTFS_load_and_parse_from_net(  # noqa: PLR0915
 ) -> None:
   """Test."""
   # empty app_name should raise
-  with pytest.raises(base.Error):
+  with pytest.raises(tc_base.Error):
     app_config.AppConfig(' \t', 'transit.db')  # empty app_name
   # mock
   db: gtfs.GTFS
   time.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_config = util.MockAppConfig('\tdb/path ')  # some extra spaces...
+  mock_config: mock.MagicMock = util.MockAppConfig('\tdb/path ')  # some extra spaces...
   # Mock Serialize to track calls
   mock_config.Serialize.side_effect = lambda obj, **kwargs: serialize(  # pyright: ignore[reportUnknownLambdaType]
     obj, file_path=str(mock_config.path), **kwargs
@@ -92,7 +93,7 @@ def test_GTFS_load_and_parse_from_net(  # noqa: PLR0915
   zip_bytes: bytes = gtfs_data.ZipDirBytes(pathlib.Path(_ZIP_DIR_1))
   fake_zip = util.FakeHTTPStream(zip_bytes)
   # Set up the mock cache path that will be created by dir / cache_file_name
-  mock_cache_path = mock.MagicMock()
+  mock_cache_path: mock.MagicMock = mock.MagicMock()
   mock_cache_path.exists.return_value = False
   # Replace the lambda with a MagicMock so we can track calls
   mock_config.dir.__truediv__ = mock.MagicMock(return_value=mock_cache_path)
@@ -285,7 +286,7 @@ def test_GTFS_load_existing(deserialize: mock.MagicMock, serialize: mock.MagicMo
     tm=0.0, files=dm.OfficialFiles(tm=0.0, files={}), agencies={}, calendar={}, shapes={}, stops={}
   )
   deserialize.return_value = mock_gtfs_data
-  mock_config = util.MockAppConfig(' db/path\t')  # some extra spaces...
+  mock_config: mock.MagicMock = util.MockAppConfig(' db/path\t')  # some extra spaces...
   mock_config.path.exists.return_value = True
   # Mock the DeSerialize method to call the mocked key.DeSerialize
   mock_config.DeSerialize.return_value = mock_gtfs_data
@@ -678,7 +679,7 @@ def test_GTFS_LoadGTFSSource_missing_required_file(
 ) -> None:
   """Test that missing required files in ZIP raises ParseError."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_config = util.MockAppConfig('db/path')
+  mock_config: mock.MagicMock = util.MockAppConfig('db/path')
   mock_config.path.exists.return_value = False
   db = gtfs.GTFS(mock_config)
   # Load CSV sources first so db.files is populated
@@ -725,7 +726,7 @@ def test_GTFS_LoadGTFSSource_identical_version_skip(
 ) -> None:
   """Test ParseIdenticalVersionError with force_replace=False (skip) and True (continue)."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_config = util.MockAppConfig('db/path')
+  mock_config: mock.MagicMock = util.MockAppConfig('db/path')
   mock_config.path.exists.return_value = False
   db = gtfs.GTFS(mock_config)
   # Load CSV sources
@@ -740,7 +741,7 @@ def test_GTFS_LoadGTFSSource_identical_version_skip(
   db._LoadCSVSources()
   # Load the test ZIP first time
   zip_bytes: bytes = gtfs_data.ZipDirBytes(pathlib.Path(_ZIP_DIR_1))
-  mock_path = mock.MagicMock()
+  mock_path: mock.MagicMock = mock.MagicMock()
   mock_path.exists.return_value = False
   with mock.patch('src.tfinta.gtfs.pathlib.Path') as path_mock_2:
     path_mock_2.return_value = mock_path
@@ -790,7 +791,7 @@ def test_GTFS_LoadData_override_and_freshness(
 ) -> None:
   """Test LoadData with override path and freshness skip."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_config = util.MockAppConfig('db/path')
+  mock_config: mock.MagicMock = util.MockAppConfig('db/path')
   mock_config.path.exists.return_value = False
   db = gtfs.GTFS(mock_config)
   # Load CSV sources
@@ -839,7 +840,7 @@ def test_GTFS_LoadGTFSSource_cache_file(
 ) -> None:
   """Test _LoadGTFSSource loading from cache file and override file."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_config = util.MockAppConfig('db/path')
+  mock_config: mock.MagicMock = util.MockAppConfig('db/path')
   mock_config.path.exists.return_value = False
   db = gtfs.GTFS(mock_config)
   # Pre-populate files so operator/link validation passes
@@ -905,7 +906,7 @@ def test_GTFS_LoadData_with_override(
 ) -> None:
   """Test LoadData with explicit override path (covers lines 420-421)."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_config = util.MockAppConfig('db/path')
+  mock_config: mock.MagicMock = util.MockAppConfig('db/path')
   mock_config.path.exists.return_value = False
   db = gtfs.GTFS(mock_config)
   db._config = mock_config  # Ensure _config is set

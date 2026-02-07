@@ -2121,7 +2121,7 @@ ALL_TRIPS_TABLE: util.ExpectedPrettyPrint = [
 ####################################################################################################
 
 
-STOPS_1: tuple[dm.TrackStop] = (  # type:ignore
+STOPS_1: tuple[dm.TrackStop, ...] = (
   dm.TrackStop(
     stop='8350IR0122',
     name='Greystones',
@@ -2132,7 +2132,7 @@ STOPS_1: tuple[dm.TrackStop] = (  # type:ignore
   dm.TrackStop(stop='8250IR0022', name='Shankill'),
   dm.TrackStop(stop='8250IR0021', name='Killiney'),
 )
-TIMES_1: tuple[dm.ScheduleStop] = (  # type:ignore
+TIMES_1: tuple[dm.ScheduleStop, ...] = (
   dm.ScheduleStop(
     times=base.DayRange(arrival=base.DayTime(time=69480), departure=base.DayTime(time=69480))
   ),
@@ -2146,303 +2146,305 @@ TIMES_1: tuple[dm.ScheduleStop] = (  # type:ignore
     times=base.DayRange(arrival=base.DayTime(time=70680), departure=base.DayTime(time=70680))
   ),
 )
-TIMES_2: tuple[dm.ScheduleStop] = (  # type:ignore
+TIMES_2: tuple[dm.ScheduleStop, ...] = (
   TIMES_1[0],
-  TIMES_1[1],  # type:ignore
-  TIMES_1[2],  # type:ignore
+  TIMES_1[1],
+  TIMES_1[2],
   dm.ScheduleStop(
     times=base.DayRange(arrival=base.DayTime(time=70800), departure=base.DayTime(time=70800))
   ),
 )
 
-DART_TRIPS_ZIP_1 = collections.OrderedDict(
-  {
-    'E666': [
-      (
-        83,
-        dm.Schedule(
-          direction=False,
-          stops=(
-            dm.TrackStop(
-              stop='8350IR0122',
-              name='Greystones',
-              headsign='Malahide',
-              pickup=dm.StopPointType.REGULAR,
-              dropoff=dm.StopPointType.NOT_AVAILABLE,
-            ),
-            dm.TrackStop(
-              stop='8350IR0123',
-              name='Bray (Daly)',
-            ),
-          ),
-          times=(
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=76680),
-                departure=base.DayTime(time=76680),
+DART_TRIPS_ZIP_1: collections.OrderedDict[str, list[tuple[int, dm.Schedule, dm.Trip]]] = (
+  collections.OrderedDict(
+    {
+      'E666': [
+        (
+          83,
+          dm.Schedule(
+            direction=False,
+            stops=(
+              dm.TrackStop(
+                stop='8350IR0122',
+                name='Greystones',
+                headsign='Malahide',
+                pickup=dm.StopPointType.REGULAR,
+                dropoff=dm.StopPointType.NOT_AVAILABLE,
+              ),
+              dm.TrackStop(
+                stop='8350IR0123',
+                name='Bray (Daly)',
               ),
             ),
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=77280),
-                departure=base.DayTime(time=77460),
+            times=(
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=76680),
+                  departure=base.DayTime(time=76680),
+                ),
+              ),
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=77280),
+                  departure=base.DayTime(time=77460),
+                ),
               ),
             ),
           ),
+          ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4669_4999'],
         ),
-        ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4669_4999'],
-      ),
-      (
-        83,
-        dm.Schedule(
-          direction=False,
-          stops=(
-            dm.TrackStop(
-              stop='8350IR0122',
-              name='Greystones',
-              headsign='Malahide',
-              pickup=dm.StopPointType.REGULAR,
-              dropoff=dm.StopPointType.NOT_AVAILABLE,
+        (
+          83,
+          dm.Schedule(
+            direction=False,
+            stops=(
+              dm.TrackStop(
+                stop='8350IR0122',
+                name='Greystones',
+                headsign='Malahide',
+                pickup=dm.StopPointType.REGULAR,
+                dropoff=dm.StopPointType.NOT_AVAILABLE,
+              ),
+              dm.TrackStop(
+                stop='8350IR0123',
+                name='Bray (Daly)',
+              ),
+              dm.TrackStop(
+                stop='8250IR0022',
+                name='Shankill',
+              ),
+              dm.TrackStop(
+                stop='8250IR0021',
+                name='Killiney',
+              ),
             ),
-            dm.TrackStop(
-              stop='8350IR0123',
-              name='Bray (Daly)',
-            ),
-            dm.TrackStop(
-              stop='8250IR0022',
-              name='Shankill',
-            ),
-            dm.TrackStop(
-              stop='8250IR0021',
-              name='Killiney',
+            times=(
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=76680),
+                  departure=base.DayTime(time=76680),
+                ),
+              ),
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=77280),
+                  departure=base.DayTime(time=77460),
+                ),
+              ),
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=77700),
+                  departure=base.DayTime(time=77760),
+                ),
+              ),
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=77880),
+                  departure=base.DayTime(time=77880),
+                ),
+              ),
             ),
           ),
-          times=(
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=76680),
-                departure=base.DayTime(time=76680),
-              ),
-            ),
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=77280),
-                departure=base.DayTime(time=77460),
-              ),
-            ),
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=77700),
-                departure=base.DayTime(time=77760),
-              ),
-            ),
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=77880),
-                departure=base.DayTime(time=77880),
-              ),
-            ),
-          ),
+          ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4452_2666'],
         ),
-        ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4452_2666'],
-      ),
-      (
-        84,
-        dm.Schedule(
-          direction=True,
-          stops=(
-            dm.TrackStop(
-              stop='8250IR0022',
-              name='Shankill',
-            ),
-            dm.TrackStop(
-              stop='8250IR0021',
-              name='Killiney',
-            ),
-          ),
-          times=(
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=77700),
-                departure=base.DayTime(time=77760),
+        (
+          84,
+          dm.Schedule(
+            direction=True,
+            stops=(
+              dm.TrackStop(
+                stop='8250IR0022',
+                name='Shankill',
+              ),
+              dm.TrackStop(
+                stop='8250IR0021',
+                name='Killiney',
               ),
             ),
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=77880),
-                departure=base.DayTime(time=77880),
+            times=(
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=77700),
+                  departure=base.DayTime(time=77760),
+                ),
+              ),
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=77880),
+                  departure=base.DayTime(time=77880),
+                ),
               ),
             ),
           ),
+          ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4669_4666'],
         ),
-        ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4669_4666'],
-      ),
-    ],
-    'E818': [
-      (
-        83,
-        dm.Schedule(
-          direction=False,
-          stops=(
-            dm.TrackStop(
-              stop='8350IR0122',
-              name='Greystones',
-              headsign='Malahide',
-              pickup=dm.StopPointType.REGULAR,
-              dropoff=dm.StopPointType.NOT_AVAILABLE,
+      ],
+      'E818': [
+        (
+          83,
+          dm.Schedule(
+            direction=False,
+            stops=(
+              dm.TrackStop(
+                stop='8350IR0122',
+                name='Greystones',
+                headsign='Malahide',
+                pickup=dm.StopPointType.REGULAR,
+                dropoff=dm.StopPointType.NOT_AVAILABLE,
+              ),
+              dm.TrackStop(
+                stop='8350IR0123',
+                name='Bray (Daly)',
+              ),
+              dm.TrackStop(
+                stop='8250IR0022',
+                name='Shankill',
+              ),
+              dm.TrackStop(
+                stop='8250IR0021',
+                name='Killiney',
+              ),
             ),
-            dm.TrackStop(
-              stop='8350IR0123',
-              name='Bray (Daly)',
-            ),
-            dm.TrackStop(
-              stop='8250IR0022',
-              name='Shankill',
-            ),
-            dm.TrackStop(
-              stop='8250IR0021',
-              name='Killiney',
+            times=(
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=69480),
+                  departure=base.DayTime(time=69480),
+                ),
+              ),
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=70080),
+                  departure=base.DayTime(time=70260),
+                ),
+              ),
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=70500),
+                  departure=base.DayTime(time=70560),
+                ),
+              ),
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=70680),
+                  departure=base.DayTime(time=70680),
+                ),
+              ),
             ),
           ),
-          times=(
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=69480),
-                departure=base.DayTime(time=69480),
-              ),
-            ),
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=70080),
-                departure=base.DayTime(time=70260),
-              ),
-            ),
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=70500),
-                departure=base.DayTime(time=70560),
-              ),
-            ),
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=70680),
-                departure=base.DayTime(time=70680),
-              ),
-            ),
-          ),
+          ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4452_2655'],
         ),
-        ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4452_2655'],
-      ),
-      (
-        84,
-        dm.Schedule(
-          direction=False,
-          stops=(
-            dm.TrackStop(
-              stop='8350IR0122',
-              name='Greystones',
-              headsign='Malahide',
-              pickup=dm.StopPointType.REGULAR,
-              dropoff=dm.StopPointType.NOT_AVAILABLE,
+        (
+          84,
+          dm.Schedule(
+            direction=False,
+            stops=(
+              dm.TrackStop(
+                stop='8350IR0122',
+                name='Greystones',
+                headsign='Malahide',
+                pickup=dm.StopPointType.REGULAR,
+                dropoff=dm.StopPointType.NOT_AVAILABLE,
+              ),
+              dm.TrackStop(
+                stop='8350IR0123',
+                name='Bray (Daly)',
+              ),
+              dm.TrackStop(
+                stop='8250IR0022',
+                name='Shankill',
+              ),
+              dm.TrackStop(
+                stop='8250IR0021',
+                name='Killiney',
+              ),
             ),
-            dm.TrackStop(
-              stop='8350IR0123',
-              name='Bray (Daly)',
-            ),
-            dm.TrackStop(
-              stop='8250IR0022',
-              name='Shankill',
-            ),
-            dm.TrackStop(
-              stop='8250IR0021',
-              name='Killiney',
+            times=(
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=69480),
+                  departure=base.DayTime(time=69480),
+                ),
+              ),
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=70080),
+                  departure=base.DayTime(time=70260),
+                ),
+              ),
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=70500),
+                  departure=base.DayTime(time=70560),
+                ),
+              ),
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=70680),
+                  departure=base.DayTime(time=70680),
+                ),
+              ),
             ),
           ),
-          times=(
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=69480),
-                departure=base.DayTime(time=69480),
-              ),
-            ),
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=70080),
-                departure=base.DayTime(time=70260),
-              ),
-            ),
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=70500),
-                departure=base.DayTime(time=70560),
-              ),
-            ),
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=70680),
-                departure=base.DayTime(time=70680),
-              ),
-            ),
-          ),
+          ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4452_2662'],
         ),
-        ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4452_2662'],
-      ),
-      (
-        84,
-        dm.Schedule(
-          direction=False,
-          stops=(
-            dm.TrackStop(
-              stop='8350IR0122',
-              name='Greystones',
-              headsign='Malahide',
-              pickup=dm.StopPointType.REGULAR,
-              dropoff=dm.StopPointType.NOT_AVAILABLE,
+        (
+          84,
+          dm.Schedule(
+            direction=False,
+            stops=(
+              dm.TrackStop(
+                stop='8350IR0122',
+                name='Greystones',
+                headsign='Malahide',
+                pickup=dm.StopPointType.REGULAR,
+                dropoff=dm.StopPointType.NOT_AVAILABLE,
+              ),
+              dm.TrackStop(
+                stop='8350IR0123',
+                name='Bray (Daly)',
+              ),
+              dm.TrackStop(
+                stop='8250IR0022',
+                name='Shankill',
+              ),
+              dm.TrackStop(
+                stop='8250IR0021',
+                name='Killiney',
+              ),
             ),
-            dm.TrackStop(
-              stop='8350IR0123',
-              name='Bray (Daly)',
-            ),
-            dm.TrackStop(
-              stop='8250IR0022',
-              name='Shankill',
-            ),
-            dm.TrackStop(
-              stop='8250IR0021',
-              name='Killiney',
+            times=(
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=69480),
+                  departure=base.DayTime(time=69480),
+                ),
+              ),
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=70080),
+                  departure=base.DayTime(time=70260),
+                ),
+              ),
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=70500),
+                  departure=base.DayTime(time=70560),
+                ),
+              ),
+              dm.ScheduleStop(
+                times=base.DayRange(
+                  arrival=base.DayTime(time=70800),
+                  departure=base.DayTime(time=70800),
+                ),
+              ),
             ),
           ),
-          times=(
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=69480),
-                departure=base.DayTime(time=69480),
-              ),
-            ),
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=70080),
-                departure=base.DayTime(time=70260),
-              ),
-            ),
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=70500),
-                departure=base.DayTime(time=70560),
-              ),
-            ),
-            dm.ScheduleStop(
-              times=base.DayRange(
-                arrival=base.DayTime(time=70800),
-                departure=base.DayTime(time=70800),
-              ),
-            ),
-          ),
+          ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4669_4802'],
         ),
-        ZIP_DB_1.agencies[7778017].routes['4452_86289'].trips['4669_4802'],
-      ),
-    ],
-  }
+      ],
+    }
+  )
 )
 
 TRIPS_SCHEDULE_2025_08_04: util.ExpectedPrettyPrint = [
