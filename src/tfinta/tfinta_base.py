@@ -12,7 +12,6 @@ import time
 from collections import abc
 from typing import Self
 
-import platformdirs
 from transcrypto.utils import base
 
 # Logging and formatting
@@ -29,8 +28,8 @@ STD_TIME_STRING: abc.Callable[[int | float | None], str] = lambda tm: (
 
 # Path utilities
 
-DEFAULT_DATA_DIR: str = str(platformdirs.user_data_path('tfinta'))
-
+APP_NAME = 'TFINTA'
+CONFIG_FILE_NAME = 'transit.db'
 
 # data parsing utils
 

@@ -26,6 +26,7 @@ import typer
 from rich import console as rich_console
 from rich import table as rich_table
 from transcrypto.cli import clibase
+from transcrypto.utils import config as app_config
 from transcrypto.utils import human
 from transcrypto.utils import logging as tc_logging
 
@@ -1040,6 +1041,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
     console=console,
     verbose=verbose,
     color=color,
+    appconfig=app_config.InitConfig(base.APP_NAME, base.CONFIG_FILE_NAME),
   )
 
 

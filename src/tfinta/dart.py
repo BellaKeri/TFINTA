@@ -16,6 +16,7 @@ import typer
 from rich import console as rich_console
 from rich import table as rich_table
 from transcrypto.cli import clibase
+from transcrypto.utils import config as app_config
 from transcrypto.utils import logging as tc_logging
 
 from . import __version__, gtfs
@@ -570,6 +571,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
     console=console,
     verbose=verbose,
     color=color,
+    appconfig=app_config.InitConfig(base.APP_NAME, base.CONFIG_FILE_NAME),
   )
 
 
@@ -596,7 +598,7 @@ def ReadCommand(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: DARTConfig = ctx.obj
-  database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
+  database = gtfs.GTFS(config.appconfig)
   database.LoadData(
     dm.IRISH_RAIL_OPERATOR,
     dm.IRISH_RAIL_LINK,
@@ -624,7 +626,7 @@ app.add_typer(print_app, name='print')
 @clibase.CLIErrorGuard
 def PrintAll(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: DARTConfig = ctx.obj
-  database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
+  database = gtfs.GTFS(config.appconfig)
   for line in DART(database).PrettyPrintAllDatabase():
     config.console.print(line)
 
@@ -637,7 +639,7 @@ def PrintAll(*, ctx: click.Context) -> None:  # documentation is help/epilog/arg
 @clibase.CLIErrorGuard
 def PrintCalendars(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: DARTConfig = ctx.obj
-  database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
+  database = gtfs.GTFS(config.appconfig)
   for line in DART(database).PrettyPrintCalendar():
     config.console.print(line)
 
@@ -650,7 +652,7 @@ def PrintCalendars(*, ctx: click.Context) -> None:  # documentation is help/epil
 @clibase.CLIErrorGuard
 def PrintStops(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: DARTConfig = ctx.obj
-  database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
+  database = gtfs.GTFS(config.appconfig)
   for line in DART(database).PrettyPrintStops():
     config.console.print(line)
 
@@ -674,7 +676,7 @@ def PrintTrips(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: DARTConfig = ctx.obj
-  database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
+  database = gtfs.GTFS(config.appconfig)
   for line in DART(database).PrettyDaySchedule(day=base.DATE_OBJ_GTFS(str(day))):
     config.console.print(line)
 
@@ -703,7 +705,7 @@ def PrintStation(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: DARTConfig = ctx.obj
-  database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
+  database = gtfs.GTFS(config.appconfig)
   for line in DART(database).PrettyStationSchedule(
     stop_id=database.StopIDFromNameFragmentOrID(station),
     day=base.DATE_OBJ_GTFS(str(day)),
@@ -723,7 +725,7 @@ def PrintTrip(  # documentation is help/epilog/args # noqa: D103
   train: str = typer.Argument(..., help='DART train code, like "E108" for example'),
 ) -> None:
   config: DARTConfig = ctx.obj
-  database = gtfs.GTFS(gtfs.DEFAULT_DATA_DIR)
+  database = gtfs.GTFS(config.appconfig)
   for line in DART(database).PrettyPrintTrip(trip_name=train):
     config.console.print(line)
 

@@ -47,12 +47,10 @@ license-files = [ "LICENSE" ]
 
 dependencies = [
 
-  "transcrypto>=2.0.3",
+  "transcrypto>=2.1.1",
 
   # best place for project dependencies, if possible
   # development-only dependencies go in the [tool.poetry.group.dev.dependencies] section below
-
-  "platformdirs>=4.0",  # TODO: move this to transcrypto by having config.py there
 
 ]
 

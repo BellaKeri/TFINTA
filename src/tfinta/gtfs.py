@@ -14,7 +14,6 @@ import datetime
 import functools
 import io
 import logging
-import os.path
 import pathlib
 import time
 import types
@@ -29,7 +28,7 @@ import typer
 from rich import console as rich_console
 from rich import table as rich_table
 from transcrypto.cli import clibase
-from transcrypto.core import key
+from transcrypto.utils import config as app_config
 from transcrypto.utils import human
 from transcrypto.utils import logging as tc_logging
 
@@ -48,8 +47,6 @@ _DEFAULT_DAYS_FRESHNESS = 10
 _DAYS_CACHE_FRESHNESS = 1
 _SECONDS_IN_DAY = 60 * 60 * 24
 DAYS_OLD: abc.Callable[[float], float] = lambda t: (time.time() - t) / _SECONDS_IN_DAY
-DEFAULT_DATA_DIR: str = base.DEFAULT_DATA_DIR
-_DB_FILE_NAME = 'transit.db'
 
 # cache sizes (in entries)
 _SMALL_CACHE = 1 << 10  # 1024
@@ -98,32 +95,25 @@ type _GTFSRowHandler[T: dm.BaseCVSRowType] = abc.Callable[[_TableLocation, int, 
 class GTFS:
   """GTFS database."""
 
-  def __init__(self, db_dir_path: str, /) -> None:
+  def __init__(self, config: app_config.AppConfig, /) -> None:
     """Construct.
 
     Args:
-      db_dir_path: Path to directory in which to save DB 'transit.db'
-
+      config: App configuration object
 
     Raises:
       Error: on invalid directory path
 
     """
     # save the dir/path, create directory if needed
-    self._dir_path: str = db_dir_path.strip()
-    if not self._dir_path:
-      raise Error('DB dir path cannot be empty')
-    if not pathlib.Path(self._dir_path).is_dir():
-      pathlib.Path(self._dir_path).mkdir()
-      logging.info('Created data directory: %s', self._dir_path)
-    self._db_path: str = os.path.join(self._dir_path, _DB_FILE_NAME)  # noqa: PTH118
+    self._config: app_config.AppConfig = config
     self._db: dm.GTFSData
     self._changed = False
     # load DB, or create if new
-    if pathlib.Path(self._db_path).exists():
-      # DB exists: load
-      self._db = cast('dm.GTFSData', key.DeSerialize(file_path=self._db_path))
-      logging.info(f'Loaded DB from {self._db_path!r}')
+    if config.path.exists():
+      # DB file exists: load
+      self._db = cast('dm.GTFSData', config.DeSerialize())
+      logging.info(f'Loaded DB from {str(config.path)!r}')
       logging.info('DB freshness: %s', base.STD_TIME_STRING(self._db.tm))
     else:
       # DB does not exist: create empty
@@ -183,11 +173,10 @@ class GTFS:
 
     """
     if force or self._changed:
-      # (compressing is responsible for ~95% of save time)
       self._db.tm = time.time()
-      key.Serialize(self._db, file_path=self._db_path)
+      self._config.Serialize(self._db)
       self._changed = False
-      logging.info(f'Saved DB to {self._db_path!r}')
+      logging.info(f'Saved DB to {str(self._config.path)!r}')
 
   # TODO: refactor to not depend on self, as this may lead to memory leaks if not careful
   @functools.lru_cache(  # noqa: B019
@@ -531,7 +520,7 @@ class GTFS:
     done_files: set[str] = set()
     clean_file_name: str
     cache_file_name: str = link.replace('://', '__').replace('/', '_')
-    cache_file_path: str = os.path.join(self._dir_path, cache_file_name)  # noqa: PTH118
+    cache_file_path: pathlib.Path = self._config.dir / cache_file_name
     save_cache_file: bool
     url_opener: abc.Callable[[], IO[bytes]]
     with self._ParsingSession():
@@ -542,13 +531,12 @@ class GTFS:
         save_cache_file = False
       elif (
         not force_replace
-        and pathlib.Path(cache_file_path).exists()
-        and (age := DAYS_OLD(pathlib.Path(cache_file_path).stat().st_mtime))
-        <= _DAYS_CACHE_FRESHNESS
+        and cache_file_path.exists()
+        and (age := DAYS_OLD(cache_file_path.stat().st_mtime)) <= _DAYS_CACHE_FRESHNESS
       ):
         # we will used the cached ZIP
         logging.warning('Loading from %0.2f days old cache on disk! (use -r to override)', age)
-        url_opener = lambda: pathlib.Path(cache_file_path).open('rb')  # noqa: SIM115
+        url_opener = lambda: cache_file_path.open('rb')
         save_cache_file = False
       else:
         # we will re-download from the URL
@@ -566,7 +554,7 @@ class GTFS:
           ' => SAVING to cache' if save_cache_file else '',
         )
         if save_cache_file:
-          pathlib.Path(cache_file_path).write_bytes(gtfs_zip_bytes)
+          cache_file_path.write_bytes(gtfs_zip_bytes)
         # extract files from ZIP
         for file_name, file_data in _UnzipFiles(io.BytesIO(gtfs_zip_bytes)):
           clean_file_name = file_name.strip()
@@ -1456,6 +1444,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
     console=console,
     verbose=verbose,
     color=color,
+    appconfig=app_config.InitConfig(base.APP_NAME, base.CONFIG_FILE_NAME),
   )
 
 
@@ -1498,7 +1487,7 @@ def ReadCommand(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: GTFSConfig = ctx.obj
-  database = GTFS(DEFAULT_DATA_DIR)
+  database = GTFS(config.appconfig)
   database.LoadData(
     dm.IRISH_RAIL_OPERATOR,
     dm.IRISH_RAIL_LINK,
@@ -1526,7 +1515,7 @@ app.add_typer(print_app, name='print')
 @clibase.CLIErrorGuard
 def PrintAll(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: GTFSConfig = ctx.obj
-  database = GTFS(DEFAULT_DATA_DIR)
+  database = GTFS(config.appconfig)
   for line in database.PrettyPrintAllDatabase():
     config.console.print(line)
 
@@ -1539,7 +1528,7 @@ def PrintAll(*, ctx: click.Context) -> None:  # documentation is help/epilog/arg
 @clibase.CLIErrorGuard
 def PrintBasics(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: GTFSConfig = ctx.obj
-  database = GTFS(DEFAULT_DATA_DIR)
+  database = GTFS(config.appconfig)
   for line in database.PrettyPrintBasics():
     config.console.print(line)
 
@@ -1552,7 +1541,7 @@ def PrintBasics(*, ctx: click.Context) -> None:  # documentation is help/epilog/
 @clibase.CLIErrorGuard
 def PrintCalendars(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: GTFSConfig = ctx.obj
-  database = GTFS(DEFAULT_DATA_DIR)
+  database = GTFS(config.appconfig)
   for line in database.PrettyPrintCalendar():
     config.console.print(line)
 
@@ -1565,7 +1554,7 @@ def PrintCalendars(*, ctx: click.Context) -> None:  # documentation is help/epil
 @clibase.CLIErrorGuard
 def PrintStops(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: GTFSConfig = ctx.obj
-  database = GTFS(DEFAULT_DATA_DIR)
+  database = GTFS(config.appconfig)
   for line in database.PrettyPrintStops():
     config.console.print(line)
 
@@ -1584,7 +1573,7 @@ def PrintShape(  # documentation is help/epilog/args # noqa: D103
   shape_id: str = typer.Argument(..., help='Shape ID to print'),
 ) -> None:
   config: GTFSConfig = ctx.obj
-  database = GTFS(DEFAULT_DATA_DIR)
+  database = GTFS(config.appconfig)
   for line in database.PrettyPrintShape(shape_id=shape_id):
     config.console.print(line)
 
@@ -1605,7 +1594,7 @@ def PrintTrip(  # documentation is help/epilog/args # noqa: D103
   trip_id: str = typer.Argument(..., help='Trip ID to print'),
 ) -> None:
   config: GTFSConfig = ctx.obj
-  database = GTFS(DEFAULT_DATA_DIR)
+  database = GTFS(config.appconfig)
   for line in database.PrettyPrintTrip(trip_id=trip_id):
     config.console.print(line)
 
