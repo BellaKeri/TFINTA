@@ -1125,12 +1125,11 @@ def test_main_realtime_invalid_date() -> None:
 def test_Markdown_realtime_body(_rt: mock.MagicMock) -> None:  # noqa: PT019
   """Test realtime Markdown by directly calling it to cover body line."""
   mock_ctx = mock.MagicMock()
-  mock_config: mock.MagicMock = util.MockAppConfig()
   mock_ctx.obj = realtime.RealtimeConfig(
     console=mock.MagicMock(),
     verbose=0,
     color=True,
-    appconfig=mock_config,
+    appconfig=app_config.AppConfig(base.APP_NAME, base.CONFIG_FILE_NAME, make_it_temporary=True),
   )
   realtime.Markdown(ctx=mock_ctx)
   mock_ctx.obj.console.print.assert_called_once()

@@ -118,8 +118,10 @@ def AssertPrettyPrint(
 def MockAppConfig(dir_path: str = 'db/path', config_file: str = 'transit.db') -> mock.MagicMock:
   """Create a mock AppConfig object for testing.
 
+  DEPRECATED: Use app_config.AppConfig() with make_temporary=True or fixed_dir instead.
+
   Args:
-    dir_path: Directory path for the config
+    dir_path: Directory path for the config (ignored, creates mock paths)
     config_file: Config file name
 
   Returns:
@@ -138,4 +140,5 @@ def MockAppConfig(dir_path: str = 'db/path', config_file: str = 'transit.db') ->
   mock_path.exists = mock.MagicMock(return_value=False)  # Default to not existing
   mock_config.dir = mock_dir
   mock_config.path = mock_path
+  mock_config.temp = False
   return mock_config

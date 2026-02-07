@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import copy
 import datetime
 import io
 import pathlib
@@ -60,7 +59,9 @@ def gtfs_object() -> gtfs.GTFS:
     mock.patch('transcrypto.core.key.DeSerialize', autospec=True),
   ):
     time.return_value = gtfs_data.ZIP_DB_1_TM
-    db = gtfs.GTFS(util.MockAppConfig('db/path'))
+    db = gtfs.GTFS(
+      app_config.AppConfig(base.APP_NAME, base.CONFIG_FILE_NAME, make_it_temporary=True)
+    )
   db._db = gtfs_data.ZIP_DB_1
   return db
 
@@ -563,9 +564,7 @@ def test_GTFS_load_csv_errors(
 ) -> None:
   """Test _LoadCSVSources error branches."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_config = util.MockAppConfig('db/path')
-  mock_config.path.exists.return_value = False
-  db = gtfs.GTFS(mock_config)
+  db = gtfs.GTFS(app_config.AppConfig(base.APP_NAME, base.CONFIG_FILE_NAME, make_it_temporary=True))
   # Test: row with != 2 columns
   bad_csv_1 = b'Operator,Link\nfoo,bar,baz\n'
   urlopen.return_value = util.FakeHTTPStream(bad_csv_1)
@@ -618,9 +617,7 @@ def test_GTFS_LoadGTFSFile_unknown_file_raise(
 ) -> None:
   """Test _LoadGTFSFile raises ParseImplementationError with allow_unknown_file=False."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_config = util.MockAppConfig('db/path')
-  mock_config.path.exists.return_value = False
-  db = gtfs.GTFS(mock_config)
+  db = gtfs.GTFS(app_config.AppConfig(base.APP_NAME, base.CONFIG_FILE_NAME, make_it_temporary=True))
   loc = gtfs._TableLocation(
     operator='test',
     link='test',
@@ -679,9 +676,7 @@ def test_GTFS_LoadGTFSSource_missing_required_file(
 ) -> None:
   """Test that missing required files in ZIP raises ParseError."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_config: mock.MagicMock = util.MockAppConfig('db/path')
-  mock_config.path.exists.return_value = False
-  db = gtfs.GTFS(mock_config)
+  db = gtfs.GTFS(app_config.AppConfig(base.APP_NAME, base.CONFIG_FILE_NAME, make_it_temporary=True))
   # Load CSV sources first so db.files is populated
   good_csv: bytes = (
     b'Operator,Link\n'
@@ -726,9 +721,7 @@ def test_GTFS_LoadGTFSSource_identical_version_skip(
 ) -> None:
   """Test ParseIdenticalVersionError with force_replace=False (skip) and True (continue)."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_config: mock.MagicMock = util.MockAppConfig('db/path')
-  mock_config.path.exists.return_value = False
-  db = gtfs.GTFS(mock_config)
+  db = gtfs.GTFS(app_config.AppConfig(base.APP_NAME, base.CONFIG_FILE_NAME, make_it_temporary=True))
   # Load CSV sources
   good_csv: bytes = (
     b'Operator,Link\n'
@@ -791,9 +784,7 @@ def test_GTFS_LoadData_override_and_freshness(
 ) -> None:
   """Test LoadData with override path and freshness skip."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_config: mock.MagicMock = util.MockAppConfig('db/path')
-  mock_config.path.exists.return_value = False
-  db = gtfs.GTFS(mock_config)
+  db = gtfs.GTFS(app_config.AppConfig(base.APP_NAME, base.CONFIG_FILE_NAME, make_it_temporary=True))
   # Load CSV sources
   good_csv: bytes = (
     b'Operator,Link\n'
@@ -836,19 +827,17 @@ def test_GTFS_LoadGTFSSource_cache_file(
   _deserialize: mock.MagicMock,  # noqa: PT019
   _serialize: mock.MagicMock,  # noqa: PT019
   time_mock: mock.MagicMock,
-  tmp_path: pathlib.Path,
 ) -> None:
   """Test _LoadGTFSSource loading from cache file and override file."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_config: mock.MagicMock = util.MockAppConfig('db/path')
-  mock_config.path.exists.return_value = False
-  db = gtfs.GTFS(mock_config)
+  test_config = app_config.AppConfig(base.APP_NAME, base.CONFIG_FILE_NAME, make_it_temporary=True)
+  db = gtfs.GTFS(test_config)
   # Pre-populate files so operator/link validation passes
   db._db.files.files = {dm.IRISH_RAIL_OPERATOR: {dm.IRISH_RAIL_LINK: None}}
   db._db.files.tm = time_mock.return_value
   # Write the ZIP to a temp file for "override" test
   zip_bytes: bytes = gtfs_data.ZipDirBytes(pathlib.Path(_ZIP_DIR_1))
-  override_path: pathlib.Path = tmp_path / 'test.zip'
+  override_path: pathlib.Path = test_config.dir / 'test.zip'
   override_path.write_bytes(zip_bytes)
   # Test override path
   with typeguard.suppress_type_checks():
@@ -861,10 +850,12 @@ def test_GTFS_LoadGTFSSource_cache_file(
     )
   # Test cache file path: write to cache and load from it
   cache_name: LiteralString = dm.IRISH_RAIL_LINK.replace('://', '__').replace('/', '_')
-  cache_path: pathlib.Path = tmp_path / cache_name
+  cache_path: pathlib.Path = test_config.dir / cache_name
   cache_path.write_bytes(zip_bytes)
-  db2: gtfs.GTFS = copy.deepcopy(db)
-  db2._config.dir = tmp_path  # Update config dir to tmp_path
+  # Create a new GTFS instance with the same fixed_dir - no need to manually set dir
+  db2 = gtfs.GTFS(test_config)
+  db2._db.files.files = {dm.IRISH_RAIL_OPERATOR: {dm.IRISH_RAIL_LINK: None}}
+  db2._db.files.tm = time_mock.return_value
   # Clear existing metadata so it doesn't skip
   db2._db.files.files[dm.IRISH_RAIL_OPERATOR][dm.IRISH_RAIL_LINK] = None
   with typeguard.suppress_type_checks():
@@ -902,14 +893,12 @@ def test_GTFS_LoadData_with_override(
   _serialize: mock.MagicMock,  # noqa: PT019
   urlopen: mock.MagicMock,
   time_mock: mock.MagicMock,
-  tmp_path: pathlib.Path,
 ) -> None:
   """Test LoadData with explicit override path (covers lines 420-421)."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_config: mock.MagicMock = util.MockAppConfig('db/path')
-  mock_config.path.exists.return_value = False
-  db = gtfs.GTFS(mock_config)
-  db._config = mock_config  # Ensure _config is set
+  # Use real AppConfig with fixed_dir
+  test_config = app_config.AppConfig(base.APP_NAME, base.CONFIG_FILE_NAME, make_it_temporary=True)
+  db = gtfs.GTFS(test_config)
   # Populate CSV sources
   good_csv: bytes = (
     b'Operator,Link\n'
@@ -922,7 +911,7 @@ def test_GTFS_LoadData_with_override(
   db._LoadCSVSources()
   # Write an override ZIP file to a real path
   zip_bytes: bytes = gtfs_data.ZipDirBytes(pathlib.Path(_ZIP_DIR_1))
-  override_path: pathlib.Path = tmp_path / 'override.zip'
+  override_path: pathlib.Path = test_config.dir / 'override.zip'
   override_path.write_bytes(zip_bytes)
   # Call LoadData with override. The override path exists as a real file.
   with typeguard.suppress_type_checks():
@@ -947,9 +936,7 @@ def test_GTFS_LoadGTFSFile_unknown_field_not_allowed(
 ) -> None:
   """Test _LoadGTFSFile raises on unknown field when allow_unknown_field=False."""
   time_mock.return_value = gtfs_data.ZIP_DB_1_TM
-  mock_config = util.MockAppConfig('db/path')
-  mock_config.path.exists.return_value = False
-  db = gtfs.GTFS(mock_config)
+  db = gtfs.GTFS(app_config.AppConfig(base.APP_NAME, base.CONFIG_FILE_NAME, make_it_temporary=True))
   # Create a minimal agency.txt CSV with an extra unknown column
   csv_data = (
     b'agency_id,agency_name,agency_url,agency_timezone,agency_lang,unknown_col\n'
@@ -978,7 +965,7 @@ def test_PrintAll_gtfs_body(mock_gtfs: mock.MagicMock) -> None:
     console=mock.MagicMock(),
     verbose=0,
     color=True,
-    appconfig=util.MockAppConfig(),
+    appconfig=app_config.AppConfig(base.APP_NAME, base.CONFIG_FILE_NAME, make_it_temporary=True),
   )
   gtfs.PrintAll(ctx=mock_ctx)
   mock_db.PrettyPrintAllDatabase.assert_called_once()

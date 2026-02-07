@@ -47,7 +47,7 @@ license-files = [ "LICENSE" ]
 
 dependencies = [
 
-  "transcrypto>=2.1.1",
+  "transcrypto>=2.2",
 
   # best place for project dependencies, if possible
   # development-only dependencies go in the [tool.poetry.group.dev.dependencies] section below

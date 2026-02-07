@@ -51,7 +51,9 @@ def gtfs_object() -> gtfs.GTFS:
     mock.patch('transcrypto.core.key.DeSerialize', autospec=True),
   ):
     time.return_value = gtfs_data.ZIP_DB_1_TM
-    db = gtfs.GTFS(util.MockAppConfig('db/path'))
+    db = gtfs.GTFS(
+      app_config.AppConfig(base.APP_NAME, base.CONFIG_FILE_NAME, make_it_temporary=True)
+    )
   # monkey-patch the data into the object
   db._db = gtfs_data.ZIP_DB_1
   return db
@@ -448,7 +450,7 @@ def test_PrintAll_body(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> 
     console=mock.MagicMock(),
     verbose=0,
     color=True,
-    appconfig=util.MockAppConfig(),
+    appconfig=app_config.AppConfig(base.APP_NAME, base.CONFIG_FILE_NAME, make_it_temporary=True),
   )
   dart.PrintAll(ctx=mock_ctx)
   mock_dart_instance.PrettyPrintAllDatabase.assert_called_once()
@@ -468,7 +470,7 @@ def test_PrintTrip_body(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) ->
     console=mock.MagicMock(),
     verbose=0,
     color=True,
-    appconfig=util.MockAppConfig(),
+    appconfig=app_config.AppConfig(base.APP_NAME, base.CONFIG_FILE_NAME, make_it_temporary=True),
   )
   dart.PrintTrip(ctx=mock_ctx, train='E108')
   mock_dart_instance.PrettyPrintTrip.assert_called_once_with(trip_name='E108')
