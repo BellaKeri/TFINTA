@@ -613,8 +613,8 @@ class Schedule:
 
 # useful
 
-DART_DIRECTION: abc.Callable[[Trip | Schedule], str] = (
-  lambda t: '[bright_blue]S[/]' if t.direction else '[bright_red]N[/]'
+DART_DIRECTION: abc.Callable[[Trip | Schedule], str] = lambda t: (
+  '[bright_blue]S[/]' if t.direction else '[bright_red]N[/]'
 )
 
 NULL_STOP = Stop(
