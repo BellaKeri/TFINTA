@@ -15,12 +15,13 @@ from xml.dom import minidom  # noqa: S408
 import pytest
 import typeguard
 from click import testing as click_testing
-from src.tfinta import realtime
-from src.tfinta import realtime_data_model as dm
-from src.tfinta import tfinta_base as base
 from transcrypto.utils import config as app_config
 from transcrypto.utils import logging as tc_logging
 from typer import testing as typer_testing
+
+from tfinta import realtime
+from tfinta import realtime_data_model as dm
+from tfinta import tfinta_base as base
 
 from . import realtime_data, util
 
@@ -99,8 +100,8 @@ class _FakeDate(datetime.date):
     ),
   ],  # pyright: ignore[reportUnknownArgumentType]
 )
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_RealtimeRail_StationsCall(
   mock_open: mock.MagicMock,
   mock_time: mock.MagicMock,
@@ -111,7 +112,7 @@ def test_RealtimeRail_StationsCall(
   monkeypatch: pytest.MonkeyPatch,
 ) -> None:
   """Test."""
-  monkeypatch.setattr(realtime.datetime, 'date', _FakeDate)
+  monkeypatch.setattr(datetime, 'date', _FakeDate)
   mock_time.return_value = realtime_data.RT_TIME
   mock_open.side_effect = [util.FakeHTTPFile(TEST_XMLS[c]) for c, _ in call_names]
   # call
@@ -125,7 +126,7 @@ def test_RealtimeRail_StationsCall(
     assert mock_open.call_args_list[i] == mock.call(realtime._RPC_CALLS[c](p), timeout=10.0)
 
 
-@mock.patch('src.tfinta.realtime.RealtimeRail', autospec=True)
+@mock.patch('tfinta.realtime.RealtimeRail', autospec=True)
 def test_main_print_stations(mock_realtime: mock.MagicMock) -> None:
   """Test."""
   db_obj = mock.MagicMock()
@@ -139,7 +140,7 @@ def test_main_print_stations(mock_realtime: mock.MagicMock) -> None:
   db_obj.PrettyPrintStations.assert_called_once_with()
 
 
-@mock.patch('src.tfinta.realtime.RealtimeRail', autospec=True)
+@mock.patch('tfinta.realtime.RealtimeRail', autospec=True)
 def test_main_print_running(mock_realtime: mock.MagicMock) -> None:
   """Test."""
   db_obj = mock.MagicMock()
@@ -153,7 +154,7 @@ def test_main_print_running(mock_realtime: mock.MagicMock) -> None:
   db_obj.PrettyPrintRunning.assert_called_once_with()
 
 
-@mock.patch('src.tfinta.realtime.RealtimeRail', autospec=True)
+@mock.patch('tfinta.realtime.RealtimeRail', autospec=True)
 def test_main_print_station(mock_realtime: mock.MagicMock) -> None:
   """Test."""
   db_obj = mock.MagicMock()
@@ -169,7 +170,7 @@ def test_main_print_station(mock_realtime: mock.MagicMock) -> None:
   db_obj.PrettyPrintStation.assert_called_once_with(station_code='MHIDE')
 
 
-@mock.patch('src.tfinta.realtime.RealtimeRail', autospec=True)
+@mock.patch('tfinta.realtime.RealtimeRail', autospec=True)
 def test_main_print_train(mock_realtime: mock.MagicMock) -> None:
   """Test."""
   db_obj = mock.MagicMock()
@@ -202,23 +203,23 @@ def test_main_markdown() -> None:
 # _LoadXMLFromURL tests
 
 
-@mock.patch('src.tfinta.realtime.time.sleep', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.sleep', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_LoadXMLFromURL_http_4xx(mock_open: mock.MagicMock, _sleep: mock.MagicMock) -> None:  # noqa: PT019
   """Test _LoadXMLFromURL raises immediately on 4xx errors."""
   mock_open.side_effect = urllib.error.HTTPError(
     'http://test',
     404,
     'Not Found',
-    {},  # pyright: ignore[reportArgumentType]
+    {},  # type: ignore[arg-type]
     None,
   )
   with pytest.raises(realtime.Error, match='HTTP error'):
     realtime._LoadXMLFromURL('http://test')
 
 
-@mock.patch('src.tfinta.realtime.time.sleep', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.sleep', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_LoadXMLFromURL_http_5xx_retries(
   mock_open: mock.MagicMock, mock_sleep: mock.MagicMock
 ) -> None:
@@ -227,7 +228,7 @@ def test_LoadXMLFromURL_http_5xx_retries(
     'http://test',
     500,
     'Server Error',
-    {},  # pyright: ignore[reportArgumentType]
+    {},  # type: ignore[arg-type]
     None,
   )
   with pytest.raises(realtime.Error, match='Too many retries'):
@@ -236,8 +237,8 @@ def test_LoadXMLFromURL_http_5xx_retries(
   assert mock_sleep.call_count == realtime._N_RETRIES - 1
 
 
-@mock.patch('src.tfinta.realtime.time.sleep', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.sleep', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_LoadXMLFromURL_timeout_retries(mock_open: mock.MagicMock, _sleep: mock.MagicMock) -> None:  # noqa: PT019
   """Test _LoadXMLFromURL retries on TimeoutError then raises."""
   mock_open.side_effect = TimeoutError('Connection timed out')
@@ -246,8 +247,8 @@ def test_LoadXMLFromURL_timeout_retries(mock_open: mock.MagicMock, _sleep: mock.
   assert mock_open.call_count == realtime._N_RETRIES
 
 
-@mock.patch('src.tfinta.realtime.time.sleep', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.sleep', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_LoadXMLFromURL_retry_then_success(
   mock_open: mock.MagicMock,
   _sleep: mock.MagicMock,  # noqa: PT019
@@ -255,15 +256,15 @@ def test_LoadXMLFromURL_retry_then_success(
   """Test _LoadXMLFromURL succeeds after retries."""
   xml_data = b'<root><data>test</data></root>'
   mock_open.side_effect = [
-    urllib.error.HTTPError('http://test', 500, 'Error', {}, None),  # pyright: ignore[reportArgumentType]
+    urllib.error.HTTPError('http://test', 500, 'Error', {}, None),  # type: ignore[arg-type]
     util.FakeHTTPStream(xml_data),  # success
   ]
   result: minidom.Document = realtime._LoadXMLFromURL('http://test')
   assert result is not None and mock_open.call_count == 2
 
 
-@mock.patch('src.tfinta.realtime.time.sleep', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.sleep', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_LoadXMLFromURL_urlerror_retries(mock_open: mock.MagicMock, _sleep: mock.MagicMock) -> None:  # noqa: PT019
   """Test _LoadXMLFromURL retries on URLError."""
   mock_open.side_effect = urllib.error.URLError('Network unreachable')
@@ -275,8 +276,8 @@ def test_LoadXMLFromURL_urlerror_retries(mock_open: mock.MagicMock, _sleep: mock
 # RealtimeRail error path tests
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_StationCodeFromNameFragmentOrCode_errors(
   mock_open: mock.MagicMock, mock_time: mock.MagicMock
 ) -> None:
@@ -291,8 +292,8 @@ def test_StationCodeFromNameFragmentOrCode_errors(
   assert rt.StationCodeFromNameFragmentOrCode('MHIDE') == 'MHIDE'
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_StationsCall_empty(mock_open: mock.MagicMock, mock_time: mock.MagicMock) -> None:
   """Test StationsCall with empty result."""
   mock_time.return_value = realtime_data.RT_TIME
@@ -305,8 +306,8 @@ def test_StationsCall_empty(mock_open: mock.MagicMock, mock_time: mock.MagicMock
   assert rt.StationsCall() == []
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_RunningTrainsCall_empty(mock_open: mock.MagicMock, mock_time: mock.MagicMock) -> None:
   """Test RunningTrainsCall with empty result."""
   mock_time.return_value = realtime_data.RT_TIME
@@ -323,8 +324,8 @@ def test_StationBoardCall_empty_code() -> None:
     rt.StationBoardCall(' \t')
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_StationBoardCall_empty_result(
   mock_open: mock.MagicMock, mock_time: mock.MagicMock
 ) -> None:
@@ -344,8 +345,8 @@ def test_TrainDataCall_empty_code() -> None:
     rt.TrainDataCall(' \t', datetime.date(2025, 6, 29))
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_TrainDataCall_empty_result(mock_open: mock.MagicMock, mock_time: mock.MagicMock) -> None:
   """Test TrainDataCall with empty result returns (None, [])."""
   mock_time.return_value = realtime_data.RT_TIME
@@ -356,8 +357,8 @@ def test_TrainDataCall_empty_result(mock_open: mock.MagicMock, mock_time: mock.M
   assert query is None and stops == []
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_HandleStationXMLRow_invalid_id(
   mock_open: mock.MagicMock, mock_time: mock.MagicMock
 ) -> None:
@@ -381,8 +382,8 @@ def test_HandleStationXMLRow_invalid_id(
     rt.StationsCall()
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_HandleRunningTrainXMLRow_invalid_status(
   mock_open: mock.MagicMock, mock_time: mock.MagicMock
 ) -> None:
@@ -407,8 +408,8 @@ def test_HandleRunningTrainXMLRow_invalid_status(
     rt.RunningTrainsCall()
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_HandleStationLineXMLRow_station_mismatch(
   mock_open: mock.MagicMock, mock_time: mock.MagicMock
 ) -> None:
@@ -451,8 +452,8 @@ def test_HandleStationLineXMLRow_station_mismatch(
     rt.StationBoardCall('MHIDE')
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_HandleStationLineXMLRow_invalid_locationtype(
   mock_open: mock.MagicMock, mock_time: mock.MagicMock
 ) -> None:
@@ -493,8 +494,8 @@ def test_HandleStationLineXMLRow_invalid_locationtype(
     rt.StationBoardCall('MHIDE')
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_HandleStationLineXMLRow_unknown_origin_dest(
   mock_open: mock.MagicMock, mock_time: mock.MagicMock
 ) -> None:
@@ -537,8 +538,8 @@ def test_HandleStationLineXMLRow_unknown_origin_dest(
   assert lines[0].origin_code == '???' and lines[0].destination_code == '???'
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_HandleTrainStationXMLRow_invalid_order(
   mock_open: mock.MagicMock, mock_time: mock.MagicMock
 ) -> None:
@@ -575,8 +576,8 @@ def test_HandleTrainStationXMLRow_invalid_order(
     rt.TrainDataCall('E108', datetime.date(2025, 6, 29))
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_HandleTrainStationXMLRow_invalid_location_stop_type(
   mock_open: mock.MagicMock, mock_time: mock.MagicMock
 ) -> None:
@@ -613,8 +614,8 @@ def test_HandleTrainStationXMLRow_invalid_location_stop_type(
     rt.TrainDataCall('E108', datetime.date(2025, 6, 29))
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_HandleTrainStationXMLRow_unknown_origin_dest(
   mock_open: mock.MagicMock, mock_time: mock.MagicMock
 ) -> None:
@@ -652,8 +653,8 @@ def test_HandleTrainStationXMLRow_unknown_origin_dest(
   assert stops[0].query.origin_code == '???' and stops[0].query.destination_code == '???'
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_StationBoardCall_query_mismatch(
   mock_open: mock.MagicMock, mock_time: mock.MagicMock
 ) -> None:
@@ -718,8 +719,8 @@ def test_StationBoardCall_query_mismatch(
     rt.StationBoardCall('MHIDE')
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_TrainDataCall_query_mismatch(mock_open: mock.MagicMock, mock_time: mock.MagicMock) -> None:
   """Test TrainDataCall with mismatched query data across rows."""
   mock_time.return_value = realtime_data.RT_TIME
@@ -773,8 +774,8 @@ def test_TrainDataCall_query_mismatch(mock_open: mock.MagicMock, mock_time: mock
     rt.TrainDataCall('E108', datetime.date(2025, 6, 29))
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_TrainDataCall_missing_stop_sequence(
   mock_open: mock.MagicMock, mock_time: mock.MagicMock
 ) -> None:
@@ -831,8 +832,8 @@ def test_TrainDataCall_missing_stop_sequence(
     rt.TrainDataCall('E108', datetime.date(2025, 6, 29))
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_CallRPC_repeated_elements(mock_open: mock.MagicMock, mock_time: mock.MagicMock) -> None:
   """Test _CallRPC with repeated XML elements in a row."""
   mock_time.return_value = realtime_data.RT_TIME
@@ -855,8 +856,8 @@ def test_CallRPC_repeated_elements(mock_open: mock.MagicMock, mock_time: mock.Ma
     rt.StationsCall()
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_CallRPC_empty_required_field(mock_open: mock.MagicMock, mock_time: mock.MagicMock) -> None:
   """Test _CallRPC with empty required field."""
   mock_time.return_value = realtime_data.RT_TIME
@@ -878,8 +879,8 @@ def test_CallRPC_empty_required_field(mock_open: mock.MagicMock, mock_time: mock
     rt.StationsCall()
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_CallRPC_invalid_int_value(mock_open: mock.MagicMock, mock_time: mock.MagicMock) -> None:
   """Test _CallRPC with invalid int value."""
   mock_time.return_value = realtime_data.RT_TIME
@@ -901,8 +902,8 @@ def test_CallRPC_invalid_int_value(mock_open: mock.MagicMock, mock_time: mock.Ma
     rt.StationsCall()
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_PrettyPrintStation_lazy_stations(
   mock_open: mock.MagicMock, mock_time: mock.MagicMock
 ) -> None:
@@ -984,20 +985,20 @@ def test_StationLine_lt() -> None:
     'expected': base.DayRange(arrival=base.DayTime(time=0), departure=base.DayTime(time=0)),
   }
   # Different due_in
-  l1 = dm.StationLine(due_in=base.DayTime(time=5), **base_kwargs)  # pyright: ignore[reportArgumentType]
-  l2 = dm.StationLine(due_in=base.DayTime(time=10), **base_kwargs)  # pyright: ignore[reportArgumentType]
+  l1 = dm.StationLine(due_in=base.DayTime(time=5), **base_kwargs)  # type: ignore[arg-type]
+  l2 = dm.StationLine(due_in=base.DayTime(time=10), **base_kwargs)  # type: ignore[arg-type]
   assert l1 < l2
   # Same due_in, different expected
   kw_same_due = {**base_kwargs, 'due_in': base.DayTime(time=5)}
   exp1 = base.DayRange(arrival=base.DayTime(time=100), departure=base.DayTime(time=200))
   exp2 = base.DayRange(arrival=base.DayTime(time=300), departure=base.DayTime(time=400))
-  l3 = dm.StationLine(expected=exp1, **{k: v for k, v in kw_same_due.items() if k != 'expected'})  # pyright: ignore[reportArgumentType]
-  l4 = dm.StationLine(expected=exp2, **{k: v for k, v in kw_same_due.items() if k != 'expected'})  # pyright: ignore[reportArgumentType]
+  l3 = dm.StationLine(expected=exp1, **{k: v for k, v in kw_same_due.items() if k != 'expected'})  # type: ignore[arg-type]
+  l4 = dm.StationLine(expected=exp2, **{k: v for k, v in kw_same_due.items() if k != 'expected'})  # type: ignore[arg-type]
   assert l3 < l4
   # Same due_in, same expected, different destination_name
   kw_same_all = {**base_kwargs, 'due_in': base.DayTime(time=5)}
-  l5 = dm.StationLine(**{**kw_same_all, 'destination_name': 'Alpha'})  # pyright: ignore[reportArgumentType]
-  l6 = dm.StationLine(**{**kw_same_all, 'destination_name': 'Zeta'})  # pyright: ignore[reportArgumentType]
+  l5 = dm.StationLine(**{**kw_same_all, 'destination_name': 'Alpha'})  # type: ignore[arg-type]
+  l6 = dm.StationLine(**{**kw_same_all, 'destination_name': 'Zeta'})  # type: ignore[arg-type]
   assert l5 < l6
 
 
@@ -1059,8 +1060,8 @@ def test_TrainStopQueryData_lt() -> None:
   assert q5 < q6
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_StationCodeFromNameFragmentOrCode_ambiguous(
   mock_open: mock.MagicMock, mock_time: mock.MagicMock
 ) -> None:
@@ -1080,8 +1081,8 @@ def test_StationCodeFromNameFragmentOrCode_ambiguous(
     rt.StationCodeFromNameFragmentOrCode('dublin')
 
 
-@mock.patch('src.tfinta.realtime.time.time', autospec=True)
-@mock.patch('src.tfinta.realtime.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.realtime.time.time', autospec=True)
+@mock.patch('tfinta.realtime.urllib.request.urlopen', autospec=True)
 def test_CallRPC_invalid_bool_value(mock_open: mock.MagicMock, mock_time: mock.MagicMock) -> None:
   """Test _CallRPC with invalid boolean value in XML."""
   mock_time.return_value = realtime_data.RT_TIME
@@ -1121,7 +1122,7 @@ def test_main_realtime_invalid_date() -> None:
     realtime._TODAY_INT = original
 
 
-@mock.patch('src.tfinta.realtime.RealtimeRail', autospec=True)
+@mock.patch('tfinta.realtime.RealtimeRail', autospec=True)
 def test_Markdown_realtime_body(_rt: mock.MagicMock) -> None:  # noqa: PT019
   """Test realtime Markdown by directly calling it to cover body line."""
   mock_ctx = mock.MagicMock()
@@ -1132,4 +1133,4 @@ def test_Markdown_realtime_body(_rt: mock.MagicMock) -> None:  # noqa: PT019
     appconfig=app_config.AppConfig(base.APP_NAME, base.CONFIG_FILE_NAME, make_it_temporary=True),
   )
   realtime.Markdown(ctx=mock_ctx)
-  mock_ctx.obj.console.print.assert_called_once()
+  mock_ctx.obj.console.print.assert_called_once()  # type: ignore[attr-defined]

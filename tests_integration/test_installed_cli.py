@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright 2026 BellaKeri@github.com & balparda@github.com
 # SPDX-License-Identifier: Apache-2.0
-
 """Integration tests: build wheel, install into a fresh venv, run installed console scripts.
 
 Why this exists (vs normal unit tests):
@@ -226,7 +225,7 @@ def test_installed_cli_smoke(tmp_path: pathlib.Path) -> None:
 
 def _GTFS_call(gtfs_cli: pathlib.Path, vpy: pathlib.Path) -> None:
   # gtfs: read data and print basics; use --no-color to avoid ANSI codes in asserts.
-  r = _Run([str(gtfs_cli), '--no-color', 'read'])
+  r: subprocess.CompletedProcess[str] = _Run([str(gtfs_cli), '--no-color', 'read'])
   assert 'loaded successfully' in r.stdout.lower()
   assert '\x1b[' not in r.stdout and '\x1b[' not in r.stderr  # no ANSI codes
   # verify GTFS created a local DB under the platformdirs user data location
@@ -236,9 +235,9 @@ def _GTFS_call(gtfs_cli: pathlib.Path, vpy: pathlib.Path) -> None:
   data_dir = pathlib.Path(r2.stdout.strip())
   db_file: pathlib.Path = data_dir / 'transit.db'
   assert data_dir.exists() and db_file.exists()
-  r: subprocess.CompletedProcess[str] = _Run([str(gtfs_cli), '--no-color', 'print', 'basics'])
+  r = _Run([str(gtfs_cli), '--no-color', 'print', 'basics'])
   # match presence of DART routes with a 5355_123769 route id fragment
-  assert 'DART' in r.stdout and '5355_' in r.stdout
+  assert 'DART' in r.stdout and 'Iarnród Éireann / Irish Rail' in r.stdout
   assert '\x1b[' not in r.stdout and '\x1b[' not in r.stderr  # no ANSI codes
   # remove created data to isolate the next CLI's read step
   shutil.rmtree(data_dir)

@@ -16,13 +16,14 @@ import pytest
 import typeguard
 from click import testing as click_testing
 from rich import table as rich_table
-from src.tfinta import gtfs
-from src.tfinta import gtfs_data_model as dm
-from src.tfinta import tfinta_base as base
 from transcrypto.utils import base as tc_base
 from transcrypto.utils import config as app_config
 from transcrypto.utils import logging as tc_logging
 from typer import testing as typer_testing
+
+from tfinta import gtfs
+from tfinta import gtfs_data_model as dm
+from tfinta import tfinta_base as base
 
 from . import gtfs_data, util
 
@@ -54,7 +55,7 @@ def gtfs_object() -> gtfs.GTFS:
   """
   db: gtfs.GTFS
   with (
-    mock.patch('src.tfinta.gtfs.time.time', autospec=True) as time,
+    mock.patch('tfinta.gtfs.time.time', autospec=True) as time,
     mock.patch('transcrypto.core.key.Serialize', autospec=True),
     mock.patch('transcrypto.core.key.DeSerialize', autospec=True),
   ):
@@ -66,8 +67,8 @@ def gtfs_object() -> gtfs.GTFS:
   return db
 
 
-@mock.patch('src.tfinta.gtfs.time.time', autospec=True)
-@mock.patch('src.tfinta.gtfs.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.gtfs.time.time', autospec=True)
+@mock.patch('tfinta.gtfs.urllib.request.urlopen', autospec=True)
 @mock.patch('transcrypto.core.key.Serialize', autospec=True)
 @mock.patch('transcrypto.core.key.DeSerialize', autospec=True)
 def test_GTFS_load_and_parse_from_net(  # noqa: PLR0915
@@ -299,7 +300,7 @@ def test_GTFS_load_existing(deserialize: mock.MagicMock, serialize: mock.MagicMo
 
 def test_main_load() -> None:
   """Test."""
-  with mock.patch('src.tfinta.gtfs.GTFS', autospec=True) as mock_gtfs:
+  with mock.patch('tfinta.gtfs.GTFS', autospec=True) as mock_gtfs:
     db_obj = mock.MagicMock()
     mock_gtfs.return_value = db_obj
     result: click_testing.Result = typer_testing.CliRunner().invoke(gtfs.app, ['read'])
@@ -319,7 +320,7 @@ def test_main_load() -> None:
 def test_main_print_basics() -> None:
   """Test."""
   with (
-    mock.patch('src.tfinta.gtfs.GTFS', autospec=True) as mock_gtfs,
+    mock.patch('tfinta.gtfs.GTFS', autospec=True) as mock_gtfs,
     mock.patch('transcrypto.utils.logging.InitLogging') as mock_init_logging,
   ):
     mock_console = mock.MagicMock()
@@ -336,7 +337,7 @@ def test_main_print_basics() -> None:
 def test_main_print_calendar() -> None:
   """Test."""
   with (
-    mock.patch('src.tfinta.gtfs.GTFS', autospec=True) as mock_gtfs,
+    mock.patch('tfinta.gtfs.GTFS', autospec=True) as mock_gtfs,
     mock.patch('transcrypto.utils.logging.InitLogging') as mock_init_logging,
   ):
     mock_console = mock.MagicMock()
@@ -355,7 +356,7 @@ def test_main_print_calendar() -> None:
 def test_main_print_stops() -> None:
   """Test."""
   with (
-    mock.patch('src.tfinta.gtfs.GTFS', autospec=True) as mock_gtfs,
+    mock.patch('tfinta.gtfs.GTFS', autospec=True) as mock_gtfs,
     mock.patch('transcrypto.utils.logging.InitLogging') as mock_init_logging,
   ):
     mock_console = mock.MagicMock()
@@ -372,7 +373,7 @@ def test_main_print_stops() -> None:
 def test_main_print_shape() -> None:
   """Test."""
   with (
-    mock.patch('src.tfinta.gtfs.GTFS', autospec=True) as mock_gtfs,
+    mock.patch('tfinta.gtfs.GTFS', autospec=True) as mock_gtfs,
     mock.patch('transcrypto.utils.logging.InitLogging') as mock_init_logging,
   ):
     mock_console = mock.MagicMock()
@@ -391,7 +392,7 @@ def test_main_print_shape() -> None:
 def test_main_print_trip() -> None:
   """Test."""
   with (
-    mock.patch('src.tfinta.gtfs.GTFS', autospec=True) as mock_gtfs,
+    mock.patch('tfinta.gtfs.GTFS', autospec=True) as mock_gtfs,
     mock.patch('transcrypto.utils.logging.InitLogging') as mock_init_logging,
   ):
     mock_console = mock.MagicMock()
@@ -409,7 +410,7 @@ def test_main_print_trip() -> None:
 
 def test_main_print_all() -> None:
   """Test."""
-  with mock.patch('src.tfinta.gtfs.GTFS', autospec=True) as mock_gtfs:
+  with mock.patch('tfinta.gtfs.GTFS', autospec=True) as mock_gtfs:
     db_obj = mock.MagicMock()
     mock_gtfs.return_value = db_obj
     db_obj.PrettyPrintTrip.return_value = ['foo', 'bar']
@@ -428,7 +429,7 @@ def test_main_version() -> None:
 def test_main_markdown() -> None:
   """Test markdown command."""
   with (
-    mock.patch('src.tfinta.gtfs.GTFS', autospec=True),
+    mock.patch('tfinta.gtfs.GTFS', autospec=True),
     mock.patch('transcrypto.utils.logging.InitLogging') as mock_init_logging,
   ):
     mock_console = mock.MagicMock()
@@ -552,8 +553,8 @@ def test_stop_times_old_dropoff_spelling(gtfs_object: gtfs.GTFS) -> None:
   assert trip.stops[10].dropoff == dm.StopPointType.NOT_AVAILABLE
 
 
-@mock.patch('src.tfinta.gtfs.time.time', autospec=True)
-@mock.patch('src.tfinta.gtfs.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.gtfs.time.time', autospec=True)
+@mock.patch('tfinta.gtfs.urllib.request.urlopen', autospec=True)
 @mock.patch('transcrypto.core.key.Serialize', autospec=True)
 @mock.patch('transcrypto.core.key.DeSerialize', autospec=True)
 def test_GTFS_load_csv_errors(
@@ -605,8 +606,8 @@ def test_GTFS_LoadGTFSSource_override_nonexistent(gtfs_object: gtfs.GTFS) -> Non
     )
 
 
-@mock.patch('src.tfinta.gtfs.time.time', autospec=True)
-@mock.patch('src.tfinta.gtfs.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.gtfs.time.time', autospec=True)
+@mock.patch('tfinta.gtfs.urllib.request.urlopen', autospec=True)
 @mock.patch('transcrypto.core.key.Serialize', autospec=True)
 @mock.patch('transcrypto.core.key.DeSerialize', autospec=True)
 def test_GTFS_LoadGTFSFile_unknown_file_raise(
@@ -664,8 +665,8 @@ def test_GTFS_LoadGTFSFile_parse_errors(gtfs_object: gtfs.GTFS) -> None:
     db._LoadGTFSFile(loc, csv_missing, allow_unknown_file=False, allow_unknown_field=True)
 
 
-@mock.patch('src.tfinta.gtfs.time.time', autospec=True)
-@mock.patch('src.tfinta.gtfs.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.gtfs.time.time', autospec=True)
+@mock.patch('tfinta.gtfs.urllib.request.urlopen', autospec=True)
 @mock.patch('transcrypto.core.key.Serialize', autospec=True)
 @mock.patch('transcrypto.core.key.DeSerialize', autospec=True)
 def test_GTFS_LoadGTFSSource_missing_required_file(
@@ -697,7 +698,7 @@ def test_GTFS_LoadGTFSSource_missing_required_file(
   zip_bytes: bytes = zip_buffer.getvalue()
   mock_path = mock.MagicMock()
   mock_path.exists.return_value = False
-  with mock.patch('src.tfinta.gtfs.pathlib.Path') as path_mock_2:
+  with mock.patch('tfinta.gtfs.pathlib.Path') as path_mock_2, typeguard.suppress_type_checks():
     path_mock_2.return_value = mock_path
     urlopen.return_value = util.FakeHTTPStream(zip_bytes)
     with pytest.raises(gtfs.ParseError, match='Missing required files'):
@@ -709,8 +710,8 @@ def test_GTFS_LoadGTFSSource_missing_required_file(
       )
 
 
-@mock.patch('src.tfinta.gtfs.time.time', autospec=True)
-@mock.patch('src.tfinta.gtfs.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.gtfs.time.time', autospec=True)
+@mock.patch('tfinta.gtfs.urllib.request.urlopen', autospec=True)
 @mock.patch('transcrypto.core.key.Serialize', autospec=True)
 @mock.patch('transcrypto.core.key.DeSerialize', autospec=True)
 def test_GTFS_LoadGTFSSource_identical_version_skip(
@@ -736,44 +737,41 @@ def test_GTFS_LoadGTFSSource_identical_version_skip(
   zip_bytes: bytes = gtfs_data.ZipDirBytes(pathlib.Path(_ZIP_DIR_1))
   mock_path: mock.MagicMock = mock.MagicMock()
   mock_path.exists.return_value = False
-  with mock.patch('src.tfinta.gtfs.pathlib.Path') as path_mock_2:
+  with mock.patch('tfinta.gtfs.pathlib.Path') as path_mock_2, typeguard.suppress_type_checks():
     path_mock_2.return_value = mock_path
     urlopen.return_value = util.FakeHTTPStream(zip_bytes)
-    with typeguard.suppress_type_checks():
-      db._LoadGTFSSource(
-        dm.IRISH_RAIL_OPERATOR,
-        dm.IRISH_RAIL_LINK,
-        allow_unknown_file=True,
-        allow_unknown_field=True,
-      )
+    db._LoadGTFSSource(
+      dm.IRISH_RAIL_OPERATOR,
+      dm.IRISH_RAIL_LINK,
+      allow_unknown_file=True,
+      allow_unknown_field=True,
+    )
   # Load the same ZIP again with force_replace=False → skip path
-  with mock.patch('src.tfinta.gtfs.pathlib.Path') as path_mock_3:
+  with mock.patch('tfinta.gtfs.pathlib.Path') as path_mock_3, typeguard.suppress_type_checks():
     path_mock_3.return_value = mock_path
     urlopen.return_value = util.FakeHTTPStream(zip_bytes)
-    with typeguard.suppress_type_checks():
-      db._LoadGTFSSource(
-        dm.IRISH_RAIL_OPERATOR,
-        dm.IRISH_RAIL_LINK,
-        allow_unknown_file=True,
-        allow_unknown_field=True,
-        force_replace=False,
-      )
+    db._LoadGTFSSource(
+      dm.IRISH_RAIL_OPERATOR,
+      dm.IRISH_RAIL_LINK,
+      allow_unknown_file=True,
+      allow_unknown_field=True,
+      force_replace=False,
+    )
   # Load the same ZIP again with force_replace=True → continue path
-  with mock.patch('src.tfinta.gtfs.pathlib.Path') as path_mock_4:
+  with mock.patch('tfinta.gtfs.pathlib.Path') as path_mock_4, typeguard.suppress_type_checks():
     path_mock_4.return_value = mock_path
     urlopen.return_value = util.FakeHTTPStream(zip_bytes)
-    with typeguard.suppress_type_checks():
-      db._LoadGTFSSource(
-        dm.IRISH_RAIL_OPERATOR,
-        dm.IRISH_RAIL_LINK,
-        allow_unknown_file=True,
-        allow_unknown_field=True,
-        force_replace=True,
-      )
+    db._LoadGTFSSource(
+      dm.IRISH_RAIL_OPERATOR,
+      dm.IRISH_RAIL_LINK,
+      allow_unknown_file=True,
+      allow_unknown_field=True,
+      force_replace=True,
+    )
 
 
-@mock.patch('src.tfinta.gtfs.time.time', autospec=True)
-@mock.patch('src.tfinta.gtfs.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.gtfs.time.time', autospec=True)
+@mock.patch('tfinta.gtfs.urllib.request.urlopen', autospec=True)
 @mock.patch('transcrypto.core.key.Serialize', autospec=True)
 @mock.patch('transcrypto.core.key.DeSerialize', autospec=True)
 def test_GTFS_LoadData_override_and_freshness(
@@ -799,18 +797,16 @@ def test_GTFS_LoadData_override_and_freshness(
   zip_bytes: bytes = gtfs_data.ZipDirBytes(pathlib.Path(_ZIP_DIR_1))
   mock_path = mock.MagicMock()
   mock_path.exists.return_value = False
-  with mock.patch('src.tfinta.gtfs.pathlib.Path') as path_mock_2:
+  with mock.patch('tfinta.gtfs.pathlib.Path') as path_mock_2, typeguard.suppress_type_checks():
     path_mock_2.return_value = mock_path
     urlopen.return_value = util.FakeHTTPStream(zip_bytes)
-    with typeguard.suppress_type_checks():
-      db._LoadGTFSSource(
-        dm.IRISH_RAIL_OPERATOR,
-        dm.IRISH_RAIL_LINK,
-        allow_unknown_file=True,
-        allow_unknown_field=True,
-      )
-  # Now LoadData with freshness should skip (data is 0 days old)
-  with typeguard.suppress_type_checks():
+    db._LoadGTFSSource(
+      dm.IRISH_RAIL_OPERATOR,
+      dm.IRISH_RAIL_LINK,
+      allow_unknown_file=True,
+      allow_unknown_field=True,
+    )
+    # Now LoadData with freshness should skip (data is 0 days old)
     db.LoadData(
       dm.IRISH_RAIL_OPERATOR,
       dm.IRISH_RAIL_LINK,
@@ -820,7 +816,7 @@ def test_GTFS_LoadData_override_and_freshness(
     )
 
 
-@mock.patch('src.tfinta.gtfs.time.time', autospec=True)
+@mock.patch('tfinta.gtfs.time.time', autospec=True)
 @mock.patch('transcrypto.core.key.Serialize', autospec=True)
 @mock.patch('transcrypto.core.key.DeSerialize', autospec=True)
 def test_GTFS_LoadGTFSSource_cache_file(
@@ -884,8 +880,8 @@ def test_GTFS_ParsingSession_exception(gtfs_object: gtfs.GTFS) -> None:
     raise ValueError('test error')
 
 
-@mock.patch('src.tfinta.gtfs.time.time', autospec=True)
-@mock.patch('src.tfinta.gtfs.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.gtfs.time.time', autospec=True)
+@mock.patch('tfinta.gtfs.urllib.request.urlopen', autospec=True)
 @mock.patch('transcrypto.core.key.Serialize', autospec=True)
 @mock.patch('transcrypto.core.key.DeSerialize', autospec=True)
 def test_GTFS_LoadData_with_override(
@@ -924,8 +920,8 @@ def test_GTFS_LoadData_with_override(
     )
 
 
-@mock.patch('src.tfinta.gtfs.time.time', autospec=True)
-@mock.patch('src.tfinta.gtfs.urllib.request.urlopen', autospec=True)
+@mock.patch('tfinta.gtfs.time.time', autospec=True)
+@mock.patch('tfinta.gtfs.urllib.request.urlopen', autospec=True)
 @mock.patch('transcrypto.core.key.Serialize', autospec=True)
 @mock.patch('transcrypto.core.key.DeSerialize', autospec=True)
 def test_GTFS_LoadGTFSFile_unknown_field_not_allowed(
@@ -954,7 +950,7 @@ def test_GTFS_LoadGTFSFile_unknown_field_not_allowed(
     )
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
+@mock.patch('tfinta.gtfs.GTFS', autospec=True)
 def test_PrintAll_gtfs_body(mock_gtfs: mock.MagicMock) -> None:
   """Test gtfs PrintAll by directly calling it to cover body lines."""
   mock_db = mock.MagicMock()
@@ -969,4 +965,4 @@ def test_PrintAll_gtfs_body(mock_gtfs: mock.MagicMock) -> None:
   )
   gtfs.PrintAll(ctx=mock_ctx)
   mock_db.PrettyPrintAllDatabase.assert_called_once()
-  mock_ctx.obj.console.print.assert_called_once_with('gtfs_line')
+  mock_ctx.obj.console.print.assert_called_once_with('gtfs_line')  # type: ignore[attr-defined]

@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import datetime
 
-from src.tfinta import realtime_data_model as dm
-from src.tfinta import tfinta_base as base
+from tfinta import realtime_data_model as dm
+from tfinta import tfinta_base as base
 
 from . import util
 

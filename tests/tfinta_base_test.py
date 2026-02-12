@@ -7,7 +7,8 @@ from __future__ import annotations
 import datetime
 
 import pytest
-from src.tfinta import tfinta_base as base
+
+from tfinta import tfinta_base as base
 
 
 @pytest.mark.parametrize(

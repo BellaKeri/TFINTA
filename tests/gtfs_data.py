@@ -11,8 +11,8 @@ import pathlib
 import zipfile
 import zoneinfo
 
-from src.tfinta import gtfs_data_model as dm
-from src.tfinta import tfinta_base as base
+from tfinta import gtfs_data_model as dm
+from tfinta import tfinta_base as base
 
 from . import util
 

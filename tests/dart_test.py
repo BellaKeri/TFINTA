@@ -12,13 +12,13 @@ from unittest import mock
 import pytest
 import typeguard
 from click import testing as click_testing
-from src.tfinta import dart, gtfs
-from src.tfinta import tfinta_base as base
 from transcrypto.utils import config as app_config
 from transcrypto.utils import logging as tc_logging
 from typer import testing as typer_testing
 
+from tfinta import dart, gtfs
 from tfinta import gtfs_data_model as dm
+from tfinta import tfinta_base as base
 
 from . import gtfs_data, util
 
@@ -46,7 +46,7 @@ def gtfs_object() -> gtfs.GTFS:
   # create object with all the disk features disabled
   db: gtfs.GTFS
   with (
-    mock.patch('src.tfinta.gtfs.time.time', autospec=True) as time,
+    mock.patch('tfinta.gtfs.time.time', autospec=True) as time,
     mock.patch('transcrypto.core.key.Serialize', autospec=True),
     mock.patch('transcrypto.core.key.DeSerialize', autospec=True),
   ):
@@ -63,7 +63,7 @@ def test_DART(gtfs_object: gtfs.GTFS) -> None:
   """Test."""
   with typeguard.suppress_type_checks():
     with pytest.raises(gtfs.Error):
-      dart.DART(None)  # pyright: ignore[reportArgumentType]
+      dart.DART(None)  # type: ignore[arg-type]
     db = dart.DART(gtfs_object)
   assert db.Services() == {83, 84}
   assert db.ServicesForDay(datetime.date(2025, 8, 4)) == {84}
@@ -71,7 +71,7 @@ def test_DART(gtfs_object: gtfs.GTFS) -> None:
   assert db.ServicesForDay(datetime.date(2025, 6, 23)) == set()
   assert db._dart_trips == gtfs_data.DART_TRIPS_ZIP_1
   with pytest.raises(gtfs.Error), typeguard.suppress_type_checks():
-    list(db.PrettyDaySchedule(day=None))  # pyright: ignore[reportArgumentType]
+    list(db.PrettyDaySchedule(day=None))  # type: ignore[arg-type]
   util.AssertPrettyPrint(
     gtfs_data.TRIPS_SCHEDULE_2025_08_04, db.PrettyDaySchedule(day=datetime.date(2025, 8, 4))
   )
@@ -87,8 +87,8 @@ def test_DART(gtfs_object: gtfs.GTFS) -> None:
   util.AssertPrettyPrint(gtfs_data.ALL_DATA, db.PrettyPrintAllDatabase())
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-@mock.patch('src.tfinta.dart.DART', autospec=True)
+@mock.patch('tfinta.gtfs.GTFS', autospec=True)
+@mock.patch('tfinta.dart.DART', autospec=True)
 def test_main_load(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None:
   """Test."""
   db_obj = mock.MagicMock()
@@ -107,8 +107,8 @@ def test_main_load(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None
   mock_dart.assert_not_called()
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-@mock.patch('src.tfinta.dart.DART', autospec=True)
+@mock.patch('tfinta.gtfs.GTFS', autospec=True)
+@mock.patch('tfinta.dart.DART', autospec=True)
 def test_main_print_calendars(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None:
   """Test."""
   db_obj, dart_obj = mock.MagicMock(), mock.MagicMock()
@@ -122,8 +122,8 @@ def test_main_print_calendars(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMo
   dart_obj.PrettyPrintCalendar.assert_called_once_with()
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-@mock.patch('src.tfinta.dart.DART', autospec=True)
+@mock.patch('tfinta.gtfs.GTFS', autospec=True)
+@mock.patch('tfinta.dart.DART', autospec=True)
 def test_main_print_stops(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None:
   """Test."""
   db_obj, dart_obj = mock.MagicMock(), mock.MagicMock()
@@ -137,8 +137,8 @@ def test_main_print_stops(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) 
   dart_obj.PrettyPrintStops.assert_called_once_with()
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-@mock.patch('src.tfinta.dart.DART', autospec=True)
+@mock.patch('tfinta.gtfs.GTFS', autospec=True)
+@mock.patch('tfinta.dart.DART', autospec=True)
 def test_main_print_trips(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None:
   """Test."""
   db_obj, dart_obj = mock.MagicMock(), mock.MagicMock()
@@ -154,8 +154,8 @@ def test_main_print_trips(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) 
   dart_obj.PrettyDaySchedule.assert_called_once_with(day=datetime.date(2025, 8, 4))
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-@mock.patch('src.tfinta.dart.DART', autospec=True)
+@mock.patch('tfinta.gtfs.GTFS', autospec=True)
+@mock.patch('tfinta.dart.DART', autospec=True)
 def test_main_print_station(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None:
   """Test."""
   db_obj, dart_obj = mock.MagicMock(), mock.MagicMock()
@@ -175,8 +175,8 @@ def test_main_print_station(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock
   )
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-@mock.patch('src.tfinta.dart.DART', autospec=True)
+@mock.patch('tfinta.gtfs.GTFS', autospec=True)
+@mock.patch('tfinta.dart.DART', autospec=True)
 def test_main_print_trip(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None:
   """Test."""
   db_obj, dart_obj = mock.MagicMock(), mock.MagicMock()
@@ -192,8 +192,8 @@ def test_main_print_trip(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -
   dart_obj.PrettyPrintTrip.assert_called_once_with(trip_name='E108')
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-@mock.patch('src.tfinta.dart.DART', autospec=True)
+@mock.patch('tfinta.gtfs.GTFS', autospec=True)
+@mock.patch('tfinta.dart.DART', autospec=True)
 def test_main_print_all(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None:
   """Test."""
   db_obj, dart_obj = mock.MagicMock(), mock.MagicMock()
@@ -224,8 +224,8 @@ def test_main_invalid_date() -> None:
     dart._TODAY_INT = original
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-@mock.patch('src.tfinta.dart.DART', autospec=True)
+@mock.patch('tfinta.gtfs.GTFS', autospec=True)
+@mock.patch('tfinta.dart.DART', autospec=True)
 def test_main_markdown(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None:
   """Test markdown command."""
   db_obj, dart_obj = mock.MagicMock(), mock.MagicMock()
@@ -437,8 +437,8 @@ def test_DART_PrettyStationSchedule_time_backwards(gtfs_object: gtfs.GTFS) -> No
     list(db.PrettyStationSchedule(stop_id='8350IR0123', day=datetime.date(2025, 8, 4)))
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-@mock.patch('src.tfinta.dart.DART', autospec=True)
+@mock.patch('tfinta.gtfs.GTFS', autospec=True)
+@mock.patch('tfinta.dart.DART', autospec=True)
 def test_PrintAll_body(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None:
   """Test PrintAll by directly calling the function to cover body lines."""
   mock_dart_instance = mock.MagicMock()
@@ -454,11 +454,11 @@ def test_PrintAll_body(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> 
   )
   dart.PrintAll(ctx=mock_ctx)
   mock_dart_instance.PrettyPrintAllDatabase.assert_called_once()
-  assert mock_ctx.obj.console.print.call_count == 2
+  assert mock_ctx.obj.console.print.call_count == 2  # type: ignore[attr-defined]
 
 
-@mock.patch('src.tfinta.gtfs.GTFS', autospec=True)
-@mock.patch('src.tfinta.dart.DART', autospec=True)
+@mock.patch('tfinta.gtfs.GTFS', autospec=True)
+@mock.patch('tfinta.dart.DART', autospec=True)
 def test_PrintTrip_body(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) -> None:
   """Test PrintTrip by directly calling the function to cover body lines."""
   mock_dart_instance = mock.MagicMock()
@@ -474,4 +474,4 @@ def test_PrintTrip_body(mock_dart: mock.MagicMock, mock_gtfs: mock.MagicMock) ->
   )
   dart.PrintTrip(ctx=mock_ctx, train='E108')
   mock_dart_instance.PrettyPrintTrip.assert_called_once_with(trip_name='E108')
-  mock_ctx.obj.console.print.assert_called_once_with('line1')
+  mock_ctx.obj.console.print.assert_called_once_with('line1')  # type: ignore[attr-defined]
