@@ -21,252 +21,70 @@ from __future__ import annotations
 
 import pathlib
 import shutil
-import subprocess  # noqa: S404
-import sys
-import venv
-import zipfile
 
 import pytest
+from transcrypto.utils import base, config
 
 import tfinta
+from tfinta import tfinta_base
 
 _APP_NAMES: set[str] = {'gtfs', 'dart', 'realtime'}
-
-
-def _RepoRoot() -> pathlib.Path:
-  # tests_integration/test_installed_cli.py -> repo root is parents[1]
-  return pathlib.Path(__file__).resolve().parents[1]
-
-
-def _Run(
-  cmd: list[str],
-  *,
-  cwd: pathlib.Path | None = None,
-  env: dict[str, str] | None = None,
-) -> subprocess.CompletedProcess[str]:
-  """Run a command; return the completed process; assert success with useful diagnostics.
-
-  Args:
-      cmd (list[str]): command
-      cwd (Path | None, optional): Path. Defaults to None.
-      env (dict[str, str] | None, optional): Environment. Defaults to None.
-
-  Raises:
-      AssertionError: invalid return code
-
-  Returns:
-      subprocess.CompletedProcess[str]: result
-
-  """
-  result: subprocess.CompletedProcess[str] = subprocess.run(  # noqa: S603
-    cmd,
-    cwd=str(cwd) if cwd is not None else None,
-    env=env,
-    text=True,
-    capture_output=True,
-    check=False,
-  )
-  if result.returncode != 0:
-    details: str = (
-      f'Command failed (exit={result.returncode}): {cmd}\n\n'
-      f'--- stdout ---\n{result.stdout}\n'
-      f'--- stderr ---\n{result.stderr}\n'
-    )
-    raise AssertionError(details)
-  return result
-
-
-def _WheelHasConsoleScripts(wheel: pathlib.Path, scripts: set[str]) -> bool:
-  """Return True if the wheel defines the given console scripts.
-
-  Args:
-      wheel (pathlib.Path): wheel path
-      scripts (set[str]): set of console script names to check for
-
-  Returns:
-      bool: True if all specified console scripts are found in the wheel
-
-  """
-  try:
-    with zipfile.ZipFile(wheel) as zf:
-      entry_points: list[str] = [n for n in zf.namelist() if n.endswith('entry_points.txt')]
-      if not entry_points:
-        return False
-      data: str = zf.read(entry_points[0]).decode('utf-8', errors='replace')
-  except (OSError, zipfile.BadZipFile):
-    return False
-  # Minimal parse: ensure the [console_scripts] section contains the required names.
-  in_console_scripts: bool = False
-  found: set[str] = set()
-  for raw_line in data.splitlines():
-    line: str = raw_line.strip()
-    if not line or line.startswith(('#', ';')):
-      continue
-    if line.startswith('[') and line.endswith(']'):
-      in_console_scripts = line == '[console_scripts]'
-      continue
-    if in_console_scripts and '=' in line:
-      name: str = line.split('=', 1)[0].strip()
-      found.add(name)
-  return scripts.issubset(found)
-
-
-def _VenvPaths(venv_dir: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path]:
-  """Return virtual environment paths for python and /bin.
-
-  Args:
-      venv_dir (Path): path to venv
-
-  Returns:
-      tuple[Path, Path]: (venv_python, venv_bin_dir)
-
-  """
-  if sys.platform.startswith('win'):
-    bin_dir: pathlib.Path = venv_dir / 'Scripts'
-    py: pathlib.Path = bin_dir / 'python.exe'
-  else:
-    bin_dir = venv_dir / 'bin'
-    py = bin_dir / 'python'
-  return py, bin_dir
-
-
-def _FindConsoleScript(bin_dir: pathlib.Path, name: str) -> pathlib.Path:
-  """Find the installed console script in the venv (platform-specific).
-
-  Args:
-      bin_dir (Path): directory containing the console scripts
-      name (str): name of the console script to find
-
-  Raises:
-      FileNotFoundError: if the console script is not found
-
-  Returns:
-      Path: path to the console script
-
-  """
-  # Windows may have .exe/.cmd; *nix is typically just the name
-  candidates: list[pathlib.Path] = [
-    bin_dir / name,
-    bin_dir / f'{name}.exe',
-    bin_dir / f'{name}.cmd',
-  ]
-  for p in candidates:
-    if p.exists():
-      return p
-  raise FileNotFoundError(f'Could not find console script {name!r} in {bin_dir}')
-
-
-def _EnsureWheel(repo: pathlib.Path, expected_version: str, /) -> pathlib.Path:
-  """Build a wheel if needed; return path to the newest wheel in dist/.
-
-  Args:
-      repo (Path): path to the repository root
-      expected_version (str): expected version string to match in the wheel filename
-
-  Raises:
-      AssertionError: if no wheel is found after building
-
-  Returns:
-      Path: path to the newest wheel in dist/
-
-  """
-  dist_dir: pathlib.Path = repo / 'dist'
-  dist_dir.mkdir(exist_ok=True)
-  # discover existing wheels
-  wheels: list[pathlib.Path] = sorted(dist_dir.glob('*.whl'), key=lambda p: p.stat().st_mtime)
-  # prefer an existing wheel that matches the current source version; otherwise build a new one.
-  matching: list[pathlib.Path] = [w for w in wheels if f'-{expected_version}-' in w.name]
-  if matching:
-    newest: pathlib.Path = matching[-1]
-    # if a stale wheel exists (e.g., built before console scripts were configured), rebuild.
-    if _WheelHasConsoleScripts(newest, _APP_NAMES):
-      return newest
-  # build a new wheel
-  poetry: str | None = shutil.which('poetry')
-  if poetry is None:
-    pytest.skip('Poetry not found on PATH; cannot build wheel for integration test.')
-  _Run([poetry, 'build', '-f', 'wheel'], cwd=repo)
-  # discover newly built wheels
-  wheels = sorted(dist_dir.glob('*.whl'), key=lambda p: p.stat().st_mtime)
-  if not wheels:
-    raise AssertionError('Wheel build succeeded but no .whl found in dist/.')
-  return wheels[-1]
 
 
 @pytest.mark.integration
 def test_installed_cli_smoke(tmp_path: pathlib.Path) -> None:
   """Build wheel, install into a clean venv, run the installed CLIs."""
-  repo: pathlib.Path = _RepoRoot()
+  repo_root: pathlib.Path = pathlib.Path(__file__).resolve().parents[1]
   expected_version: str = tfinta.__version__
-  wheel: pathlib.Path = _EnsureWheel(repo, expected_version)
-  # 1) create an isolated venv (not using Poetry's .venv on purpose)
-  venv_dir: pathlib.Path = tmp_path / 'venv'
-  venv.EnvBuilder(with_pip=True, clear=True).create(venv_dir)
-  vpy, bin_dir = _VenvPaths(venv_dir)
-  # 2) install the wheel into the venv
-  _Run([str(vpy), '-m', 'pip', 'install', '--upgrade', 'pip'])
-  _Run([str(vpy), '-m', 'pip', 'install', str(wheel)])
-  # 3) run the installed console scripts
-  gtfs_cli: pathlib.Path = _FindConsoleScript(bin_dir, 'gtfs')
-  dart_cli: pathlib.Path = _FindConsoleScript(bin_dir, 'dart')
-  realtime_cli: pathlib.Path = _FindConsoleScript(bin_dir, 'realtime')
-  # versions should match the source version (kept in sync with pyproject.toml)
-  r: subprocess.CompletedProcess[str] = _Run([str(gtfs_cli), '--version'])
-  assert r.stdout.strip() == expected_version
-  r = _Run([str(dart_cli), '--version'])
-  assert r.stdout.strip() == expected_version
-  r = _Run([str(realtime_cli), '--version'])
-  assert r.stdout.strip() == expected_version
+  vpy, bin_dir = config.EnsureAndInstallWheel(repo_root, tmp_path, expected_version, _APP_NAMES)
+  cli_paths: dict[str, pathlib.Path] = config.EnsureConsoleScriptsPrintExpectedVersion(
+    vpy, bin_dir, expected_version, _APP_NAMES
+  )
   # basic command smoke tests
-  _GTFS_call(gtfs_cli, vpy)
-  _DART_call(dart_cli, vpy)
-  _realtime_call(realtime_cli)
+  data_dir: pathlib.Path = config.CallGetConfigDirFromVEnv(vpy, tfinta_base.APP_NAME)
+  _GTFS_call(cli_paths, data_dir)
+  _DART_call(cli_paths, data_dir)
+  _realtime_call(cli_paths)
 
 
-def _GTFS_call(gtfs_cli: pathlib.Path, vpy: pathlib.Path) -> None:
-  # gtfs: read data and print basics; use --no-color to avoid ANSI codes in asserts.
-  r: subprocess.CompletedProcess[str] = _Run([str(gtfs_cli), '--no-color', 'read'])
-  assert 'loaded successfully' in r.stdout.lower()
-  assert '\x1b[' not in r.stdout and '\x1b[' not in r.stderr  # no ANSI codes
-  # verify GTFS created a local DB under the platformdirs user data location
-  r2: subprocess.CompletedProcess[str] = _Run(
-    [str(vpy), '-c', 'import platformdirs; print(platformdirs.user_data_path("tfinta"))']
-  )
-  data_dir = pathlib.Path(r2.stdout.strip())
-  db_file: pathlib.Path = data_dir / 'transit.db'
-  assert data_dir.exists() and db_file.exists()
-  r = _Run([str(gtfs_cli), '--no-color', 'print', 'basics'])
-  # match presence of DART routes with a 5355_123769 route id fragment
-  assert 'DART' in r.stdout and 'Iarnród Éireann / Irish Rail' in r.stdout
-  assert '\x1b[' not in r.stdout and '\x1b[' not in r.stderr  # no ANSI codes
-  # remove created data to isolate the next CLI's read step
-  shutil.rmtree(data_dir)
+def _GTFS_call(cli_paths: dict[str, pathlib.Path], data_dir: pathlib.Path, /) -> None:
+  try:
+    # gtfs: read data and print basics; use --no-color to avoid ANSI codes in asserts.
+    r = base.Run([str(cli_paths['gtfs']), '--no-color', 'read'])
+    assert 'loaded successfully' in r.stdout.lower()
+    assert '\x1b[' not in r.stdout and '\x1b[' not in r.stderr  # no ANSI codes
+    # verify GTFS created a local DB under the platformdirs user config location
+    db_file: pathlib.Path = data_dir / 'transit.db'
+    assert data_dir.exists() and db_file.exists()
+    r = base.Run([str(cli_paths['gtfs']), '--no-color', 'print', 'basics'])
+    # match presence of DART routes with a 5355_123769 route id fragment
+    assert 'DART' in r.stdout and 'Iarnród Éireann / Irish Rail' in r.stdout
+    assert '\x1b[' not in r.stdout and '\x1b[' not in r.stderr  # no ANSI codes
+  finally:
+    shutil.rmtree(data_dir)  # remove created data to isolate the next CLI's read step
 
 
-def _DART_call(dart_cli: pathlib.Path, vpy: pathlib.Path) -> None:
-  # dart: read data and print station info; use --no-color to avoid ANSI codes in asserts.
-  r: subprocess.CompletedProcess[str] = _Run([str(dart_cli), '--no-color', 'read'])
-  assert 'loaded successfully' in r.stdout.lower()
-  assert '\x1b[' not in r.stdout and '\x1b[' not in r.stderr  # no ANSI codes
-  # verify DART also created the local DB file in the platformdirs user data location
-  r2: subprocess.CompletedProcess[str] = _Run(
-    [str(vpy), '-c', 'import platformdirs; print(platformdirs.user_data_path("tfinta"))']
-  )
-  data_dir = pathlib.Path(r2.stdout.strip())
-  db_file: pathlib.Path = data_dir / 'transit.db'
-  assert data_dir.exists() and db_file.exists()
-  r = _Run([str(dart_cli), '--no-color', 'print', 'station', 'Tara'])
-  # ensure output contains the expected station header, station code, a known
-  # destination and a service/trip id fragment (more specific than just non-empty)
-  assert 'Tara Street' in r.stdout and '8220IR0025' in r.stdout and 'Bray' in r.stdout
-  assert '\x1b[' not in r.stdout and '\x1b[' not in r.stderr  # no ANSI codes
-  # remove created data to isolate the next CLI's read step
-  shutil.rmtree(data_dir)
+def _DART_call(cli_paths: dict[str, pathlib.Path], data_dir: pathlib.Path, /) -> None:
+  try:
+    # dart: read data and print station info; use --no-color to avoid ANSI codes in asserts.
+    r = base.Run([str(cli_paths['dart']), '--no-color', 'read'])
+    assert 'loaded successfully' in r.stdout.lower()
+    assert '\x1b[' not in r.stdout and '\x1b[' not in r.stderr  # no ANSI codes
+    # verify DART also created the local DB file in the platformdirs user config location
+    db_file: pathlib.Path = data_dir / 'transit.db'
+    assert data_dir.exists() and db_file.exists()
+    r = base.Run([str(cli_paths['dart']), '--no-color', 'print', 'station', 'Tara'])
+    # ensure output contains the expected station header, station code, a known
+    # destination and a service/trip id fragment (more specific than just non-empty)
+    assert 'Tara Street' in r.stdout and '8220IR0025' in r.stdout and 'Bray' in r.stdout
+    assert '\x1b[' not in r.stdout and '\x1b[' not in r.stderr  # no ANSI codes
+  finally:
+    shutil.rmtree(data_dir)  # remove created data to isolate the next CLI's read step
 
 
-def _realtime_call(realtime_cli: pathlib.Path) -> None:
+def _realtime_call(cli_paths: dict[str, pathlib.Path], /) -> None:
   # realtime: print stations; use --no-color to avoid ANSI codes in asserts.
-  r: subprocess.CompletedProcess[str] = _Run([str(realtime_cli), '--no-color', 'print', 'stations'])
+  r = base.Run([str(cli_paths['realtime']), '--no-color', 'print', 'stations'])
   # table output varies; assert Bray station id and code exist
   assert 'BRAY' in r.stdout and 'Bray' in r.stdout and '140' in r.stdout
   assert '\x1b[' not in r.stdout and '\x1b[' not in r.stderr  # no ANSI codes

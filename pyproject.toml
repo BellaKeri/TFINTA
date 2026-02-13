@@ -47,7 +47,7 @@ license-files = [ "LICENSE" ]
 
 dependencies = [
 
-  "transcrypto>=2.2",
+  "transcrypto>=2.3",
 
   # best place for project dependencies, if possible
   # development-only dependencies go in the [tool.poetry.group.dev.dependencies] section below
@@ -104,7 +104,8 @@ python = "^3.12"  # if version changes, remember to change README.md
 
 [tool.poetry.group.dev.dependencies]
 
-ruff = "~0.15.0"
+# basic, all projects should have
+ruff = "~0.15.1"
 mypy = "~1.19.1"
 pytest = "^9.0"
 pytest-cov = "^7.0"
@@ -113,6 +114,8 @@ pyright = "^1.1"
 pre-commit = "^4.5"
 pyinstrument = "^5.1"
 typeguard = "^4.4"
+
+# project-specific dev-only
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = "^1.10"
@@ -154,7 +157,7 @@ ignore-overlong-task-comments = true
 
 select = [
   "ALL",   # ALL rules --- if too strict comment this out and pick the ones you need below
-#   "E",     # pycodestyle “errors” (basic correctness-ish style checks)
+#   "E",     # pycodestyle "errors" (basic correctness-ish style checks)
 # 	"F",     # pyflakes (unused imports/vars, undefined names, etc.)
 # 	"I",     # isort rules (import sorting)
 # 	"UP",    # pyupgrade (suggest modern Python syntax)

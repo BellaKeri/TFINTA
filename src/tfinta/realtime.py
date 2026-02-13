@@ -27,7 +27,7 @@ from rich import console as rich_console
 from rich import table as rich_table
 from transcrypto.cli import clibase
 from transcrypto.utils import config as app_config
-from transcrypto.utils import human
+from transcrypto.utils import human, stats
 from transcrypto.utils import logging as tc_logging
 
 from . import __version__
@@ -496,7 +496,8 @@ class RealtimeRail:
       description=row['StationDesc'],
       location=(
         None
-        if row['StationLatitude'] == 0.0 and row['StationLongitude'] == 0.0
+        if stats.IS_EQUAL(row['StationLatitude'], 0.0)
+        and stats.IS_EQUAL(row['StationLongitude'], 0.0)
         else base.Point(latitude=row['StationLatitude'], longitude=row['StationLongitude'])
       ),
       alias=row['StationAlias'],
@@ -530,7 +531,7 @@ class RealtimeRail:
       direction=row['Direction'],
       position=(
         None
-        if row['TrainLatitude'] == 0 and row['TrainLongitude'] == 0
+        if stats.IS_EQUAL(row['TrainLatitude'], 0.0) and stats.IS_EQUAL(row['TrainLongitude'], 0.0)
         else base.Point(latitude=row['TrainLatitude'], longitude=row['TrainLongitude'])
       ),
       message=html.escape(row['PublicMessage'].replace('\\n', '\n')),
