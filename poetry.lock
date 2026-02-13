@@ -1107,14 +1107,14 @@ files = [
 
 [[package]]
 name = "transcrypto"
-version = "2.3.0"
+version = "2.3.1"
 description = "Basic crypto primitives, not intended for actual use, but as a companion to --Criptografia, Métodos e Algoritmos--"
 optional = false
 python-versions = ">=3.12"
 groups = ["main"]
 files = [
-    {file = "transcrypto-2.3.0-py3-none-any.whl", hash = "sha256:800b9d3558dea6af9f4af4bd252265ab5c3c126c6241accaad19b62ad2e92dda"},
-    {file = "transcrypto-2.3.0.tar.gz", hash = "sha256:dd4b658fc44b7af58807df5df9158d26a923a84244fd569eddbf1120d73f742e"},
+    {file = "transcrypto-2.3.1-py3-none-any.whl", hash = "sha256:955f7f22df514df4aa4f8a6cda8980db3b96892ef1e863d7f03c0a945e055b10"},
+    {file = "transcrypto-2.3.1.tar.gz", hash = "sha256:923a9f94a055c3e64bbe8f2ea78b13f49833e80c775f04a3f48e52bd54ea7ad5"},
 ]
 
 [package.dependencies]
@@ -1306,4 +1306,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "41b31386b97558bcd0406dd1b3fd7188f7121d7a1701ca8b894d4b8d4f4813f4"
+content-hash = "90e6d81d3476ca121cc07d46ad28b8ba9d3ec11f43d2305f3a3cc92f3acc9732"
