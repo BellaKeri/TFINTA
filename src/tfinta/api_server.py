@@ -32,6 +32,8 @@ from . import tfinta_base as base
 class APIServerConfig(clibase.CLIConfig):
   """CLI global context, storing the configuration."""
 
+  verbose_name: str
+
 
 _VERBOSITY_NAMES: dict[int, str] = {
   0: 'error',
@@ -94,6 +96,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
     raise typer.Exit(0)
   # initialize logging and get console
   console: rich_console.Console
+  vn: str = _VERBOSITY_NAMES.get(min(verbose, 3), 'error')  # convert before passing to config!
   console, verbose, color = tc_logging.InitLogging(
     verbose,
     color=color,
@@ -105,6 +108,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
     verbose=verbose,
     color=color,
     appconfig=app_config.InitConfig(base.APP_NAME, base.CONFIG_FILE_NAME),
+    verbose_name=vn,
   )
 
 
@@ -124,13 +128,7 @@ def APIRun(  # noqa: D103
   ),
 ) -> None:  # documentation is help/epilog/args
   config: APIServerConfig = ctx.obj
-  uvicorn.run(
-    'tfinta.api:app',
-    host=host,
-    port=port,
-    reload=reload,
-    log_level=_VERBOSITY_NAMES[config.verbose],
-  )
+  uvicorn.run('tfinta.api:app', host=host, port=port, reload=reload, log_level=config.verbose_name)
 
 
 @app.command(
