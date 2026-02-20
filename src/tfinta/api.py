@@ -18,13 +18,41 @@ from __future__ import annotations
 import contextlib
 import datetime
 from collections import abc
-from typing import Annotated
+from typing import Annotated, Any
 
 import fastapi
+import pydantic
 
 from . import __version__, realtime
 from . import realtime_data_model as dm
 from . import tfinta_base as base
+
+# ---------------------------------------------------------------------------
+# Shared error model (visible in the OpenAPI schema)
+# ---------------------------------------------------------------------------
+
+
+class ErrorResponse(pydantic.BaseModel):
+  """Standard error body returned by all non-2xx responses."""
+
+  detail: str = pydantic.Field(description='Human-readable error message.')
+
+
+type ErrorResponseType = dict[int | str, dict[str, Any]]
+
+
+_RESPONSES_502: ErrorResponseType = {
+  502: {
+    'description': 'Upstream Irish Rail API error.',
+    'model': ErrorResponse,
+  },
+}
+_RESPONSES_503: ErrorResponseType = {
+  503: {
+    'description': 'Service not ready (still starting up).',
+    'model': ErrorResponse,
+  },
+}
 
 # ---------------------------------------------------------------------------
 # Application lifespan: create the shared RealtimeRail instance once
@@ -46,6 +74,19 @@ async def _lifespan(_app: fastapi.FastAPI) -> abc.AsyncGenerator[None, None]:  #
 # fastapi.FastAPI application
 # ---------------------------------------------------------------------------
 
+
+def _custom_operation_id(route: fastapi.routing.APIRoute) -> str:
+  """Derive a clean ``operationId`` from the endpoint function name.
+
+  Falls back to the default FastAPI scheme when no name is set.
+
+  Returns:
+    str: the operation ID string.
+
+  """
+  return route.name
+
+
 app = fastapi.FastAPI(
   title='TFINTA Realtime API',
   description=(
@@ -56,6 +97,10 @@ app = fastapi.FastAPI(
   lifespan=_lifespan,
   docs_url='/docs',
   redoc_url='/redoc',
+  generate_unique_id_function=_custom_operation_id,
+  servers=[
+    {'url': '/', 'description': 'Current server'},
+  ],
 )
 
 
@@ -79,7 +124,12 @@ def _get_realtime() -> realtime.RealtimeRail:
 # ---------------------------------------------------------------------------
 
 
-@app.get('/health', tags=['health'])
+@app.get(
+  '/health',
+  tags=['health'],
+  operation_id='health',
+  summary='Health check',
+)
 async def health() -> dict[str, str]:
   """Liveness / readiness probe for Cloud Run.
 
@@ -100,6 +150,8 @@ async def health() -> dict[str, str]:
   response_model=dm.StationsResponse,
   tags=['stations'],
   summary='List all Irish Rail stations',
+  operation_id='getStations',
+  responses=_RESPONSES_502,
 )
 async def get_stations() -> dm.StationsResponse:
   """Return every station known to Irish Rail Realtime.
@@ -131,6 +183,8 @@ async def get_stations() -> dm.StationsResponse:
   response_model=dm.RunningTrainsResponse,
   tags=['trains'],
   summary='List currently running trains',
+  operation_id='getRunningTrains',
+  responses=_RESPONSES_502,
 )
 async def get_running_trains() -> dm.RunningTrainsResponse:
   """Return all trains currently operating on the network.
@@ -162,6 +216,8 @@ async def get_running_trains() -> dm.RunningTrainsResponse:
   response_model=dm.StationBoardResponse,
   tags=['stations'],
   summary='Station departure/arrival board',
+  operation_id='getStationBoard',
+  responses=_RESPONSES_502,
 )
 async def get_station_board(
   station_code: Annotated[
@@ -211,6 +267,8 @@ async def get_station_board(
   response_model=dm.TrainMovementsResponse,
   tags=['trains'],
   summary='Train movements / stops',
+  operation_id='getTrainMovements',
+  responses=_RESPONSES_502,
 )
 async def get_train_movements(
   train_code: Annotated[

@@ -202,8 +202,8 @@ class DayRange:
 class DayRangeModel(pydantic.BaseModel):
   """Arrival / departure pair."""
 
-  arrival: DayTimeModel | None = None
-  departure: DayTimeModel | None = None
+  arrival: DayTimeModel | None = pydantic.Field(default=None, description='Arrival time')
+  departure: DayTimeModel | None = pydantic.Field(default=None, description='Departure time')
 
   @classmethod
   def from_domain(cls, dr: DayRange | None) -> DayRangeModel | None:
@@ -267,8 +267,8 @@ class Point:
 class PointModel(pydantic.BaseModel):
   """A geographic point (WGS-84)."""
 
-  latitude: float
-  longitude: float
+  latitude: float = pydantic.Field(description='Latitude in decimal degrees (WGS84)')
+  longitude: float = pydantic.Field(description='Longitude in decimal degrees (WGS84)')
 
   @classmethod
   def from_domain(cls, p: Point | None) -> PointModel | None:

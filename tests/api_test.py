@@ -402,6 +402,51 @@ def test_openapi_schema(client: TestClient) -> None:
   assert '/train/{train_code}' in paths
 
 
+def test_openapi_operation_ids(client: TestClient) -> None:
+  """Every route exposes a clean operationId suitable for code-generation."""
+  resp = client.get('/openapi.json')
+  assert resp.status_code == 200
+  paths = resp.json()['paths']
+  assert paths['/health']['get']['operationId'] == 'health'
+  assert paths['/stations']['get']['operationId'] == 'getStations'
+  assert paths['/running']['get']['operationId'] == 'getRunningTrains'
+  assert paths['/station/{station_code}']['get']['operationId'] == 'getStationBoard'
+  assert paths['/train/{train_code}']['get']['operationId'] == 'getTrainMovements'
+
+
+def test_openapi_error_responses(client: TestClient) -> None:
+  """Data endpoints document a 502 error response with ErrorResponse schema."""
+  resp = client.get('/openapi.json')
+  assert resp.status_code == 200
+  paths = resp.json()['paths']
+  for route in ('/stations', '/running', '/station/{station_code}', '/train/{train_code}'):
+    responses = paths[route]['get']['responses']
+    assert '502' in responses, f'{route} missing 502 response'
+
+
+def test_openapi_enum_literals(client: TestClient) -> None:
+  """Enum string fields expose ``enum`` constraints in the OpenAPI schema."""
+  resp = client.get('/openapi.json')
+  assert resp.status_code == 200
+  schema = resp.json()
+  # Resolve RunningTrainModel.status
+  running_props = schema['components']['schemas']['RunningTrainModel']['properties']
+  status_schema = running_props['status']
+  # Pydantic may inline enum values or use anyOf; accept both
+  status_enum: list[str] | None = status_schema.get('enum')
+  if status_enum is None:
+    # anyOf with const entries
+    status_enum = [opt.get('const') for opt in status_schema.get('anyOf', []) if 'const' in opt]
+  assert set(status_enum) == {'TERMINATED', 'NOT_YET_RUNNING', 'RUNNING'}
+  # Resolve TrainStopModel.stop_type
+  stop_props = schema['components']['schemas']['TrainStopModel']['properties']
+  stop_type = stop_props['stop_type']
+  stop_enum: list[str] | None = stop_type.get('enum')
+  if stop_enum is None:
+    stop_enum = [opt.get('const') for opt in stop_type.get('anyOf', []) if 'const' in opt]
+  assert set(stop_enum) == {'UNKNOWN', 'CURRENT', 'NEXT'}
+
+
 def test_docs_endpoint(client: TestClient) -> None:
   """GET /docs returns 200 (Swagger UI is served)."""
   resp = client.get('/docs')
