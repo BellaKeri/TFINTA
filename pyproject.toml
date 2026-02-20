@@ -113,7 +113,7 @@ pytest-flakefinder = "^1.1"
 pyright = "^1.1"
 pre-commit = "^4.5"
 pyinstrument = "^5.1"
-typeguard = "^4.4"
+typeguard = "^4.5"
 
 # project-specific dev-only
 
