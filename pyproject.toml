@@ -47,7 +47,7 @@ license-files = [ "LICENSE" ]
 
 dependencies = [
 
-  "transcrypto>=2.3.1",
+  "transcrypto>=2.3.2",
 
   # best place for project dependencies, if possible
   # development-only dependencies go in the [tool.poetry.group.dev.dependencies] section below
@@ -105,7 +105,7 @@ python = "^3.12"  # if version changes, remember to change README.md
 [tool.poetry.group.dev.dependencies]
 
 # basic, all projects should have
-ruff = "~0.15.1"
+ruff = "~0.15.2"
 mypy = "~1.19.1"
 pytest = "^9.0"
 pytest-cov = "^7.0"
