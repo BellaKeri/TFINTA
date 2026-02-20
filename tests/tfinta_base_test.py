@@ -164,3 +164,30 @@ def test_DaysRange_lt() -> None:
   # different start
   assert r1 < r3
   assert not r3 < r1
+
+
+def test_DayRangeModel_from_domain_none() -> None:
+  """DayRangeModel.from_domain(None) returns None (line 217 coverage)."""
+  assert base.DayRangeModel.from_domain(None) is None
+
+
+def test_DayRangeModel_from_domain() -> None:
+  """DayRangeModel.from_domain converts a DayRange with arrival and departure."""
+  t1 = base.DayTime(time=3600)  # 01:00:00
+  t2 = base.DayTime(time=7200)  # 02:00:00
+  dr = base.DayRange(arrival=t1, departure=t2)
+  model = base.DayRangeModel.from_domain(dr)
+  assert model is not None
+  assert model.arrival is not None
+  assert model.arrival.seconds == 3600 and model.arrival.hms == '01:00:00'
+  assert model.departure is not None
+  assert model.departure.seconds == 7200 and model.departure.hms == '02:00:00'
+
+
+def test_DayRangeModel_from_domain_nullable_nones() -> None:
+  """DayRangeModel.from_domain converts a nullable DayRange with both times None."""
+  dr = base.DayRange(arrival=None, departure=None, nullable=True)
+  model = base.DayRangeModel.from_domain(dr)
+  assert model is not None
+  assert model.arrival is None
+  assert model.departure is None

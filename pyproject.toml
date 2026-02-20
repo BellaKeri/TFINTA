@@ -48,12 +48,13 @@ license-files = [ "LICENSE" ]
 dependencies = [
 
   "transcrypto>=2.3.2",
-  "fastapi>=0.115",
-  "uvicorn[standard] (>=0.41.0,<0.42.0)",
-  "pydantic>=2.11",
 
   # best place for project dependencies, if possible
   # development-only dependencies go in the [tool.poetry.group.dev.dependencies] section below
+
+  "fastapi>=0.129",
+  "uvicorn[standard]>=0.41",
+  "pydantic>=2.12",
 
 ]
 
@@ -121,6 +122,7 @@ pyinstrument = "^5.1"
 typeguard = "^4.5"
 
 # project-specific dev-only
+httpx = "^0.28"
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = "^1.10"

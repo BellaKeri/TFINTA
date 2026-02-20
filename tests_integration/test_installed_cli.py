@@ -19,8 +19,13 @@ poetry run pytest -vvv -q tests_integration
 
 from __future__ import annotations
 
+import json
 import pathlib
 import shutil
+import socket
+import subprocess  # noqa: S404
+import time
+import urllib.request
 
 import pytest
 from transcrypto.utils import base, config
@@ -45,6 +50,7 @@ def test_installed_cli_smoke(tmp_path: pathlib.Path) -> None:
   _GTFS_call(cli_paths, data_dir)
   _DART_call(cli_paths, data_dir)
   _realtime_call(cli_paths)
+  _realtime_api_call(cli_paths)
 
 
 def _GTFS_call(cli_paths: dict[str, pathlib.Path], data_dir: pathlib.Path, /) -> None:
@@ -88,3 +94,44 @@ def _realtime_call(cli_paths: dict[str, pathlib.Path], /) -> None:
   # table output varies; assert Bray station id and code exist
   assert 'BRAY' in r.stdout and 'Bray' in r.stdout and '140' in r.stdout
   assert '\x1b[' not in r.stdout and '\x1b[' not in r.stderr  # no ANSI codes
+
+
+def _realtime_api_call(cli_paths: dict[str, pathlib.Path], /) -> None:
+  """Start the realtime-api server, call GET /stations, verify famous Irish stations.
+
+  Raises:
+    RuntimeError: if the server does not become ready within 15 seconds.
+
+  """
+  # find a free ephemeral port so we don't clash with anything already listening
+  with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    s.bind(('127.0.0.1', 0))
+    port: int = s.getsockname()[1]
+  url_base: str = f'http://127.0.0.1:{port}'
+  proc = subprocess.Popen(  # noqa: S603
+    [str(cli_paths['realtime-api']), 'run', '--host', '127.0.0.1', '--port', str(port)],
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+  )
+  try:
+    # poll /health until the server is accepting requests (up to 15 s)
+    deadline: float = time.monotonic() + 15.0
+    while time.monotonic() < deadline:
+      try:
+        urllib.request.urlopen(f'{url_base}/health', timeout=1)  # noqa: S310
+        break
+      except OSError:
+        time.sleep(0.25)
+    else:
+      raise RuntimeError(f'realtime-api did not start within 15 s on port {port}')
+    # call /stations and decode JSON
+    with urllib.request.urlopen(f'{url_base}/stations', timeout=10) as resp:  # noqa: S310
+      data: dict = json.loads(resp.read())
+    stations: list[dict] = data.get('stations', [])
+    names: set[str] = {s.get('name', '') for s in stations}
+    # Dublin Connolly and Bray are two of the most famous DART stations
+    assert any('Connolly' in n for n in names), f'Connolly not in station names: {names}'
+    assert any('Bray' in n for n in names), f'Bray not in station names: {names}'
+  finally:
+    proc.terminate()
+    proc.wait(timeout=10)
