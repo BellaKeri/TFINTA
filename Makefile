@@ -41,6 +41,7 @@ docs:
 	@echo "Generating gtfs.md & dart.md & realtime*.md..."
 	poetry run gtfs markdown > gtfs.md
 	poetry run dart markdown > dart.md
+	poetry run realtime markdown > realtime.md
 	poetry run realtime-api markdown > realtime-api.md
 
 req:

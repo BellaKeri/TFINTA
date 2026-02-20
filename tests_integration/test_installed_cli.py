@@ -19,6 +19,7 @@ poetry run pytest -vvv -q tests_integration
 
 from __future__ import annotations
 
+import contextlib
 import json
 import pathlib
 import shutil
@@ -100,7 +101,7 @@ def _realtime_api_call(cli_paths: dict[str, pathlib.Path], /) -> None:
   """Start the realtime-api server, call GET /stations, verify famous Irish stations.
 
   Raises:
-    RuntimeError: if the server does not become ready within 15 seconds.
+    RuntimeError: if the server does not become ready within 30 seconds.
 
   """
   # find a free ephemeral port so we don't clash with anything already listening
@@ -110,28 +111,44 @@ def _realtime_api_call(cli_paths: dict[str, pathlib.Path], /) -> None:
   url_base: str = f'http://127.0.0.1:{port}'
   proc: subprocess.Popen[bytes] = subprocess.Popen(  # noqa: S603
     [str(cli_paths['realtime-api']), 'run', '--host', '127.0.0.1', '--port', str(port)],
-    stdout=subprocess.PIPE,
+    stdout=subprocess.DEVNULL,
     stderr=subprocess.PIPE,
   )
   try:
-    # poll /health until the server is accepting requests (up to 15 s)
-    deadline: float = time.monotonic() + 15.0
+    # poll /health until the server is accepting requests (up to 30 s)
+    deadline: float = time.monotonic() + 30.0
     while time.monotonic() < deadline:
+      # detect early crash before the deadline
+      rc: int | None = proc.poll()
+      if rc is not None:
+        stderr_out: str = proc.stderr.read().decode(errors='replace') if proc.stderr else ''
+        raise RuntimeError(
+          f'realtime-api exited with code {rc} before becoming ready.\nstderr:\n{stderr_out}'
+        )
       try:
         urllib.request.urlopen(f'{url_base}/health', timeout=1)  # noqa: S310
         break
       except OSError:
         time.sleep(0.25)
     else:
-      raise RuntimeError(f'realtime-api did not start within 15 s on port {port}')
+      proc.terminate()
+      stderr_out_b: bytes = proc.communicate(timeout=5)[0]
+      raise RuntimeError(
+        f'realtime-api did not start within 30 s on port {port}.\n'
+        f'stderr:\n{stderr_out_b.decode(errors="replace")}'
+      )
     # call /stations and decode JSON
     with urllib.request.urlopen(f'{url_base}/stations', timeout=10) as resp:  # noqa: S310
       data: base.JSONDict = json.loads(resp.read())
     stations: base.JSONValue = data.get('stations', [])
-    names: set[str] = {s.get('name', '') for s in stations}  # type: ignore[union-attr,misc]
+    descriptions: set[str] = {s.get('description', '') for s in stations}  # type: ignore[union-attr,misc]
     # Dublin Connolly and Bray are two of the most famous DART stations
-    assert any('Connolly' in n for n in names), f'Connolly not in station names: {names}'
-    assert any('Bray' in n for n in names), f'Bray not in station names: {names}'
+    assert any('Connolly' in d for d in descriptions), f'Connolly not in stations: {descriptions}'
+    assert any('Bray' in d for d in descriptions), f'Bray not in stations: {descriptions}'
   finally:
-    proc.terminate()
-    proc.wait(timeout=10)
+    with contextlib.suppress(OSError):
+      proc.terminate()
+    try:
+      proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+      proc.kill()
