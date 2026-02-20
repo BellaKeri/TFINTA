@@ -108,7 +108,7 @@ def _realtime_api_call(cli_paths: dict[str, pathlib.Path], /) -> None:
     s.bind(('127.0.0.1', 0))
     port: int = s.getsockname()[1]
   url_base: str = f'http://127.0.0.1:{port}'
-  proc = subprocess.Popen(  # noqa: S603
+  proc: subprocess.Popen[bytes] = subprocess.Popen(  # noqa: S603
     [str(cli_paths['realtime-api']), 'run', '--host', '127.0.0.1', '--port', str(port)],
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
@@ -126,9 +126,9 @@ def _realtime_api_call(cli_paths: dict[str, pathlib.Path], /) -> None:
       raise RuntimeError(f'realtime-api did not start within 15 s on port {port}')
     # call /stations and decode JSON
     with urllib.request.urlopen(f'{url_base}/stations', timeout=10) as resp:  # noqa: S310
-      data: dict = json.loads(resp.read())
-    stations: list[dict] = data.get('stations', [])
-    names: set[str] = {s.get('name', '') for s in stations}
+      data: base.JSONDict = json.loads(resp.read())
+    stations: base.JSONValue = data.get('stations', [])
+    names: set[str] = {s.get('name', '') for s in stations}  # type: ignore[union-attr,misc]
     # Dublin Connolly and Bray are two of the most famous DART stations
     assert any('Connolly' in n for n in names), f'Connolly not in station names: {names}'
     assert any('Bray' in n for n in names), f'Bray not in station names: {names}'
