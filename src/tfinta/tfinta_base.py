@@ -12,6 +12,7 @@ import time
 from collections import abc
 from typing import Self
 
+import pydantic
 from transcrypto.utils import base
 
 # Logging and formatting
@@ -140,6 +141,25 @@ class DayTime:
     return cls(time=h * 3600 + m * 60 + s)
 
 
+class DayTimeModel(pydantic.BaseModel):
+  """Time during a day expressed as seconds since midnight *and* as ``HH:MM:SS``."""
+
+  seconds: int = pydantic.Field(description='Seconds since midnight')
+  hms: str = pydantic.Field(description='Human-readable HH:MM:SS')
+
+  @classmethod
+  def from_domain(cls, dt: DayTime | None) -> DayTimeModel | None:
+    """Convert domain ``DayTime`` to Pydantic model.
+
+    Returns:
+      DayTimeModel | None: converted model or ``None``.
+
+    """
+    if dt is None:
+      return None
+    return cls(seconds=dt.time, hms=dt.ToHMS())
+
+
 @functools.total_ordering
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class DayRange:
@@ -177,6 +197,28 @@ class DayRange:
     if self.arrival and other.arrival and self.arrival != other.arrival:
       return self.arrival.time < other.arrival.time
     return bool((self.departure and not other.departure) or (self.arrival and not other.arrival))
+
+
+class DayRangeModel(pydantic.BaseModel):
+  """Arrival / departure pair."""
+
+  arrival: DayTimeModel | None = None
+  departure: DayTimeModel | None = None
+
+  @classmethod
+  def from_domain(cls, dr: DayRange | None) -> DayRangeModel | None:
+    """Convert domain ``DayRange`` to Pydantic model.
+
+    Returns:
+      DayRangeModel | None: converted model or ``None``.
+
+    """
+    if dr is None:
+      return None
+    return cls(
+      arrival=DayTimeModel.from_domain(dr.arrival),
+      departure=DayTimeModel.from_domain(dr.departure),
+    )
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
@@ -220,6 +262,25 @@ class Point:
       return f'{degrees}°{minutes}′{seconds:0.2f}″{hemisphere}'  # noqa: RUF001
 
     return (_conv(self.latitude, 'N', 'S'), _conv(self.longitude, 'E', 'W'))
+
+
+class PointModel(pydantic.BaseModel):
+  """A geographic point (WGS-84)."""
+
+  latitude: float
+  longitude: float
+
+  @classmethod
+  def from_domain(cls, p: Point | None) -> PointModel | None:
+    """Convert domain ``Point`` to Pydantic model.
+
+    Returns:
+      PointModel | None: converted model or ``None``.
+
+    """
+    if p is None:
+      return None
+    return cls(latitude=p.latitude, longitude=p.longitude)
 
 
 @functools.total_ordering

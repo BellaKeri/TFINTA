@@ -14,6 +14,8 @@ import functools
 from collections import abc
 from typing import TypedDict
 
+import pydantic
+
 from . import tfinta_base as base
 
 ####################################################################################################
@@ -64,6 +66,39 @@ class ExpectedStationXMLRowType(TypedDict):
   StationLatitude: float
   StationLongitude: float
   StationAlias: str | None
+
+
+class StationModel(pydantic.BaseModel):
+  """A rail station."""
+
+  id: int
+  code: str = pydantic.Field(description='5-letter uppercase code, e.g. LURGN')
+  description: str
+  location: base.PointModel | None = None
+  alias: str | None = None
+
+  @classmethod
+  def from_domain(cls, s: Station) -> StationModel:
+    """Convert domain ``Station`` to Pydantic model.
+
+    Returns:
+      StationModel: converted model.
+
+    """
+    return cls(
+      id=s.id,
+      code=s.code,
+      description=s.description,
+      location=base.PointModel.from_domain(s.location),
+      alias=s.alias,
+    )
+
+
+class StationsResponse(pydantic.BaseModel):
+  """Response for the stations endpoint."""
+
+  count: int
+  stations: list[StationModel]
 
 
 class TrainStatus(enum.Enum):
@@ -124,6 +159,41 @@ class ExpectedRunningTrainXMLRowType(TypedDict):
   TrainLatitude: float
   TrainLongitude: float
   PublicMessage: str
+
+
+class RunningTrainModel(pydantic.BaseModel):
+  """A currently running train."""
+
+  code: str
+  status: str = pydantic.Field(description='TERMINATED | NOT_YET_RUNNING | RUNNING')
+  day: datetime.date
+  direction: str
+  message: str
+  position: base.PointModel | None = None
+
+  @classmethod
+  def from_domain(cls, t: RunningTrain) -> RunningTrainModel:
+    """Convert domain ``RunningTrain`` to Pydantic model.
+
+    Returns:
+      RunningTrainModel: converted model.
+
+    """
+    return cls(
+      code=t.code,
+      status=t.status.name,
+      day=t.day,
+      direction=t.direction,
+      message=t.message,
+      position=base.PointModel.from_domain(t.position),
+    )
+
+
+class RunningTrainsResponse(pydantic.BaseModel):
+  """Response for the running-trains endpoint."""
+
+  count: int
+  trains: list[RunningTrainModel]
 
 
 class TrainType(enum.Enum):
@@ -198,6 +268,32 @@ class StationLineQueryData(RealtimeRPCData):
     return self.tm_server < other.tm_server
 
 
+class StationLineQueryDataModel(pydantic.BaseModel):
+  """Metadata returned alongside a station-board query."""
+
+  tm_server: datetime.datetime
+  tm_query: base.DayTimeModel | None = None
+  station_name: str
+  station_code: str
+  day: datetime.date
+
+  @classmethod
+  def from_domain(cls, q: StationLineQueryData) -> StationLineQueryDataModel:
+    """Convert domain ``StationLineQueryData`` to Pydantic model.
+
+    Returns:
+      StationLineQueryDataModel: converted model.
+
+    """
+    return cls(
+      tm_server=q.tm_server,
+      tm_query=base.DayTimeModel.from_domain(q.tm_query),
+      station_name=q.station_name,
+      station_code=q.station_code,
+      day=q.day,
+    )
+
+
 @functools.total_ordering
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class StationLine(RealtimeRPCData):
@@ -263,6 +359,62 @@ class ExpectedStationLineXMLRowType(TypedDict):
   Locationtype: str  # O=Origin, S=Stop, T=TimingPoint (non stopping location), D=Destination
 
 
+class StationLineModel(pydantic.BaseModel):
+  """A single line on a station departure/arrival board."""
+
+  train_code: str
+  origin_code: str
+  origin_name: str
+  destination_code: str
+  destination_name: str
+  trip: base.DayRangeModel | None = None
+  direction: str
+  due_in: base.DayTimeModel | None = None
+  late: int
+  location_type: str = pydantic.Field(
+    description='STOP | ORIGIN | DESTINATION | TIMING_POINT | CREW_RELIEF_OR_CURRENT',
+  )
+  status: str | None = None
+  train_type: str = pydantic.Field(description='UNKNOWN | DMU | DART | ICR | LOCO')
+  last_location: str | None = None
+  scheduled: base.DayRangeModel | None = None
+  expected: base.DayRangeModel | None = None
+
+  @classmethod
+  def from_domain(cls, sl: StationLine) -> StationLineModel:
+    """Convert domain ``StationLine`` to Pydantic model.
+
+    Returns:
+      StationLineModel: converted model.
+
+    """
+    return cls(
+      train_code=sl.train_code,
+      origin_code=sl.origin_code,
+      origin_name=sl.origin_name,
+      destination_code=sl.destination_code,
+      destination_name=sl.destination_name,
+      trip=base.DayRangeModel.from_domain(sl.trip),
+      direction=sl.direction,
+      due_in=base.DayTimeModel.from_domain(sl.due_in),
+      late=sl.late,
+      location_type=sl.location_type.name,
+      status=sl.status,
+      train_type=sl.train_type.name,
+      last_location=sl.last_location,
+      scheduled=base.DayRangeModel.from_domain(sl.scheduled),
+      expected=base.DayRangeModel.from_domain(sl.expected),
+    )
+
+
+class StationBoardResponse(pydantic.BaseModel):
+  """Response for the station-board endpoint."""
+
+  query: StationLineQueryDataModel | None = None
+  count: int
+  lines: list[StationLineModel]
+
+
 class StopType(enum.Enum):
   """Stop type."""
 
@@ -305,6 +457,34 @@ class TrainStopQueryData(RealtimeRPCData):
     if self.destination_name != other.destination_name:
       return self.destination_name < other.destination_name
     return self.train_code < other.train_code
+
+
+class TrainStopQueryDataModel(pydantic.BaseModel):
+  """Metadata returned alongside a train-movements query."""
+
+  train_code: str
+  day: datetime.date
+  origin_code: str
+  origin_name: str
+  destination_code: str
+  destination_name: str
+
+  @classmethod
+  def from_domain(cls, q: TrainStopQueryData) -> TrainStopQueryDataModel:
+    """Convert domain ``TrainStopQueryData`` to Pydantic model.
+
+    Returns:
+      TrainStopQueryDataModel: converted model.
+
+    """
+    return cls(
+      train_code=q.train_code,
+      day=q.day,
+      origin_code=q.origin_code,
+      origin_name=q.origin_name,
+      destination_code=q.destination_code,
+      destination_name=q.destination_name,
+    )
 
 
 @functools.total_ordering
@@ -357,6 +537,52 @@ class ExpectedTrainStopXMLRowType(TypedDict):
   AutoArrival: bool | None
   AutoDepart: bool | None
   StopType: str
+
+
+class TrainStopModel(pydantic.BaseModel):
+  """A single stop in a train's journey."""
+
+  station_code: str
+  station_name: str | None = None
+  station_order: int
+  location_type: str = pydantic.Field(
+    description='STOP | ORIGIN | DESTINATION | TIMING_POINT | CREW_RELIEF_OR_CURRENT',
+  )
+  stop_type: str = pydantic.Field(description='UNKNOWN | CURRENT | NEXT')
+  auto_arrival: bool
+  auto_depart: bool
+  scheduled: base.DayRangeModel | None = None
+  expected: base.DayRangeModel | None = None
+  actual: base.DayRangeModel | None = None
+
+  @classmethod
+  def from_domain(cls, ts: TrainStop) -> TrainStopModel:
+    """Convert domain ``TrainStop`` to Pydantic model.
+
+    Returns:
+      TrainStopModel: converted model.
+
+    """
+    return cls(
+      station_code=ts.station_code,
+      station_name=ts.station_name,
+      station_order=ts.station_order,
+      location_type=ts.location_type.name,
+      stop_type=ts.stop_type.name,
+      auto_arrival=ts.auto_arrival,
+      auto_depart=ts.auto_depart,
+      scheduled=base.DayRangeModel.from_domain(ts.scheduled),
+      expected=base.DayRangeModel.from_domain(ts.expected),
+      actual=base.DayRangeModel.from_domain(ts.actual),
+    )
+
+
+class TrainMovementsResponse(pydantic.BaseModel):
+  """Response for the train-movements endpoint."""
+
+  query: TrainStopQueryDataModel | None = None
+  count: int
+  stops: list[TrainStopModel]
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=False)

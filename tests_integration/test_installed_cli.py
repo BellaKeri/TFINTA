@@ -28,7 +28,7 @@ from transcrypto.utils import base, config
 import tfinta
 from tfinta import tfinta_base
 
-_APP_NAMES: set[str] = {'gtfs', 'dart', 'realtime'}
+_APP_NAMES: set[str] = {'gtfs', 'dart', 'realtime', 'realtime-api'}
 
 
 @pytest.mark.integration

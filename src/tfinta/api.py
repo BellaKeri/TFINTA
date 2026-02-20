@@ -1,0 +1,257 @@
+# SPDX-FileCopyrightText: Copyright 2026 BellaKeri@github.com & balparda@github.com
+# SPDX-License-Identifier: Apache-2.0
+"""TFINTA Realtime fastapi.FastAPI application.
+
+Wraps ``RealtimeRail`` calls behind a REST/JSON API with automatic OpenAPI
+documentation.  Intended for deployment on Google Cloud Run (or any
+container-based hosting).
+
+Run locally with::
+
+    uvicorn tfinta.api:app --reload --port 8080
+
+The interactive docs are then available at ``http://localhost:8080/docs``.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import datetime
+from collections import abc
+from typing import Annotated
+
+import fastapi
+
+from . import __version__, realtime
+from . import realtime_data_model as dm
+from . import tfinta_base as base
+
+# ---------------------------------------------------------------------------
+# Application lifespan: create the shared RealtimeRail instance once
+# ---------------------------------------------------------------------------
+
+_realtime: realtime.RealtimeRail | None = None
+
+
+@contextlib.asynccontextmanager
+async def _lifespan(_app: fastapi.FastAPI) -> abc.AsyncGenerator[None, None]:  # noqa: RUF029
+  """Create the shared RealtimeRail instance on startup."""
+  global _realtime  # noqa: PLW0603
+  _realtime = realtime.RealtimeRail()
+  yield
+  _realtime = None
+
+
+# ---------------------------------------------------------------------------
+# fastapi.FastAPI application
+# ---------------------------------------------------------------------------
+
+app = fastapi.FastAPI(
+  title='TFINTA Realtime API',
+  description=(
+    'REST API for Irish Rail Realtime data '
+    '(stations, running trains, station boards, train movements).'
+  ),
+  version=__version__,
+  lifespan=_lifespan,
+  docs_url='/docs',
+  redoc_url='/redoc',
+)
+
+
+def _get_realtime() -> realtime.RealtimeRail:
+  """Return the shared ``RealtimeRail``, raising 503 if unavailable.
+
+  Returns:
+    realtime.RealtimeRail: the shared instance.
+
+  Raises:
+    fastapi.HTTPException: if the service is not ready (503).
+
+  """
+  if _realtime is None:  # pragma: no cover
+    raise fastapi.HTTPException(status_code=503, detail='Service not ready')
+  return _realtime
+
+
+# ---------------------------------------------------------------------------
+# Health check
+# ---------------------------------------------------------------------------
+
+
+@app.get('/health', tags=['health'])
+async def health() -> dict[str, str]:
+  """Liveness / readiness probe for Cloud Run.
+
+  Returns:
+    dict[str, str]: status and version.
+
+  """
+  return {'status': 'ok', 'version': __version__}
+
+
+# ---------------------------------------------------------------------------
+# Stations
+# ---------------------------------------------------------------------------
+
+
+@app.get(
+  '/stations',
+  response_model=dm.StationsResponse,
+  tags=['stations'],
+  summary='List all Irish Rail stations',
+)
+async def get_stations() -> dm.StationsResponse:
+  """Return every station known to Irish Rail Realtime.
+
+  Returns:
+    dm.StationsResponse: all stations.
+
+  Raises:
+    fastapi.HTTPException: upstream error (502).
+
+  """
+  try:
+    stations: list[dm.Station] = _get_realtime().StationsCall()
+  except realtime.Error as exc:
+    raise fastapi.HTTPException(status_code=502, detail=str(exc)) from exc
+  return dm.StationsResponse(
+    count=len(stations),
+    stations=[dm.StationModel.from_domain(s) for s in stations],
+  )
+
+
+# ---------------------------------------------------------------------------
+# Running trains
+# ---------------------------------------------------------------------------
+
+
+@app.get(
+  '/running',
+  response_model=dm.RunningTrainsResponse,
+  tags=['trains'],
+  summary='List currently running trains',
+)
+async def get_running_trains() -> dm.RunningTrainsResponse:
+  """Return all trains currently operating on the network.
+
+  Returns:
+    dm.RunningTrainsResponse: running trains.
+
+  Raises:
+    fastapi.HTTPException: upstream error (502).
+
+  """
+  try:
+    trains: list[dm.RunningTrain] = _get_realtime().RunningTrainsCall()
+  except realtime.Error as exc:
+    raise fastapi.HTTPException(status_code=502, detail=str(exc)) from exc
+  return dm.RunningTrainsResponse(
+    count=len(trains),
+    trains=[dm.RunningTrainModel.from_domain(t) for t in trains],
+  )
+
+
+# ---------------------------------------------------------------------------
+# Station board
+# ---------------------------------------------------------------------------
+
+
+@app.get(
+  '/station/{station_code}',
+  response_model=dm.StationBoardResponse,
+  tags=['stations'],
+  summary='Station departure/arrival board',
+)
+async def get_station_board(
+  station_code: Annotated[
+    str,
+    fastapi.Path(
+      description=(
+        'Either a 5-letter station code (e.g. ``LURGN``) or a search '
+        'fragment that uniquely identifies a station (e.g. ``lurgan``).'
+      ),
+      examples=['LURGN', 'lurgan'],
+    ),
+  ],
+) -> dm.StationBoardResponse:
+  """Trains due to serve the given station in the next ~90 minutes.
+
+  Returns:
+    dm.StationBoardResponse: station board.
+
+  Raises:
+    fastapi.HTTPException: upstream error (502).
+
+  """
+  rt: realtime.RealtimeRail = _get_realtime()
+  query_data: dm.StationLineQueryData | None
+  lines: list[dm.StationLine]
+  try:
+    resolved_code: str = rt.StationCodeFromNameFragmentOrCode(station_code)
+    query_data, lines = rt.StationBoardCall(resolved_code)
+  except realtime.Error as exc:
+    raise fastapi.HTTPException(status_code=502, detail=str(exc)) from exc
+  return dm.StationBoardResponse(
+    query=(
+      dm.StationLineQueryDataModel.from_domain(query_data) if query_data is not None else None
+    ),
+    count=len(lines),
+    lines=[dm.StationLineModel.from_domain(ln) for ln in lines],
+  )
+
+
+# ---------------------------------------------------------------------------
+# Train movements
+# ---------------------------------------------------------------------------
+
+
+@app.get(
+  '/train/{train_code}',
+  response_model=dm.TrainMovementsResponse,
+  tags=['trains'],
+  summary='Train movements / stops',
+)
+async def get_train_movements(
+  train_code: Annotated[
+    str,
+    fastapi.Path(
+      description='Train code, e.g. ``E108``.',
+      examples=['E108'],
+    ),
+  ],
+  day: Annotated[
+    int | None,
+    fastapi.Query(
+      ge=20000101,
+      le=21991231,
+      description='Day in YYYYMMDD format.  Defaults to today (UTC).',
+      examples=[20260201],
+    ),
+  ] = None,
+) -> dm.TrainMovementsResponse:
+  """Return the ordered list of stops for a single train on a given day.
+
+  Returns:
+    dm.TrainMovementsResponse: train movements.
+
+  Raises:
+    fastapi.HTTPException: upstream error (502).
+
+  """
+  day_obj: datetime.date = (
+    base.DATE_OBJ_GTFS(str(day))
+    if day is not None
+    else datetime.datetime.now(tz=datetime.UTC).date()
+  )
+  query_data: dm.TrainStopQueryData | None
+  stops: list[dm.TrainStop]
+  try:
+    query_data, stops = _get_realtime().TrainDataCall(train_code, day_obj)
+  except realtime.Error as exc:
+    raise fastapi.HTTPException(status_code=502, detail=str(exc)) from exc
+  return dm.TrainMovementsResponse(
+    query=(dm.TrainStopQueryDataModel.from_domain(query_data) if query_data is not None else None),
+    count=len(stops),
+    stops=[dm.TrainStopModel.from_domain(s) for s in stops],
+  )

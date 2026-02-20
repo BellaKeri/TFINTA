@@ -1,0 +1,22 @@
+# Ignore everything that isn't needed inside the container
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.git/
+.gitignore
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+tests/
+tests_integration/
+testdata/
+*.md
+!README.md
+docs/
+logs/
+originals/
+typings/
+Makefile
