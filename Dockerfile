@@ -27,19 +27,19 @@ WORKDIR /app
 # Install Poetry (locked to a specific version for reproducibility)
 RUN pip install --no-cache-dir "poetry>=2.3,<3"
 
-# Copy only dependency-specification files first (Docker cache layer)
-COPY pyproject.toml poetry.lock README.md LICENSE ./
+# Copy only dependency-specification files first (Docker cache layer) & license/docs
+COPY pyproject.toml requirements.txt poetry.lock *.md LICENSE ./
+
+# Copy the rest of the source tree (needed so Poetry can find packages)
+COPY src/ src/
 
 # Install runtime dependencies only (no dev group)
 RUN poetry env use python3.12 --no-interaction --no-ansi \
-    && poetry install --only main --no-interaction --no-ansi
-
-# Copy the rest of the source tree
-COPY src/ src/
+    && poetry sync --only main --no-interaction --no-ansi
 
 # Cloud Run injects $PORT (defaults to 8080)
 ENV PORT=8080
 EXPOSE ${PORT}
 
 # Run the API via uvicorn; Cloud Run sends SIGTERM for graceful shutdown
-CMD ["sh", "-c", "uvicorn tfinta.api:app --host 0.0.0.0 --port ${PORT} --log-level info"]
+CMD ["sh", "-c", "poetry run uvicorn tfinta.api:app --host 0.0.0.0 --port ${PORT} --log-level info"]

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright 2026 BellaKeri@github.com & balparda@github.com
 # SPDX-License-Identifier: Apache-2.0
 
-.PHONY: install fmt lint type test integration cov flakes precommit docs req ci
+.PHONY: install fmt lint type test integration cov flakes api docker docker-run precommit docs req ci
 
 install:
 	poetry install
@@ -31,8 +31,10 @@ api:
 	poetry run realtime-api run
 
 docker:
-	docker build -t tfinta-api:latest .
-	docker run -p 8080:8080 tfinta-api
+	docker build -t tfinta-api .
+
+docker-run:
+	docker run --rm -p 8080:8080 tfinta-api
 
 precommit:
 	poetry run pre-commit run --all-files
@@ -47,5 +49,5 @@ docs:
 req:
 	poetry export --format requirements.txt --without-hashes --output requirements.txt
 
-ci: cov integration precommit docs req
-	@echo "CI checks passed! Generated docs & requirements.txt."
+ci: cov integration precommit docs req docker
+	@echo "CI checks passed! Generated docs & requirements.txt & built docker image."

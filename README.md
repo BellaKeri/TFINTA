@@ -15,6 +15,10 @@ Since version 1.2 it is PyPI package:
     - [Install](#install)
     - [Quick start](#quick-start)
     - [Command Reference](#command-reference)
+  - [API](#api)
+    - [Pre-Requisite](#pre-requisite)
+    - [Build and Run API Image](#build-and-run-api-image)
+    - [Project `tfinta-prod`](#project-tfinta-prod)
   - [Data Sources](#data-sources)
     - [Stations](#stations)
     - [Trains](#trains)
@@ -129,6 +133,48 @@ For full command and option details, see the Command Reference below.
 - [**`gtfs`**](gtfs.md)
 - [**`dart`**](dart.md)
 - [**`realtime`**](realtime.md)
+
+## API
+
+### Pre-Requisite
+
+```shell
+brew install --cask docker gcloud-cli
+```
+
+Run app, login. Run `gcloud init`, login.
+
+### Build and Run API Image
+
+```shell
+docker build -t tfinta-api .  # or: make docker
+docker run --rm -p 8080:8080 tfinta-api  # or: make docker-run
+```
+
+Test on <http://localhost:8080/docs>.
+
+### Project `tfinta-prod`
+
+On <https://console.cloud.google.com/> project is `tfinta-prod` (#157394351650). On a new development machine you have to run (once):
+
+```shell
+gcloud config set project tfinta-prod
+gcloud config set run/region europe-west1
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com iamcredentials.googleapis.com sts.googleapis.com
+```
+
+The project was created with (no need to do again):
+
+```shell
+gcloud artifacts repositories create tfinta --repository-format=docker --location=europe-west1 --description="TFINTA container images"
+gcloud builds submit --tag "europe-west1-docker.pkg.dev/tfinta-prod/tfinta/tfinta-api:manual-1"
+
+gcloud run deploy tfinta-api --image "europe-west1-docker.pkg.dev/tfinta-prod/tfinta/tfinta-api:manual-1" --region europe-west1 --platform managed --allow-unauthenticated --port 8080
+
+gcloud run services update tfinta-api --region europe-west1 --concurrency 80 --min-instances 0 --max-instances 2 --cpu 1 --memory 512Mi
+```
+
+URL: <https://tfinta-api-157394351650.europe-west1.run.app/docs>
 
 ## Data Sources
 

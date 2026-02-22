@@ -13,8 +13,6 @@ build/
 tests/
 tests_integration/
 testdata/
-*.md
-!README.md
 docs/
 logs/
 originals/
