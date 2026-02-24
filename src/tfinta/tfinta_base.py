@@ -45,7 +45,21 @@ _DT_OBJ_REALTIME: abc.Callable[[str], datetime.datetime] = lambda s: datetime.da
 #     tzinfo=datetime.timezone.utc).timestamp()
 DATE_OBJ_GTFS: abc.Callable[[str], datetime.date] = lambda s: _DT_OBJ_GTFS(s).date()
 DATE_OBJ_REALTIME: abc.Callable[[str], datetime.date] = lambda s: _DT_OBJ_REALTIME(s).date()
-DATETIME_FROM_ISO: abc.Callable[[str], datetime.datetime] = datetime.datetime.fromisoformat
+
+
+def DatetimeFromISO(s: str) -> datetime.datetime:
+  """Parse ISO datetime and ensure it is timezone-aware (default UTC).
+
+  Args:
+    s: ISO 8601 datetime string.
+
+  Returns:
+    Timezone-aware datetime (UTC if input was naive).
+
+  """
+  dt = datetime.datetime.fromisoformat(s)
+  return dt if dt.tzinfo is not None else dt.replace(tzinfo=datetime.UTC)
+
 
 NULL_TEXT: str = '\u2205'  # ∅
 LIMITED_TEXT: abc.Callable[[str | None, int], str] = (

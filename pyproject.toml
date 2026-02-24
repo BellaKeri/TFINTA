@@ -12,7 +12,7 @@ build-backend = "poetry.core.masonry.api"
 [project]
 
 name = "tfinta"
-version = "2.1.0"  # also update src/tfinta/__init__.py
+version = "2.1.1"  # also update src/tfinta/__init__.py
 
 description = "Python library and shell scripts for parsing and displaying Transport for Ireland (TFI/NTA) Rail and DART schedule datasets, both GTFS and realtime"
 license = "Apache-2.0"

@@ -165,7 +165,7 @@ RUNNING_OBJ = dm.LatestData(
 )
 
 _STATION_OBJ_QUERY = dm.StationLineQueryData(
-  tm_server=datetime.datetime(2025, 6, 29, 9, 14, 27, 863000),  # noqa: DTZ001
+  tm_server=datetime.datetime(2025, 6, 29, 9, 14, 27, 863000, tzinfo=datetime.UTC),
   tm_query=base.DayTime(time=33267),
   station_name='Malahide with extra looooooooooooooooooong name',
   station_code='MHIDE',

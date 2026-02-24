@@ -39,6 +39,9 @@ docker-run:
 precommit:
 	poetry run pre-commit run --all-files
 
+# TODO: generate openapi.json automatically from realtime-api code, e.g. using FastAPI's built-in OpenAPI generation, instead of maintaining it manually
+# https://tfinta-api-157394351650.europe-west1.run.app/openapi.json
+
 docs:
 	@echo "Generating gtfs.md & dart.md & realtime*.md..."
 	poetry run gtfs markdown > gtfs.md

@@ -578,7 +578,7 @@ class RealtimeRail:
       raise Error(f'invalid Locationtype/Traintype: {row!r} @ station/{params!r}') from err
     return dm.StationLine(
       query=dm.StationLineQueryData(
-        tm_server=base.DATETIME_FROM_ISO(row['Servertime']),
+        tm_server=base.DatetimeFromISO(row['Servertime']),
         tm_query=base.DayTime.FromHMS(row['Querytime']),
         station_name=row['Stationfullname'],
         station_code=station_code,
