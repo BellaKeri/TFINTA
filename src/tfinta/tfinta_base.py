@@ -72,20 +72,6 @@ class Error(base.Error):
   """TFINTA exception."""
 
 
-def DatetimeFromISO(s: str) -> datetime.datetime:  # TODO: use from transcrypto.utils.timer
-  """Parse ISO datetime and ensure it is timezone-aware (default UTC).
-
-  Args:
-    s: ISO 8601 datetime string.
-
-  Returns:
-    Timezone-aware datetime (UTC if input was naive).
-
-  """
-  dt: datetime.datetime = datetime.datetime.fromisoformat(s)
-  return dt if dt.tzinfo is not None else dt.replace(tzinfo=datetime.UTC)
-
-
 @functools.total_ordering
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class DayTime:

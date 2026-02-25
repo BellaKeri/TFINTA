@@ -27,7 +27,7 @@ from rich import console as rich_console
 from rich import table as rich_table
 from transcrypto.cli import clibase
 from transcrypto.utils import config as app_config
-from transcrypto.utils import human, stats
+from transcrypto.utils import human, stats, timer
 from transcrypto.utils import logging as tc_logging
 
 from . import __version__
@@ -578,7 +578,7 @@ class RealtimeRail:
       raise Error(f'invalid Locationtype/Traintype: {row!r} @ station/{params!r}') from err
     return dm.StationLine(
       query=dm.StationLineQueryData(
-        tm_server=base.DatetimeFromISO(row['Servertime']),
+        tm_server=timer.DatetimeFromISO(row['Servertime']),
         tm_query=base.DayTime.FromHMS(row['Querytime']),
         station_name=row['Stationfullname'],
         station_code=station_code,
