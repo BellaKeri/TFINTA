@@ -41,25 +41,8 @@ _DT_OBJ_GTFS: abc.Callable[[str], datetime.datetime] = lambda s: datetime.dateti
 _DT_OBJ_REALTIME: abc.Callable[[str], datetime.datetime] = lambda s: datetime.datetime.strptime(  # noqa: DTZ007
   s, '%d %b %Y'
 )
-# _UTC_DATE: abc.Callable[[str], float] = lambda s: _DT_OBJ(s).replace(
-#     tzinfo=datetime.timezone.utc).timestamp()
 DATE_OBJ_GTFS: abc.Callable[[str], datetime.date] = lambda s: _DT_OBJ_GTFS(s).date()
 DATE_OBJ_REALTIME: abc.Callable[[str], datetime.date] = lambda s: _DT_OBJ_REALTIME(s).date()
-
-
-def DatetimeFromISO(s: str) -> datetime.datetime:
-  """Parse ISO datetime and ensure it is timezone-aware (default UTC).
-
-  Args:
-    s: ISO 8601 datetime string.
-
-  Returns:
-    Timezone-aware datetime (UTC if input was naive).
-
-  """
-  dt = datetime.datetime.fromisoformat(s)
-  return dt if dt.tzinfo is not None else dt.replace(tzinfo=datetime.UTC)
-
 
 NULL_TEXT: str = '\u2205'  # ∅
 LIMITED_TEXT: abc.Callable[[str | None, int], str] = (
@@ -87,6 +70,20 @@ PRETTY_DATE: abc.Callable[[datetime.date | None], str] = lambda d: (
 
 class Error(base.Error):
   """TFINTA exception."""
+
+
+def DatetimeFromISO(s: str) -> datetime.datetime:  # TODO: use from transcrypto.utils.timer
+  """Parse ISO datetime and ensure it is timezone-aware (default UTC).
+
+  Args:
+    s: ISO 8601 datetime string.
+
+  Returns:
+    Timezone-aware datetime (UTC if input was naive).
+
+  """
+  dt: datetime.datetime = datetime.datetime.fromisoformat(s)
+  return dt if dt.tzinfo is not None else dt.replace(tzinfo=datetime.UTC)
 
 
 @functools.total_ordering

@@ -371,7 +371,7 @@ class ExpectedStationLineXMLRowType(TypedDict):
   Destinationtime: str
   Status: str | None
   Lastlocation: str | None
-  Duein: int
+  Duein: int  # attention: this is in minutes, not seconds
   Late: int
   Exparrival: str
   Expdepart: str
@@ -393,7 +393,7 @@ class StationLineModel(pydantic.BaseModel):
   trip: base.DayRangeModel | None = pydantic.Field(default=None, description='Trip information.')
   direction: str = pydantic.Field(description='Direction of the train.')
   due_in: base.DayTimeModel | None = pydantic.Field(
-    default=None, description='Time until the train is due.'
+    default=None, description='Time until the train is due (in seconds inside DayTimeModel).'
   )
   late: int = pydantic.Field(description='Minutes the train is late.')
   location_type: LocationTypeLiteral = pydantic.Field(

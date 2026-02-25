@@ -596,7 +596,7 @@ class RealtimeRail:
       status=row['Status'],
       train_type=train_type,
       last_location=row['Lastlocation'],
-      due_in=base.DayTime(time=row['Duein']),
+      due_in=base.DayTime(time=row['Duein'] * 60),  # convert minutes to seconds!!
       late=row['Late'],
       location_type=loc_type,
       scheduled=base.DayRange(
@@ -858,7 +858,7 @@ class RealtimeRail:
           f'[bold]{line.trip.departure.ToHMS() if line.trip.departure else base.NULL_TEXT}'
           f'[/]'
         ),
-        f'[bold]{line.due_in.time:+}[/]',
+        f'[bold]{(line.due_in.time // 60):+}[/]',
         f'[bold green]'
         f'{line.scheduled.arrival.ToHMS() if line.scheduled.arrival else base.NULL_TEXT}[/]'
         + (
