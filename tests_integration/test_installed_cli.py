@@ -10,6 +10,7 @@ What we verify:
 - `gtfs --version` prints the expected version.
 - `dart --version` prints the expected version.
 - `realtime --version` prints the expected version.
+- `realtime-apidb --version` prints the expected version.
 - All CLIs run a small `--no-color` command successfully and produce non-ANSI output.
 
 Run this with:
@@ -34,7 +35,7 @@ from transcrypto.utils import base, config
 import tfinta
 from tfinta import tfinta_base
 
-_APP_NAMES: set[str] = {'gtfs', 'dart', 'realtime', 'realtime-api'}
+_APP_NAMES: set[str] = {'gtfs', 'dart', 'realtime', 'realtime-api', 'realtime-apidb'}
 
 
 @pytest.mark.integration
@@ -52,6 +53,7 @@ def test_installed_cli_smoke(tmp_path: pathlib.Path) -> None:
   _DART_call(cli_paths, data_dir)
   _realtime_call(cli_paths)
   _realtime_api_call(cli_paths)
+  _realtime_apidb_call(cli_paths)
 
 
 def _GTFS_call(cli_paths: dict[str, pathlib.Path], data_dir: pathlib.Path, /) -> None:
@@ -152,3 +154,16 @@ def _realtime_api_call(cli_paths: dict[str, pathlib.Path], /) -> None:
       proc.wait(timeout=10)
     except subprocess.TimeoutExpired:
       proc.kill()
+
+
+def _realtime_apidb_call(cli_paths: dict[str, pathlib.Path], /) -> None:
+  """Verify the realtime-apidb CLI installs correctly and the markdown subcommand works.
+
+  We do NOT start the server here because it requires a live PostgreSQL instance
+  which is not available in the integration-test environment.
+  """
+  # markdown subcommand should produce non-empty Markdown output
+  r = base.Run([str(cli_paths['realtime-apidb']), 'markdown'])
+  assert r.stdout.strip(), 'realtime-apidb markdown produced empty output'
+  assert '# ' in r.stdout, 'realtime-apidb markdown missing Markdown heading'
+  assert 'realtime-apidb' in r.stdout.lower(), 'realtime-apidb not mentioned in its own docs'

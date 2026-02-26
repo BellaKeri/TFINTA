@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright 2026 BellaKeri@github.com & balparda@github.com
 # SPDX-License-Identifier: Apache-2.0
 
-.PHONY: install fmt lint type test integration cov flakes api docker docker-run apidb docker-apidb docker-apidb-run db-up db-down db-migrate precommit docs req ci
+.PHONY: install fmt lint type test integration cov flakes api docker-api docker-api-run apidb docker-apidb docker-apidb-run db-up db-down db-migrate precommit docs req ci
 
 install:
 	poetry install
@@ -30,14 +30,14 @@ flakes:
 api:
 	poetry run realtime-api run
 
-docker:
+docker-api:
 	docker build  -f Dockerfile.api -t tfinta-api .
 
-docker-run:
+docker-api-run:
 	docker run --rm -p 8080:8080 tfinta-api
 
 apidb:
-	poetry run uvicorn tfinta.apidb:app --reload --port 8081
+	poetry run realtime-apidb run
 
 docker-apidb:
 	docker build -f Dockerfile.apidb -t tfinta-apidb .
@@ -66,9 +66,10 @@ docs:
 	poetry run dart markdown > dart.md
 	poetry run realtime markdown > realtime.md
 	poetry run realtime-api markdown > realtime-api.md
+	poetry run realtime-apidb markdown > realtime-apidb.md
 
 req:
 	poetry export --format requirements.txt --without-hashes --output requirements.txt
 
-ci: cov integration precommit docs req docker docker-apidb
+ci: cov integration precommit docs req docker-api docker-apidb
 	@echo "CI checks passed! Generated docs & requirements.txt & built docker images."
