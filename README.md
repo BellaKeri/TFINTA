@@ -182,7 +182,7 @@ To generate a new manual deploy:
 
 ```shell
 gcloud builds submit --tag "europe-west1-docker.pkg.dev/tfinta-prod/tfinta/tfinta-api:manual-<<VERSION>>"
-gcloud run deploy tfinta-api --image "europe-west1-docker.pkg.dev/tfinta-prod/tfinta/tfinta-api:manual-<<VERSION>>" --region europe-west1 --platform managed --allow-unauthenticated --port 8080
+gcloud run deploy tfinta-api --region europe-west1 --platform managed --allow-unauthenticated --port 8080 --image "europe-west1-docker.pkg.dev/tfinta-prod/tfinta/tfinta-api:manual-<<VERSION>>"
 ```
 
 ## Data Sources
