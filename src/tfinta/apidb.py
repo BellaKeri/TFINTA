@@ -1,16 +1,28 @@
 # SPDX-FileCopyrightText: Copyright 2026 BellaKeri@github.com & balparda@github.com
 # SPDX-License-Identifier: Apache-2.0
-"""TFINTA Realtime fastapi.FastAPI application.
+"""TFINTA Realtime fastapi.FastAPI application backed by PostgreSQL.
 
-Wraps SQL DB ops calls behind a REST/JSON API with automatic OpenAPI
+Wraps SQL DB queries behind a REST/JSON API with automatic OpenAPI
 documentation.  Intended for deployment on Google Cloud Run (or any
 container-based hosting).
 
+The same API interface as ``api.py`` (same paths, same response models),
+but data is read from a PostgreSQL database instead of the upstream
+Irish Rail XML feed.
+
 Run locally with::
 
-    uvicorn tfinta.apidb:app --reload --port 8080
+    uvicorn tfinta.apidb:app --reload --port 8081
 
-The interactive docs are then available at ``http://localhost:8080/docs``.
+The interactive docs are then available at ``http://localhost:8081/docs``.
+
+Environment variables for the DB connection (see ``db.py`` for full list):
+
+- ``TFINTA_DB_HOST``     - default ``localhost``
+- ``TFINTA_DB_PORT``     - default ``5432``
+- ``TFINTA_DB_NAME``     - default ``tfinta``
+- ``TFINTA_DB_USER``     - default ``tfinta``
+- ``TFINTA_DB_PASSWORD`` - default ``tfinta``
 """
 
 from __future__ import annotations
@@ -23,7 +35,7 @@ from typing import Annotated, Any
 import fastapi
 import pydantic
 
-from . import __version__, realtime
+from . import __version__, db
 from . import realtime_data_model as dm
 from . import tfinta_base as base
 
@@ -55,19 +67,16 @@ _RESPONSES_503: ErrorResponseType = {
 }
 
 # ---------------------------------------------------------------------------
-# Application lifespan: create the shared RealtimeRail instance once
+# Application lifespan: open / close the DB connection pool
 # ---------------------------------------------------------------------------
-
-_realtime: realtime.RealtimeRail | None = None
 
 
 @contextlib.asynccontextmanager
 async def _lifespan(_app: fastapi.FastAPI) -> abc.AsyncGenerator[None, None]:  # noqa: RUF029
-  """Create the shared RealtimeRail instance on startup."""
-  global _realtime  # noqa: PLW0603
-  _realtime = realtime.RealtimeRail()
+  """Open the DB connection pool on startup, close it on shutdown."""
+  db.open_pool()
   yield
-  _realtime = None
+  db.close_pool()
 
 
 # ---------------------------------------------------------------------------
@@ -102,21 +111,6 @@ app = fastapi.FastAPI(
     {'url': '/', 'description': 'Current server'},
   ],
 )
-
-
-def _get_realtime() -> realtime.RealtimeRail:
-  """Return the shared ``RealtimeRail``, raising 503 if unavailable.
-
-  Returns:
-    realtime.RealtimeRail: the shared instance.
-
-  Raises:
-    fastapi.HTTPException: if the service is not ready (503).
-
-  """
-  if _realtime is None:  # pragma: no cover
-    raise fastapi.HTTPException(status_code=503, detail='Service not ready')
-  return _realtime
 
 
 # ---------------------------------------------------------------------------
@@ -164,8 +158,8 @@ async def get_stations() -> dm.StationsResponse:
 
   """
   try:
-    stations: list[dm.Station] = _get_realtime().StationsCall()
-  except realtime.Error as exc:
+    stations: list[dm.Station] = db.fetch_stations()
+  except db.Error as exc:
     raise fastapi.HTTPException(status_code=502, detail=str(exc)) from exc
   return dm.StationsResponse(
     count=len(stations),
@@ -197,8 +191,8 @@ async def get_running_trains() -> dm.RunningTrainsResponse:
 
   """
   try:
-    trains: list[dm.RunningTrain] = _get_realtime().RunningTrainsCall()
-  except realtime.Error as exc:
+    trains: list[dm.RunningTrain] = db.fetch_running_trains()
+  except db.Error as exc:
     raise fastapi.HTTPException(status_code=502, detail=str(exc)) from exc
   return dm.RunningTrainsResponse(
     count=len(trains),
@@ -240,13 +234,12 @@ async def get_station_board(
     fastapi.HTTPException: upstream error (502).
 
   """
-  rt: realtime.RealtimeRail = _get_realtime()
   query_data: dm.StationLineQueryData | None
   lines: list[dm.StationLine]
   try:
-    resolved_code: str = rt.StationCodeFromNameFragmentOrCode(station_code)
-    query_data, lines = rt.StationBoardCall(resolved_code)
-  except realtime.Error as exc:
+    resolved_code: str = db.resolve_station_code(station_code)
+    query_data, lines = db.fetch_station_board(resolved_code)
+  except db.Error as exc:
     raise fastapi.HTTPException(status_code=502, detail=str(exc)) from exc
   return dm.StationBoardResponse(
     query=(
@@ -305,8 +298,8 @@ async def get_train_movements(
   query_data: dm.TrainStopQueryData | None
   stops: list[dm.TrainStop]
   try:
-    query_data, stops = _get_realtime().TrainDataCall(train_code, day_obj)
-  except realtime.Error as exc:
+    query_data, stops = db.fetch_train_movements(train_code, day_obj)
+  except db.Error as exc:
     raise fastapi.HTTPException(status_code=502, detail=str(exc)) from exc
   return dm.TrainMovementsResponse(
     query=(dm.TrainStopQueryDataModel.from_domain(query_data) if query_data is not None else None),

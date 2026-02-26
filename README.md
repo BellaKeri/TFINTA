@@ -19,6 +19,14 @@ Since version 1.2 it is PyPI package:
     - [Pre-Requisite](#pre-requisite)
     - [Build and Run API Image](#build-and-run-api-image)
     - [Project `tfinta-prod`](#project-tfinta-prod)
+  - [DB API (PostgreSQL-backed)](#db-api-postgresql-backed)
+    - [Architecture](#architecture)
+    - [Local Development (Docker Compose)](#local-development-docker-compose)
+    - [SQL Schema and Migrations](#sql-schema-and-migrations)
+    - [Running the DB API Locally](#running-the-db-api-locally)
+    - [Deploy PostgreSQL to GCE e2-micro (Free Tier)](#deploy-postgresql-to-gce-e2-micro-free-tier)
+    - [Deploy DB API to Cloud Run](#deploy-db-api-to-cloud-run)
+    - [PostgreSQL Tuning (e2-micro)](#postgresql-tuning-e2-micro)
   - [Data Sources](#data-sources)
     - [Stations](#stations)
     - [Trains](#trains)
@@ -184,6 +192,195 @@ To generate a new manual deploy:
 gcloud builds submit --tag "europe-west1-docker.pkg.dev/tfinta-prod/tfinta/tfinta-api:manual-<<VERSION>>"
 gcloud run deploy tfinta-api --region europe-west1 --platform managed --allow-unauthenticated --port 8080 --image "europe-west1-docker.pkg.dev/tfinta-prod/tfinta/tfinta-api:manual-<<VERSION>>"
 ```
+
+## DB API (PostgreSQL-backed)
+
+The DB API (`apidb.py`) exposes the **exact same REST endpoints** as the realtime API (`api.py`), but reads data from a PostgreSQL database instead of the upstream Irish Rail XML feed. This allows for:
+
+- Faster, cached responses
+- Historical data queries
+- Independence from upstream API availability
+- Custom data ingestion pipelines
+
+### Architecture
+
+```txt
+┌────────────┐     ┌──────────────┐     ┌──────────────┐
+│  Client    │────▶│  Cloud Run   │────▶│  Compute     │
+│  (browser/ │     │  (apidb.py)  │     │  Engine      │
+│   mobile)  │     │  Port 8081   │     │  e2-micro    │
+└────────────┘     └──────────────┘     │  PostgreSQL  │
+                                        │  Port 5432   │
+                                        └──────────────┘
+```
+
+### Local Development (Docker Compose)
+
+Start a local PostgreSQL instance:
+
+```shell
+# Start Postgres (background)
+docker compose up -d
+
+# Check it's healthy
+docker compose ps
+
+# Stop
+docker compose down
+
+# Stop and remove data volume
+docker compose down -v
+```
+
+The local database is accessible at `localhost:5432` with user `tfinta` / password `tfinta`.
+
+### SQL Schema and Migrations
+
+The database schema lives in `db/migrations/` as numbered SQL files. Each migration is idempotent (safe to re-run).
+
+**Tables:**
+
+| Table | Description |
+| ------- | ------------- |
+| `stations` | All Irish Rail stations (code, name, location, alias) |
+| `running_trains` | Currently running trains (code, status, position) |
+| `station_board_queries` | Metadata for station board fetches |
+| `station_board_lines` | Individual lines on a station departure board |
+| `train_movement_queries` | Metadata for train movement fetches |
+| `train_stops` | Individual stops in a train's journey |
+| `schema_version` | Migration tracking |
+
+**Bootstrap a new database** (run once as superuser):
+
+```shell
+psql -U postgres -f db/migrations/000_create_database.sql
+```
+
+**Apply all migrations** (idempotent):
+
+```shell
+# Local (defaults to localhost/tfinta/tfinta)
+./db/migrate.sh
+
+# Remote
+PGHOST=<vm-ip> PGPASSWORD=<password> ./db/migrate.sh
+```
+
+**Apply a single migration manually:**
+
+```shell
+psql -U tfinta -d tfinta -f db/migrations/001_initial_schema.sql
+```
+
+### Running the DB API Locally
+
+```shell
+# 1. Start Postgres
+docker compose up -d
+
+# 2. Run migrations
+./db/migrate.sh
+
+# 3. Start the DB API server
+poetry run uvicorn tfinta.apidb:app --reload --port 8081
+
+# 4. Open docs
+open http://localhost:8081/docs
+```
+
+Or via Docker:
+
+```shell
+docker build -f Dockerfile.apidb -t tfinta-apidb .
+docker run --rm -p 8081:8081 \
+  -e TFINTA_DB_HOST=host.docker.internal \
+  tfinta-apidb
+```
+
+**Environment variables** (see `.env.example`):
+
+| Variable | Default | Description |
+| ---------- | --------- | ------------- |
+| `TFINTA_DB_HOST` | `localhost` | PostgreSQL host |
+| `TFINTA_DB_PORT` | `5432` | PostgreSQL port |
+| `TFINTA_DB_NAME` | `tfinta` | Database name |
+| `TFINTA_DB_USER` | `tfinta` | Database user |
+| `TFINTA_DB_PASSWORD` | `tfinta` | Database password |
+| `TFINTA_DB_MIN_CONN` | `2` | Minimum pool connections |
+| `TFINTA_DB_MAX_CONN` | `10` | Maximum pool connections |
+
+### Deploy PostgreSQL to GCE e2-micro (Free Tier)
+
+The `deploy/gce/deploy_gce_postgres.sh` script provisions a **Compute Engine e2-micro** VM (1 GB RAM, 2 shared vCPUs, 30 GB standard PD) in the GCP free tier.
+
+```shell
+# Pre-requisites
+brew install --cask gcloud-cli
+gcloud auth login
+gcloud config set project tfinta-prod
+
+# Create the VM (installs PostgreSQL 17, applies tuning)
+./deploy/gce/deploy_gce_postgres.sh
+
+# Get the VM's external IP
+gcloud compute instances describe tfinta-pg \
+  --zone=europe-west1-b \
+  --format='get(networkInterfaces[0].accessConfigs[0].natIP)'
+
+# SSH into the VM and change the default password!
+gcloud compute ssh tfinta-pg --zone=europe-west1-b
+sudo -u postgres psql -c "ALTER ROLE tfinta WITH PASSWORD 'YOUR_SECURE_PASSWORD';"
+exit
+
+# Run migrations from your local machine
+PGHOST=<VM_IP> PGPASSWORD=<password> ./db/migrate.sh
+
+# Teardown (deletes VM + firewall rule)
+./deploy/gce/deploy_gce_postgres.sh teardown
+```
+
+> **Security note:** The default setup opens port 5432 to all IPs (`0.0.0.0/0`). For production, restrict `--source-ranges` in the firewall rule to your Cloud Run egress IPs or use a VPC connector.
+
+### Deploy DB API to Cloud Run
+
+```shell
+# Build and push the DB API image
+gcloud builds submit \
+  --tag "europe-west1-docker.pkg.dev/tfinta-prod/tfinta/tfinta-apidb:manual-1" \
+  -f Dockerfile.apidb .
+
+# Deploy with DB connection env vars
+gcloud run deploy tfinta-apidb \
+  --image "europe-west1-docker.pkg.dev/tfinta-prod/tfinta/tfinta-apidb:manual-1" \
+  --region europe-west1 \
+  --platform managed \
+  --allow-unauthenticated \
+  --port 8081 \
+  --set-env-vars "TFINTA_DB_HOST=<VM_EXTERNAL_IP>,TFINTA_DB_USER=tfinta,TFINTA_DB_PASSWORD=<password>,TFINTA_DB_NAME=tfinta"
+
+# Tune resources
+gcloud run services update tfinta-apidb \
+  --region europe-west1 \
+  --concurrency 80 \
+  --min-instances 0 \
+  --max-instances 2 \
+  --cpu 1 \
+  --memory 512Mi
+```
+
+### PostgreSQL Tuning (e2-micro)
+
+The configuration in `db/postgresql-tfinta.conf` is optimized for a 1 GB RAM VM:
+
+| Parameter | Value | Rationale |
+| ----------- | ------- | ----------- |
+| `max_connections` | 30 | Limit RAM usage per-connection |
+| `shared_buffers` | 128 MB | ~12% of RAM |
+| `work_mem` | 4 MB | Per-sort/hash memory |
+| `maintenance_work_mem` | 64 MB | VACUUM, CREATE INDEX |
+| `effective_cache_size` | 512 MB | Planner hint for OS cache |
+| `autovacuum` | on | Keep tables healthy |
+| `autovacuum_max_workers` | 2 | Limit CPU contention |
 
 ## Data Sources
 
@@ -376,4 +573,3 @@ poetry run pytest --flake-finder --flake-runs=100
 ### TODO
 
 - Versioning of GTFS data
-- Migrate to SQL?

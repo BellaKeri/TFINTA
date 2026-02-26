@@ -55,6 +55,8 @@ dependencies = [
   "fastapi>=0.133",
   "uvicorn[standard]>=0.41",
   "pydantic>=2.12",
+  "psycopg[binary]>=3.3",
+  "psycopg[pool]>=3.3",
 
 ]
 

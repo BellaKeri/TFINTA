@@ -1,0 +1,35 @@
+# ---------------------------------------------------------------------------
+# Dockerfile.apidb – TFINTA DB-backed API container (Cloud Run)
+# ---------------------------------------------------------------------------
+# Build:
+#   docker build -f Dockerfile.apidb -t tfinta-apidb .
+#
+# Run locally (expects a Postgres reachable at $TFINTA_DB_HOST):
+#   docker run -p 8081:8081 \
+#     -e TFINTA_DB_HOST=host.docker.internal \
+#     tfinta-apidb
+# ---------------------------------------------------------------------------
+
+FROM python:3.12-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Install Poetry
+RUN pip install --no-cache-dir "poetry>=2.3,<3"
+
+# Copy dependency files first (Docker cache layer)
+COPY pyproject.toml requirements.txt poetry.lock *.md LICENSE ./
+COPY src/ src/
+
+# Install runtime dependencies only
+RUN poetry env use python3.12 --no-interaction --no-ansi \
+    && poetry sync --only main --no-interaction --no-ansi
+
+# Cloud Run injects $PORT (defaults to 8081 for DB API)
+ENV PORT=8081
+EXPOSE ${PORT}
+
+CMD ["sh", "-c", "poetry run uvicorn tfinta.apidb:app --host 0.0.0.0 --port ${PORT} --log-level info"]

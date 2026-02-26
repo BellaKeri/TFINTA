@@ -1,0 +1,36 @@
+# ---------------------------------------------------------------------------
+# docker-compose.yml – local development stack
+# ---------------------------------------------------------------------------
+# Start:   docker compose up -d
+# Stop:    docker compose down
+# Reset:   docker compose down -v   (removes the data volume)
+# ---------------------------------------------------------------------------
+
+services:
+
+  # ---- PostgreSQL ----------------------------------------------------------
+  postgres:
+    image: postgres:17-alpine
+    container_name: tfinta-postgres
+    environment:
+      POSTGRES_USER: tfinta
+      POSTGRES_PASSWORD: tfinta
+      POSTGRES_DB: tfinta
+    ports:
+      - "5432:5432"
+    volumes:
+      # Persist data across restarts
+      - pgdata:/var/lib/postgresql/data
+      # Apply custom tuning
+      - ./db/postgresql-tfinta.conf:/etc/postgresql/tfinta.conf:ro
+    command: >
+      postgres
+        -c 'include=/etc/postgresql/tfinta.conf'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tfinta"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:
