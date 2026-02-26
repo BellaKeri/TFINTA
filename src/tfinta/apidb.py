@@ -74,9 +74,9 @@ _RESPONSES_503: ErrorResponseType = {
 @contextlib.asynccontextmanager
 async def _lifespan(_app: fastapi.FastAPI) -> abc.AsyncGenerator[None, None]:  # noqa: RUF029
   """Open the DB connection pool on startup, close it on shutdown."""
-  db.open_pool()
+  db.OpenPool()
   yield
-  db.close_pool()
+  db.ClosePool()
 
 
 # ---------------------------------------------------------------------------
@@ -158,7 +158,7 @@ async def get_stations() -> dm.StationsResponse:
 
   """
   try:
-    stations: list[dm.Station] = db.fetch_stations()
+    stations: list[dm.Station] = db.FetchStations()
   except db.Error as exc:
     raise fastapi.HTTPException(status_code=502, detail=str(exc)) from exc
   return dm.StationsResponse(
@@ -191,7 +191,7 @@ async def get_running_trains() -> dm.RunningTrainsResponse:
 
   """
   try:
-    trains: list[dm.RunningTrain] = db.fetch_running_trains()
+    trains: list[dm.RunningTrain] = db.FetchRunningTrains()
   except db.Error as exc:
     raise fastapi.HTTPException(status_code=502, detail=str(exc)) from exc
   return dm.RunningTrainsResponse(
@@ -237,8 +237,8 @@ async def get_station_board(
   query_data: dm.StationLineQueryData | None
   lines: list[dm.StationLine]
   try:
-    resolved_code: str = db.resolve_station_code(station_code)
-    query_data, lines = db.fetch_station_board(resolved_code)
+    resolved_code: str = db.ResolveStationCode(station_code)
+    query_data, lines = db.FetchStationBoard(resolved_code)
   except db.Error as exc:
     raise fastapi.HTTPException(status_code=502, detail=str(exc)) from exc
   return dm.StationBoardResponse(
@@ -298,7 +298,7 @@ async def get_train_movements(
   query_data: dm.TrainStopQueryData | None
   stops: list[dm.TrainStop]
   try:
-    query_data, stops = db.fetch_train_movements(train_code, day_obj)
+    query_data, stops = db.FetchTrainMovements(train_code, day_obj)
   except db.Error as exc:
     raise fastapi.HTTPException(status_code=502, detail=str(exc)) from exc
   return dm.TrainMovementsResponse(

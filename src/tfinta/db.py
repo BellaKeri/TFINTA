@@ -30,7 +30,7 @@ from . import tfinta_base as base
 # ---------------------------------------------------------------------------
 
 
-def _connection_info() -> str:
+def _ConnectionInfo() -> str:
   """Build a libpq connection string from environment variables.
 
   Returns:
@@ -53,7 +53,7 @@ class Error(base.Error):
 _pool: psycopg_pool.ConnectionPool | None = None
 
 
-def open_pool() -> psycopg_pool.ConnectionPool:
+def OpenPool() -> psycopg_pool.ConnectionPool:
   """Create (or return) the shared connection pool.
 
   Returns:
@@ -63,7 +63,7 @@ def open_pool() -> psycopg_pool.ConnectionPool:
   global _pool  # noqa: PLW0603
   if _pool is None:
     _pool = psycopg_pool.ConnectionPool(
-      conninfo=_connection_info(),
+      conninfo=_ConnectionInfo(),
       min_size=int(os.environ.get('TFINTA_DB_MIN_CONN', '2')),
       max_size=int(os.environ.get('TFINTA_DB_MAX_CONN', '10')),
       kwargs={'row_factory': psycopg.rows.dict_row},
@@ -71,7 +71,7 @@ def open_pool() -> psycopg_pool.ConnectionPool:
   return _pool
 
 
-def close_pool() -> None:
+def ClosePool() -> None:
   """Close the shared connection pool (idempotent)."""
   global _pool  # noqa: PLW0603
   if _pool is not None:
@@ -79,7 +79,7 @@ def close_pool() -> None:
     _pool = None
 
 
-def get_pool() -> psycopg_pool.ConnectionPool:
+def GetPool() -> psycopg_pool.ConnectionPool:
   """Return the pool, raising ``Error`` if not open.
 
   Returns:
@@ -99,7 +99,7 @@ def get_pool() -> psycopg_pool.ConnectionPool:
 # ---------------------------------------------------------------------------
 
 
-def _daytime(seconds: int | None) -> base.DayTime | None:
+def _DayTime(seconds: int | None) -> base.DayTime | None:
   """Convert nullable seconds-since-midnight to ``DayTime``.
 
   Args:
@@ -114,7 +114,7 @@ def _daytime(seconds: int | None) -> base.DayTime | None:
   return base.DayTime(time=seconds)
 
 
-def _dayrange(
+def _DayRange(
   arrival_s: int | None, departure_s: int | None, *, strict: bool = True, nullable: bool = True
 ) -> base.DayRange:
   """Build a ``DayRange`` from nullable arrival/departure seconds.
@@ -130,8 +130,8 @@ def _dayrange(
 
   """
   return base.DayRange(
-    arrival=_daytime(arrival_s),
-    departure=_daytime(departure_s),
+    arrival=_DayTime(arrival_s),
+    departure=_DayTime(departure_s),
     strict=strict,
     nullable=nullable,
   )
@@ -142,14 +142,14 @@ def _dayrange(
 # ---------------------------------------------------------------------------
 
 
-def fetch_stations() -> list[dm.Station]:
+def FetchStations() -> list[dm.Station]:
   """SELECT all stations, ordered by description.
 
   Returns:
     list[dm.Station]: all stations.
 
   """
-  pool = get_pool()
+  pool = GetPool()
   with pool.connection() as conn, conn.cursor() as cur:
     cur.execute(
       'SELECT id, code, description, latitude, longitude, alias FROM stations ORDER BY description'
@@ -174,14 +174,14 @@ def fetch_stations() -> list[dm.Station]:
   ]
 
 
-def fetch_running_trains() -> list[dm.RunningTrain]:
+def FetchRunningTrains() -> list[dm.RunningTrain]:
   """SELECT running trains for today (UTC), ordered by status DESC then code.
 
   Returns:
     list[dm.RunningTrain]: running trains.
 
   """
-  pool = get_pool()
+  pool = GetPool()
   today: datetime.date = datetime.datetime.now(tz=datetime.UTC).date()
   with pool.connection() as conn, conn.cursor() as cur:
     cur.execute(
@@ -211,7 +211,7 @@ def fetch_running_trains() -> list[dm.RunningTrain]:
   ]
 
 
-def resolve_station_code(code_or_fragment: str) -> str:
+def ResolveStationCode(code_or_fragment: str) -> str:
   """Look up station code by exact code or case-insensitive name/alias fragment.
 
   Mirrors ``RealtimeRail.StationCodeFromNameFragmentOrCode``.
@@ -227,7 +227,7 @@ def resolve_station_code(code_or_fragment: str) -> str:
 
   """
   code_or_fragment = code_or_fragment.strip()
-  pool = get_pool()
+  pool = GetPool()
   with pool.connection() as conn, conn.cursor() as cur:
     # 1. Try exact code match (case-insensitive)
     cur.execute('SELECT code FROM stations WHERE UPPER(code) = %s', (code_or_fragment.upper(),))
@@ -249,7 +249,7 @@ def resolve_station_code(code_or_fragment: str) -> str:
   return str(matches[0]['code'])
 
 
-def fetch_station_board(
+def FetchStationBoard(
   station_code: str,
 ) -> tuple[dm.StationLineQueryData | None, list[dm.StationLine]]:
   """SELECT the latest station board for the given code.
@@ -263,7 +263,7 @@ def fetch_station_board(
     tuple: (query_data or None, list of StationLine).
 
   """
-  pool = get_pool()
+  pool = GetPool()
   with pool.connection() as conn, conn.cursor() as cur:
     # Latest query for this station
     cur.execute(
@@ -312,26 +312,26 @@ def fetch_station_board(
       origin_name=str(lr['origin_name']),
       destination_code=str(lr['destination_code']),
       destination_name=str(lr['destination_name']),
-      trip=_dayrange(
+      trip=_DayRange(
         lr['trip_arrival_seconds'],  # type: ignore[arg-type]
         lr['trip_departure_seconds'],  # type: ignore[arg-type]
         strict=False,
         nullable=True,
       ),
       direction=str(lr['direction']),
-      due_in=_daytime(lr['due_in_seconds'])  # type: ignore[arg-type]
+      due_in=_DayTime(lr['due_in_seconds'])  # type: ignore[arg-type]
       or base.DayTime(time=0),
       late=int(lr['late']),  # type: ignore[call-overload]
       location_type=dm.LocationType(int(lr['location_type'])),  # type: ignore[call-overload]
       status=str(lr['status']) if lr['status'] is not None else None,
       train_type=dm.TrainType(int(lr['train_type'])),  # type: ignore[call-overload]
       last_location=str(lr['last_location']) if lr['last_location'] is not None else None,
-      scheduled=_dayrange(
+      scheduled=_DayRange(
         lr['scheduled_arrival_seconds'],  # type: ignore[arg-type]
         lr['scheduled_departure_seconds'],  # type: ignore[arg-type]
         nullable=True,
       ),
-      expected=_dayrange(
+      expected=_DayRange(
         lr['expected_arrival_seconds'],  # type: ignore[arg-type]
         lr['expected_departure_seconds'],  # type: ignore[arg-type]
         nullable=True,
@@ -342,7 +342,7 @@ def fetch_station_board(
   return query_data, lines
 
 
-def fetch_train_movements(
+def FetchTrainMovements(
   train_code: str, day: datetime.date
 ) -> tuple[dm.TrainStopQueryData | None, list[dm.TrainStop]]:
   """SELECT the latest train movements for the given code and day.
@@ -355,7 +355,7 @@ def fetch_train_movements(
     tuple: (query_data or None, list of TrainStop).
 
   """
-  pool = get_pool()
+  pool = GetPool()
   with pool.connection() as conn, conn.cursor() as cur:
     # Latest query for this train + day
     cur.execute(
@@ -404,17 +404,17 @@ def fetch_train_movements(
       stop_type=dm.StopType(int(sr['stop_type'])),  # type: ignore[call-overload]
       auto_arrival=bool(sr['auto_arrival']),
       auto_depart=bool(sr['auto_depart']),
-      scheduled=_dayrange(
+      scheduled=_DayRange(
         sr['scheduled_arrival_seconds'],  # type: ignore[arg-type]
         sr['scheduled_departure_seconds'],  # type: ignore[arg-type]
         nullable=True,
       ),
-      expected=_dayrange(
+      expected=_DayRange(
         sr['expected_arrival_seconds'],  # type: ignore[arg-type]
         sr['expected_departure_seconds'],  # type: ignore[arg-type]
         nullable=True,
       ),
-      actual=_dayrange(
+      actual=_DayRange(
         sr['actual_arrival_seconds'],  # type: ignore[arg-type]
         sr['actual_departure_seconds'],  # type: ignore[arg-type]
         strict=False,
@@ -424,3 +424,262 @@ def fetch_train_movements(
     for sr in stop_rows
   ]
   return query_data, stops
+
+
+# ---------------------------------------------------------------------------
+# Inserts / Upserts
+# ---------------------------------------------------------------------------
+
+
+def UpsertStations(stations: list[dm.Station]) -> int:
+  """INSERT or UPDATE stations (keyed by code).
+
+  Uses ``ON CONFLICT (code) DO UPDATE`` so callers can blindly push the latest
+  station list without worrying about duplicates.
+
+  Args:
+    stations: station objects to upsert.
+
+  Returns:
+    int: number of rows affected.
+
+  """
+  if not stations:
+    return 0
+  pool = GetPool()
+  with pool.connection() as conn, conn.cursor() as cur:
+    sql = (
+      'INSERT INTO stations (id, code, description, latitude, longitude, alias, updated_at) '
+      'VALUES (%(id)s, %(code)s, %(description)s, %(latitude)s, %(longitude)s, '
+      '  %(alias)s, now()) '
+      'ON CONFLICT (code) DO UPDATE SET '
+      '  id = EXCLUDED.id, '
+      '  description = EXCLUDED.description, '
+      '  latitude = EXCLUDED.latitude, '
+      '  longitude = EXCLUDED.longitude, '
+      '  alias = EXCLUDED.alias, '
+      '  updated_at = now()'
+    )
+    params = [
+      {
+        'id': s.id,
+        'code': s.code,
+        'description': s.description,
+        'latitude': s.location.latitude if s.location else None,
+        'longitude': s.location.longitude if s.location else None,
+        'alias': s.alias,
+      }
+      for s in stations
+    ]
+    cur.executemany(sql, params)
+    count: int = cur.rowcount
+    conn.commit()
+  return count
+
+
+def UpsertRunningTrains(trains: list[dm.RunningTrain]) -> int:
+  """INSERT or UPDATE running trains (keyed by code + day).
+
+  Args:
+    trains: running train objects to upsert.
+
+  Returns:
+    int: number of rows affected.
+
+  """
+  if not trains:
+    return 0
+  pool = GetPool()
+  with pool.connection() as conn, conn.cursor() as cur:
+    sql = (
+      'INSERT INTO running_trains '
+      '  (code, status, day, direction, message, latitude, longitude, updated_at) '
+      'VALUES (%(code)s, %(status)s, %(day)s, %(direction)s, %(message)s, '
+      '  %(latitude)s, %(longitude)s, now()) '
+      'ON CONFLICT (code, day) DO UPDATE SET '
+      '  status = EXCLUDED.status, '
+      '  direction = EXCLUDED.direction, '
+      '  message = EXCLUDED.message, '
+      '  latitude = EXCLUDED.latitude, '
+      '  longitude = EXCLUDED.longitude, '
+      '  updated_at = now()'
+    )
+    params = [
+      {
+        'code': t.code,
+        'status': t.status.value,
+        'day': t.day,
+        'direction': t.direction,
+        'message': t.message,
+        'latitude': t.position.latitude if t.position else None,
+        'longitude': t.position.longitude if t.position else None,
+      }
+      for t in trains
+    ]
+    cur.executemany(sql, params)
+    count: int = cur.rowcount
+    conn.commit()
+  return count
+
+
+def InsertStationBoard(
+  query_data: dm.StationLineQueryData,
+  lines: list[dm.StationLine],
+) -> int:
+  """INSERT a station board query and its associated lines.
+
+  Args:
+    query_data: the query metadata.
+    lines: the station board lines.
+
+  Returns:
+    int: the auto-generated query ID.
+
+  """
+  pool = GetPool()
+  with pool.connection() as conn, conn.cursor() as cur:
+    cur.execute(
+      'INSERT INTO station_board_queries '
+      '  (tm_server, tm_query_seconds, station_name, station_code, day) '
+      'VALUES (%(tm_server)s, %(tm_query_seconds)s, %(station_name)s, '
+      '  %(station_code)s, %(day)s) '
+      'RETURNING id',
+      {
+        'tm_server': query_data.tm_server,
+        'tm_query_seconds': query_data.tm_query.time,
+        'station_name': query_data.station_name,
+        'station_code': query_data.station_code,
+        'day': query_data.day,
+      },
+    )
+    row = cur.fetchone()
+    query_id: int = int(row['id'])  # type: ignore[call-overload, index]
+
+    if lines:
+      line_sql = (
+        'INSERT INTO station_board_lines '
+        '  (query_id, train_code, origin_code, origin_name, '
+        '   destination_code, destination_name, '
+        '   trip_arrival_seconds, trip_departure_seconds, direction, '
+        '   due_in_seconds, late, location_type, status, train_type, '
+        '   last_location, scheduled_arrival_seconds, scheduled_departure_seconds, '
+        '   expected_arrival_seconds, expected_departure_seconds) '
+        'VALUES (%(query_id)s, %(train_code)s, %(origin_code)s, %(origin_name)s, '
+        '  %(destination_code)s, %(destination_name)s, '
+        '  %(trip_arrival_seconds)s, %(trip_departure_seconds)s, %(direction)s, '
+        '  %(due_in_seconds)s, %(late)s, %(location_type)s, %(status)s, '
+        '  %(train_type)s, %(last_location)s, '
+        '  %(scheduled_arrival_seconds)s, %(scheduled_departure_seconds)s, '
+        '  %(expected_arrival_seconds)s, %(expected_departure_seconds)s)'
+      )
+      line_params = [
+        {
+          'query_id': query_id,
+          'train_code': ln.train_code,
+          'origin_code': ln.origin_code,
+          'origin_name': ln.origin_name,
+          'destination_code': ln.destination_code,
+          'destination_name': ln.destination_name,
+          'trip_arrival_seconds': ln.trip.arrival.time if ln.trip.arrival else None,
+          'trip_departure_seconds': ln.trip.departure.time if ln.trip.departure else None,
+          'direction': ln.direction,
+          'due_in_seconds': ln.due_in.time,
+          'late': ln.late,
+          'location_type': ln.location_type.value,
+          'status': ln.status,
+          'train_type': ln.train_type.value,
+          'last_location': ln.last_location,
+          'scheduled_arrival_seconds': (
+            ln.scheduled.arrival.time if ln.scheduled.arrival else None
+          ),
+          'scheduled_departure_seconds': (
+            ln.scheduled.departure.time if ln.scheduled.departure else None
+          ),
+          'expected_arrival_seconds': (ln.expected.arrival.time if ln.expected.arrival else None),
+          'expected_departure_seconds': (
+            ln.expected.departure.time if ln.expected.departure else None
+          ),
+        }
+        for ln in lines
+      ]
+      cur.executemany(line_sql, line_params)
+
+    conn.commit()
+  return query_id
+
+
+def InsertTrainMovements(
+  query_data: dm.TrainStopQueryData,
+  stops: list[dm.TrainStop],
+) -> int:
+  """INSERT a train movement query and its associated stops.
+
+  Args:
+    query_data: the query metadata.
+    stops: the train stops.
+
+  Returns:
+    int: the auto-generated query ID.
+
+  """
+  pool = GetPool()
+  with pool.connection() as conn, conn.cursor() as cur:
+    cur.execute(
+      'INSERT INTO train_movement_queries '
+      '  (train_code, day, origin_code, origin_name, destination_code, destination_name) '
+      'VALUES (%(train_code)s, %(day)s, %(origin_code)s, %(origin_name)s, '
+      '  %(destination_code)s, %(destination_name)s) '
+      'RETURNING id',
+      {
+        'train_code': query_data.train_code,
+        'day': query_data.day,
+        'origin_code': query_data.origin_code,
+        'origin_name': query_data.origin_name,
+        'destination_code': query_data.destination_code,
+        'destination_name': query_data.destination_name,
+      },
+    )
+    row = cur.fetchone()
+    query_id: int = int(row['id'])  # type: ignore[call-overload, index]
+
+    if stops:
+      stop_sql = (
+        'INSERT INTO train_stops '
+        '  (query_id, station_code, station_name, station_order, location_type, '
+        '   stop_type, auto_arrival, auto_depart, '
+        '   scheduled_arrival_seconds, scheduled_departure_seconds, '
+        '   expected_arrival_seconds, expected_departure_seconds, '
+        '   actual_arrival_seconds, actual_departure_seconds) '
+        'VALUES (%(query_id)s, %(station_code)s, %(station_name)s, %(station_order)s, '
+        '  %(location_type)s, %(stop_type)s, %(auto_arrival)s, %(auto_depart)s, '
+        '  %(scheduled_arrival_seconds)s, %(scheduled_departure_seconds)s, '
+        '  %(expected_arrival_seconds)s, %(expected_departure_seconds)s, '
+        '  %(actual_arrival_seconds)s, %(actual_departure_seconds)s)'
+      )
+      stop_params = [
+        {
+          'query_id': query_id,
+          'station_code': s.station_code,
+          'station_name': s.station_name,
+          'station_order': s.station_order,
+          'location_type': s.location_type.value,
+          'stop_type': s.stop_type.value,
+          'auto_arrival': s.auto_arrival,
+          'auto_depart': s.auto_depart,
+          'scheduled_arrival_seconds': (s.scheduled.arrival.time if s.scheduled.arrival else None),
+          'scheduled_departure_seconds': (
+            s.scheduled.departure.time if s.scheduled.departure else None
+          ),
+          'expected_arrival_seconds': (s.expected.arrival.time if s.expected.arrival else None),
+          'expected_departure_seconds': (
+            s.expected.departure.time if s.expected.departure else None
+          ),
+          'actual_arrival_seconds': (s.actual.arrival.time if s.actual.arrival else None),
+          'actual_departure_seconds': (s.actual.departure.time if s.actual.departure else None),
+        }
+        for s in stops
+      ]
+      cur.executemany(stop_sql, stop_params)
+
+    conn.commit()
+  return query_id

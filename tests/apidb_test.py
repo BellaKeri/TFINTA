@@ -131,8 +131,8 @@ def client() -> collections.abc.Generator[testclient.TestClient, None, None]:
 
   """
   with (
-    mock.patch('tfinta.db.open_pool'),
-    mock.patch('tfinta.db.close_pool'),
+    mock.patch('tfinta.db.OpenPool'),
+    mock.patch('tfinta.db.ClosePool'),
     testclient.TestClient(apidb.app) as c,
   ):
     yield c
@@ -157,7 +157,7 @@ def test_health(client: testclient.TestClient) -> None:
 # ---------------------------------------------------------------------------
 
 
-@mock.patch('tfinta.db.fetch_stations')
+@mock.patch('tfinta.db.FetchStations')
 def test_get_stations_success(mock_fetch: mock.MagicMock, client: testclient.TestClient) -> None:
   """GET /stations returns 200 and serialises every station."""
   mock_fetch.return_value = [_STATION, _STATION_NO_LOCATION]
@@ -178,7 +178,7 @@ def test_get_stations_success(mock_fetch: mock.MagicMock, client: testclient.Tes
   mock_fetch.assert_called_once_with()
 
 
-@mock.patch('tfinta.db.fetch_stations')
+@mock.patch('tfinta.db.FetchStations')
 def test_get_stations_empty(mock_fetch: mock.MagicMock, client: testclient.TestClient) -> None:
   """GET /stations returns 200 with count=0 when there are no stations."""
   mock_fetch.return_value = []
@@ -189,7 +189,7 @@ def test_get_stations_empty(mock_fetch: mock.MagicMock, client: testclient.TestC
   assert body['stations'] == []
 
 
-@mock.patch('tfinta.db.fetch_stations')
+@mock.patch('tfinta.db.FetchStations')
 def test_get_stations_db_error(mock_fetch: mock.MagicMock, client: testclient.TestClient) -> None:
   """GET /stations returns 502 when db raises Error."""
   mock_fetch.side_effect = db.Error('connection refused')
@@ -203,7 +203,7 @@ def test_get_stations_db_error(mock_fetch: mock.MagicMock, client: testclient.Te
 # ---------------------------------------------------------------------------
 
 
-@mock.patch('tfinta.db.fetch_running_trains')
+@mock.patch('tfinta.db.FetchRunningTrains')
 def test_get_running_trains_success(
   mock_fetch: mock.MagicMock, client: testclient.TestClient
 ) -> None:
@@ -226,7 +226,7 @@ def test_get_running_trains_success(
   mock_fetch.assert_called_once_with()
 
 
-@mock.patch('tfinta.db.fetch_running_trains')
+@mock.patch('tfinta.db.FetchRunningTrains')
 def test_get_running_trains_empty(
   mock_fetch: mock.MagicMock, client: testclient.TestClient
 ) -> None:
@@ -237,7 +237,7 @@ def test_get_running_trains_empty(
   assert resp.json() == {'count': 0, 'trains': []}
 
 
-@mock.patch('tfinta.db.fetch_running_trains')
+@mock.patch('tfinta.db.FetchRunningTrains')
 def test_get_running_trains_db_error(
   mock_fetch: mock.MagicMock, client: testclient.TestClient
 ) -> None:
@@ -253,8 +253,8 @@ def test_get_running_trains_db_error(
 # ---------------------------------------------------------------------------
 
 
-@mock.patch('tfinta.db.fetch_station_board')
-@mock.patch('tfinta.db.resolve_station_code')
+@mock.patch('tfinta.db.FetchStationBoard')
+@mock.patch('tfinta.db.ResolveStationCode')
 def test_get_station_board_success(
   mock_resolve: mock.MagicMock, mock_board: mock.MagicMock, client: testclient.TestClient
 ) -> None:
@@ -280,8 +280,8 @@ def test_get_station_board_success(
   mock_board.assert_called_once_with('MHIDE')
 
 
-@mock.patch('tfinta.db.fetch_station_board')
-@mock.patch('tfinta.db.resolve_station_code')
+@mock.patch('tfinta.db.FetchStationBoard')
+@mock.patch('tfinta.db.ResolveStationCode')
 def test_get_station_board_name_fragment(
   mock_resolve: mock.MagicMock, mock_board: mock.MagicMock, client: testclient.TestClient
 ) -> None:
@@ -294,8 +294,8 @@ def test_get_station_board_name_fragment(
   mock_board.assert_called_once_with('MHIDE')
 
 
-@mock.patch('tfinta.db.fetch_station_board')
-@mock.patch('tfinta.db.resolve_station_code')
+@mock.patch('tfinta.db.FetchStationBoard')
+@mock.patch('tfinta.db.ResolveStationCode')
 def test_get_station_board_empty(
   mock_resolve: mock.MagicMock, mock_board: mock.MagicMock, client: testclient.TestClient
 ) -> None:
@@ -310,7 +310,7 @@ def test_get_station_board_empty(
   assert body['query'] is None
 
 
-@mock.patch('tfinta.db.resolve_station_code')
+@mock.patch('tfinta.db.ResolveStationCode')
 def test_get_station_board_resolve_error(
   mock_resolve: mock.MagicMock, client: testclient.TestClient
 ) -> None:
@@ -321,8 +321,8 @@ def test_get_station_board_resolve_error(
   assert 'not found' in resp.json()['detail']
 
 
-@mock.patch('tfinta.db.fetch_station_board')
-@mock.patch('tfinta.db.resolve_station_code')
+@mock.patch('tfinta.db.FetchStationBoard')
+@mock.patch('tfinta.db.ResolveStationCode')
 def test_get_station_board_call_error(
   mock_resolve: mock.MagicMock, mock_board: mock.MagicMock, client: testclient.TestClient
 ) -> None:
@@ -338,7 +338,7 @@ def test_get_station_board_call_error(
 # ---------------------------------------------------------------------------
 
 
-@mock.patch('tfinta.db.fetch_train_movements')
+@mock.patch('tfinta.db.FetchTrainMovements')
 def test_get_train_movements_success_explicit_day(
   mock_fetch: mock.MagicMock, client: testclient.TestClient
 ) -> None:
@@ -364,7 +364,7 @@ def test_get_train_movements_success_explicit_day(
   mock_fetch.assert_called_once_with('E108', datetime.date(2025, 6, 29))
 
 
-@mock.patch('tfinta.db.fetch_train_movements')
+@mock.patch('tfinta.db.FetchTrainMovements')
 def test_get_train_movements_default_day(
   mock_fetch: mock.MagicMock, client: testclient.TestClient
 ) -> None:
@@ -380,7 +380,7 @@ def test_get_train_movements_default_day(
   mock_fetch.assert_called_once_with('E108', fixed_date)
 
 
-@mock.patch('tfinta.db.fetch_train_movements')
+@mock.patch('tfinta.db.FetchTrainMovements')
 def test_get_train_movements_empty(
   mock_fetch: mock.MagicMock, client: testclient.TestClient
 ) -> None:
@@ -394,7 +394,7 @@ def test_get_train_movements_empty(
   assert body['query'] is None
 
 
-@mock.patch('tfinta.db.fetch_train_movements')
+@mock.patch('tfinta.db.FetchTrainMovements')
 def test_get_train_movements_db_error(
   mock_fetch: mock.MagicMock, client: testclient.TestClient
 ) -> None:

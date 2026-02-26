@@ -22,6 +22,8 @@ RUN pip install --no-cache-dir "poetry>=2.3,<3"
 
 # Copy dependency files first (Docker cache layer)
 COPY pyproject.toml requirements.txt poetry.lock *.md LICENSE ./
+
+# Copy the rest of the source tree (needed so Poetry can find packages)
 COPY src/ src/
 
 # Install runtime dependencies only
