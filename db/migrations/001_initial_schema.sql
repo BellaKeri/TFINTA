@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 --
 -- 001_initial_schema.sql
--- TFINTA Realtime DB – initial schema.
+-- TFINTA Realtime DB - initial schema.
 --
 -- Run with:
 --   psql -U tfinta -d tfinta -f db/migrations/001_initial_schema.sql
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM schema_version WHERE version = 1) THEN
-    RAISE NOTICE 'Migration 001 already applied – skipping.';
+    RAISE NOTICE 'Migration 001 already applied - skipping.';
     RETURN;
   END IF;
 
@@ -54,32 +54,13 @@ BEGIN
     latitude    DOUBLE PRECISION,
     longitude   DOUBLE PRECISION,
     updated_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
-    PRIMARY KEY (code, day)
+    PRIMARY KEY (code)
   );
-
-  CREATE INDEX idx_running_trains_day ON running_trains (day);
-
-  -- ===== station_board_queries =============================================
-
-  CREATE TABLE station_board_queries (
-    id               SERIAL        PRIMARY KEY,
-    tm_server        TIMESTAMPTZ   NOT NULL,
-    tm_query_seconds INTEGER,          -- seconds since midnight
-    station_name     TEXT          NOT NULL,
-    station_code     VARCHAR(10)   NOT NULL,
-    day              DATE          NOT NULL,
-    fetched_at       TIMESTAMPTZ   NOT NULL DEFAULT now()
-  );
-
-  CREATE INDEX idx_sbq_station_code ON station_board_queries (station_code);
-  CREATE INDEX idx_sbq_fetched_at   ON station_board_queries (fetched_at DESC);
 
   -- ===== station_board_lines ===============================================
 
   CREATE TABLE station_board_lines (
-    id                          SERIAL        PRIMARY KEY,
-    query_id                    INTEGER       NOT NULL REFERENCES station_board_queries(id)
-                                              ON DELETE CASCADE,
+    station_code                VARCHAR(10)   NOT NULL,
     train_code                  TEXT          NOT NULL,
     origin_code                 VARCHAR(10)   NOT NULL,
     origin_name                 TEXT          NOT NULL,
@@ -97,37 +78,21 @@ BEGIN
     scheduled_arrival_seconds   INTEGER,
     scheduled_departure_seconds INTEGER,
     expected_arrival_seconds    INTEGER,
-    expected_departure_seconds  INTEGER
+    expected_departure_seconds  INTEGER,
+    updated_at                  TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    PRIMARY KEY (station_code, train_code)
   );
 
-  CREATE INDEX idx_sbl_query_id ON station_board_lines (query_id);
-
-  -- ===== train_movement_queries ============================================
-
-  CREATE TABLE train_movement_queries (
-    id                SERIAL        PRIMARY KEY,
-    train_code        TEXT          NOT NULL,
-    day               DATE          NOT NULL,
-    origin_code       VARCHAR(10)   NOT NULL,
-    origin_name       TEXT          NOT NULL,
-    destination_code  VARCHAR(10)   NOT NULL,
-    destination_name  TEXT          NOT NULL,
-    fetched_at        TIMESTAMPTZ   NOT NULL DEFAULT now()
-  );
-
-  CREATE INDEX idx_tmq_train_code ON train_movement_queries (train_code);
-  CREATE INDEX idx_tmq_day        ON train_movement_queries (day);
-  CREATE INDEX idx_tmq_fetched_at ON train_movement_queries (fetched_at DESC);
+  CREATE INDEX idx_sbl_station_code ON station_board_lines (station_code);
 
   -- ===== train_stops =======================================================
 
   CREATE TABLE train_stops (
-    id                          SERIAL        PRIMARY KEY,
-    query_id                    INTEGER       NOT NULL REFERENCES train_movement_queries(id)
-                                              ON DELETE CASCADE,
+    train_code                  TEXT          NOT NULL,
+    station_order               INTEGER       NOT NULL,
+    day                         DATE          NOT NULL,
     station_code                VARCHAR(10)   NOT NULL,
     station_name                TEXT,
-    station_order               INTEGER       NOT NULL,
     location_type               SMALLINT      NOT NULL,   -- same enum as station_board_lines
     stop_type                   SMALLINT      NOT NULL DEFAULT 0,  -- 0=UNKNOWN 1=CURRENT 2=NEXT
     auto_arrival                BOOLEAN       NOT NULL,
@@ -137,10 +102,10 @@ BEGIN
     expected_arrival_seconds    INTEGER,
     expected_departure_seconds  INTEGER,
     actual_arrival_seconds      INTEGER,
-    actual_departure_seconds    INTEGER
+    actual_departure_seconds    INTEGER,
+    updated_at                  TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    PRIMARY KEY (train_code, station_order)
   );
-
-  CREATE INDEX idx_ts_query_id ON train_stops (query_id);
 
   -- ===== record the migration ==============================================
 

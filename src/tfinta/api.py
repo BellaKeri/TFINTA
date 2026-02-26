@@ -241,17 +241,13 @@ async def get_station_board(
 
   """
   rt: realtime.RealtimeRail = _get_realtime()
-  query_data: dm.StationLineQueryData | None
   lines: list[dm.StationLine]
   try:
     resolved_code: str = rt.StationCodeFromNameFragmentOrCode(station_code)
-    query_data, lines = rt.StationBoardCall(resolved_code)
+    _, lines = rt.StationBoardCall(resolved_code)
   except realtime.Error as exc:
     raise fastapi.HTTPException(status_code=502, detail=str(exc)) from exc
   return dm.StationBoardResponse(
-    query=(
-      dm.StationLineQueryDataModel.from_domain(query_data) if query_data is not None else None
-    ),
     count=len(lines),
     lines=[dm.StationLineModel.from_domain(ln) for ln in lines],
   )
@@ -302,14 +298,12 @@ async def get_train_movements(
     if day is not None
     else datetime.datetime.now(tz=datetime.UTC).date()
   )
-  query_data: dm.TrainStopQueryData | None
   stops: list[dm.TrainStop]
   try:
-    query_data, stops = _get_realtime().TrainDataCall(train_code, day_obj)
+    _, stops = _get_realtime().TrainDataCall(train_code, day_obj)
   except realtime.Error as exc:
     raise fastapi.HTTPException(status_code=502, detail=str(exc)) from exc
   return dm.TrainMovementsResponse(
-    query=(dm.TrainStopQueryDataModel.from_domain(query_data) if query_data is not None else None),
     count=len(stops),
     stops=[dm.TrainStopModel.from_domain(s) for s in stops],
   )

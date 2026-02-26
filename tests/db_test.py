@@ -233,38 +233,29 @@ def test_fragment_ambiguous() -> None:
 
 
 # ---------------------------------------------------------------------------
-# fetch_station_board
+# FetchStationBoardLines
 # ---------------------------------------------------------------------------
 
 
-def test_no_query_returns_empty_stations() -> None:
+def test_fetch_station_board_lines_empty() -> None:
   """Test."""
   mock_pool = mock.MagicMock()
   mock_conn = mock_pool.connection.return_value.__enter__.return_value
   mock_cur = mock_conn.cursor.return_value.__enter__.return_value
-  mock_cur.fetchone.return_value = None
+  mock_cur.fetchall.return_value = []
   db._pool = mock_pool
   try:
-    qd, lines = db.FetchStationBoard('MHIDE')
-    assert qd is None
+    lines = db.FetchStationBoardLines('MHIDE')
     assert lines == []
   finally:
     db._pool = None
 
 
-def test_returns_query_and_lines() -> None:
+def test_fetch_station_board_lines() -> None:
   """Test."""
   mock_pool = mock.MagicMock()
   mock_conn = mock_pool.connection.return_value.__enter__.return_value
   mock_cur = mock_conn.cursor.return_value.__enter__.return_value
-  mock_cur.fetchone.return_value = {
-    'id': 1,
-    'tm_server': datetime.datetime(2025, 6, 29, 9, 0, 0),  # noqa: DTZ001
-    'tm_query_seconds': 33267,
-    'station_name': 'Malahide',
-    'station_code': 'MHIDE',
-    'day': datetime.date(2025, 6, 29),
-  }
   mock_cur.fetchall.return_value = [
     {
       'train_code': 'P702',
@@ -289,50 +280,39 @@ def test_returns_query_and_lines() -> None:
   ]
   db._pool = mock_pool
   try:
-    qd, lines = db.FetchStationBoard('MHIDE')
-    assert qd is not None
-    assert qd.station_code == 'MHIDE'
+    lines = db.FetchStationBoardLines('MHIDE')
     assert len(lines) == 1
     assert lines[0].train_code == 'P702'
     assert lines[0].late == 5
+    assert lines[0].query.station_code == 'MHIDE'
   finally:
     db._pool = None
 
 
 # ---------------------------------------------------------------------------
-# fetch_train_movements
+# FetchTrainStops
 # ---------------------------------------------------------------------------
 
 
-def test_no_query_returns_empty_trains() -> None:
+def test_fetch_train_stops_empty() -> None:
   """Test."""
   mock_pool = mock.MagicMock()
   mock_conn = mock_pool.connection.return_value.__enter__.return_value
   mock_cur = mock_conn.cursor.return_value.__enter__.return_value
-  mock_cur.fetchone.return_value = None
+  mock_cur.fetchall.return_value = []
   db._pool = mock_pool
   try:
-    qd, stops = db.FetchTrainMovements('E108', datetime.date(2025, 6, 29))
-    assert qd is None
+    stops = db.FetchTrainStops('E108', datetime.date(2025, 6, 29))
     assert stops == []
   finally:
     db._pool = None
 
 
-def test_returns_query_and_stops() -> None:
+def test_fetch_train_stops() -> None:
   """Test."""
   mock_pool = mock.MagicMock()
   mock_conn = mock_pool.connection.return_value.__enter__.return_value
   mock_cur = mock_conn.cursor.return_value.__enter__.return_value
-  mock_cur.fetchone.return_value = {
-    'id': 42,
-    'train_code': 'E108',
-    'day': datetime.date(2025, 6, 29),
-    'origin_code': 'MHIDE',
-    'origin_name': 'Malahide',
-    'destination_code': 'BRAY',
-    'destination_name': 'Bray',
-  }
   mock_cur.fetchall.return_value = [
     {
       'station_code': 'MHIDE',
@@ -352,13 +332,12 @@ def test_returns_query_and_stops() -> None:
   ]
   db._pool = mock_pool
   try:
-    qd, stops = db.FetchTrainMovements('E108', datetime.date(2025, 6, 29))
-    assert qd is not None
-    assert qd.train_code == 'E108'
+    stops = db.FetchTrainStops('E108', datetime.date(2025, 6, 29))
     assert len(stops) == 1
     assert stops[0].station_code == 'MHIDE'
     assert stops[0].station_order == 1
     assert stops[0].auto_arrival is True
+    assert stops[0].query.train_code == 'E108'
   finally:
     db._pool = None
 
@@ -455,7 +434,7 @@ def test_upsert_running_trains() -> None:
     sql = args[0][0]
     params = args[0][1]
     assert 'INSERT INTO running_trains' in sql
-    assert 'ON CONFLICT (code, day) DO UPDATE' in sql
+    assert 'ON CONFLICT (code) DO UPDATE' in sql
     assert len(params) == 1
     assert params[0]['code'] == 'A152'
     assert params[0]['status'] == 2  # TrainStatus.RUNNING.value
@@ -493,7 +472,7 @@ def test_upsert_running_trains_no_position() -> None:
 
 
 # ---------------------------------------------------------------------------
-# InsertStationBoard
+# UpsertStationBoardLines
 # ---------------------------------------------------------------------------
 
 
@@ -553,49 +532,46 @@ def _make_station_line(query: dm.StationLineQueryData) -> dm.StationLine:
   )
 
 
-def test_insert_station_board_no_lines() -> None:
+def test_upsert_station_board_lines_empty() -> None:
   """Test."""
   mock_pool = mock.MagicMock()
   mock_conn = mock_pool.connection.return_value.__enter__.return_value
   mock_cur = mock_conn.cursor.return_value.__enter__.return_value
-  mock_cur.fetchone.return_value = {'id': 42}
   db._pool = mock_pool
   try:
-    qd = _make_query_data()
-    result = db.InsertStationBoard(qd, [])
-    assert result == 42
-    # Query INSERT was called
-    assert mock_cur.execute.call_count == 1
+    result = db.UpsertStationBoardLines('MHIDE', [])
+    assert result == 0
+    # DELETE was called, then commit
+    mock_cur.execute.assert_called_once()
     sql = mock_cur.execute.call_args[0][0]
-    assert 'INSERT INTO station_board_queries' in sql
-    assert 'RETURNING id' in sql
-    # No executemany for lines
+    assert 'DELETE FROM station_board_lines' in sql
     mock_cur.executemany.assert_not_called()
     mock_conn.commit.assert_called_once()
   finally:
     db._pool = None
 
 
-def test_insert_station_board_with_lines() -> None:
+def test_upsert_station_board_lines_with_lines() -> None:
   """Test."""
   mock_pool = mock.MagicMock()
   mock_conn = mock_pool.connection.return_value.__enter__.return_value
   mock_cur = mock_conn.cursor.return_value.__enter__.return_value
-  mock_cur.fetchone.return_value = {'id': 42}
+  mock_cur.rowcount = 1
   db._pool = mock_pool
   try:
     qd = _make_query_data()
     line = _make_station_line(qd)
-    result = db.InsertStationBoard(qd, [line])
-    assert result == 42
-    # Lines INSERT
+    result = db.UpsertStationBoardLines('MHIDE', [line])
+    assert result == 1
+    # DELETE + INSERT
+    mock_cur.execute.assert_called_once()
     mock_cur.executemany.assert_called_once()
     line_args = mock_cur.executemany.call_args
     line_sql = line_args[0][0]
     line_params = line_args[0][1]
     assert 'INSERT INTO station_board_lines' in line_sql
     assert len(line_params) == 1
-    assert line_params[0]['query_id'] == 42
+    assert line_params[0]['station_code'] == 'MHIDE'
     assert line_params[0]['train_code'] == 'P702'
     assert line_params[0]['late'] == 5
     assert line_params[0]['location_type'] == 0  # LocationType.STOP.value
@@ -609,7 +585,7 @@ def test_insert_station_board_with_lines() -> None:
 
 
 # ---------------------------------------------------------------------------
-# InsertTrainMovements
+# UpsertTrainStops
 # ---------------------------------------------------------------------------
 
 
@@ -665,47 +641,46 @@ def _make_train_stop(query: dm.TrainStopQueryData) -> dm.TrainStop:
   )
 
 
-def test_insert_train_movements_no_stops() -> None:
+def test_upsert_train_stops_empty() -> None:
   """Test."""
   mock_pool = mock.MagicMock()
   mock_conn = mock_pool.connection.return_value.__enter__.return_value
   mock_cur = mock_conn.cursor.return_value.__enter__.return_value
-  mock_cur.fetchone.return_value = {'id': 99}
   db._pool = mock_pool
   try:
-    qd = _make_train_query_data()
-    result = db.InsertTrainMovements(qd, [])
-    assert result == 99
-    assert mock_cur.execute.call_count == 1
+    result = db.UpsertTrainStops('E108', datetime.date(2025, 6, 29), [])
+    assert result == 0
+    mock_cur.execute.assert_called_once()
     sql = mock_cur.execute.call_args[0][0]
-    assert 'INSERT INTO train_movement_queries' in sql
-    assert 'RETURNING id' in sql
+    assert 'DELETE FROM train_stops' in sql
     mock_cur.executemany.assert_not_called()
     mock_conn.commit.assert_called_once()
   finally:
     db._pool = None
 
 
-def test_insert_train_movements_with_stops() -> None:
+def test_upsert_train_stops_with_stops() -> None:
   """Test."""
   mock_pool = mock.MagicMock()
   mock_conn = mock_pool.connection.return_value.__enter__.return_value
   mock_cur = mock_conn.cursor.return_value.__enter__.return_value
-  mock_cur.fetchone.return_value = {'id': 99}
+  mock_cur.rowcount = 1
   db._pool = mock_pool
   try:
     qd = _make_train_query_data()
     stop = _make_train_stop(qd)
-    result = db.InsertTrainMovements(qd, [stop])
-    assert result == 99
-    # Stops INSERT
+    result = db.UpsertTrainStops('E108', datetime.date(2025, 6, 29), [stop])
+    assert result == 1
+    # DELETE + INSERT
+    mock_cur.execute.assert_called_once()
     mock_cur.executemany.assert_called_once()
     stop_args = mock_cur.executemany.call_args
     stop_sql = stop_args[0][0]
     stop_params = stop_args[0][1]
     assert 'INSERT INTO train_stops' in stop_sql
     assert len(stop_params) == 1
-    assert stop_params[0]['query_id'] == 99
+    assert stop_params[0]['train_code'] == 'E108'
+    assert stop_params[0]['day'] == datetime.date(2025, 6, 29)
     assert stop_params[0]['station_code'] == 'MHIDE'
     assert stop_params[0]['station_order'] == 1
     assert stop_params[0]['location_type'] == 1  # LocationType.ORIGIN.value

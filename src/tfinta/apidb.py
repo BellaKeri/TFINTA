@@ -234,17 +234,13 @@ async def get_station_board(
     fastapi.HTTPException: upstream error (502).
 
   """
-  query_data: dm.StationLineQueryData | None
   lines: list[dm.StationLine]
   try:
     resolved_code: str = db.ResolveStationCode(station_code)
-    query_data, lines = db.FetchStationBoard(resolved_code)
+    lines = db.FetchStationBoardLines(resolved_code)
   except db.Error as exc:
     raise fastapi.HTTPException(status_code=502, detail=str(exc)) from exc
   return dm.StationBoardResponse(
-    query=(
-      dm.StationLineQueryDataModel.from_domain(query_data) if query_data is not None else None
-    ),
     count=len(lines),
     lines=[dm.StationLineModel.from_domain(ln) for ln in lines],
   )
@@ -295,14 +291,12 @@ async def get_train_movements(
     if day is not None
     else datetime.datetime.now(tz=datetime.UTC).date()
   )
-  query_data: dm.TrainStopQueryData | None
   stops: list[dm.TrainStop]
   try:
-    query_data, stops = db.FetchTrainMovements(train_code, day_obj)
+    stops = db.FetchTrainStops(train_code, day_obj)
   except db.Error as exc:
     raise fastapi.HTTPException(status_code=502, detail=str(exc)) from exc
   return dm.TrainMovementsResponse(
-    query=(dm.TrainStopQueryDataModel.from_domain(query_data) if query_data is not None else None),
     count=len(stops),
     stops=[dm.TrainStopModel.from_domain(s) for s in stops],
   )

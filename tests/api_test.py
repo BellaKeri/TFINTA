@@ -248,7 +248,7 @@ def test_get_running_trains_upstream_error(client: TestClient, rt_mock: mock.Mag
 
 
 def test_get_station_board_success(client: TestClient, rt_mock: mock.MagicMock) -> None:
-  """GET /station/MHIDE returns 200 and serialises query + lines."""
+  """GET /station/MHIDE returns 200 and serialises lines."""
   rt_mock.StationCodeFromNameFragmentOrCode.return_value = 'MHIDE'
   rt_mock.StationBoardCall.return_value = (_STATION_QUERY, [_STATION_LINE])
   resp = client.get('/station/MHIDE')
@@ -256,9 +256,6 @@ def test_get_station_board_success(client: TestClient, rt_mock: mock.MagicMock) 
   body = resp.json()
   assert body['count'] == 1
   assert len(body['lines']) == 1
-  query = body['query']
-  assert query['station_code'] == 'MHIDE'
-  assert query['station_name'] == 'Malahide'
   line = body['lines'][0]
   assert line['train_code'] == 'P702'
   assert line['origin_code'] == 'BRAY'
@@ -281,7 +278,7 @@ def test_get_station_board_name_fragment(client: TestClient, rt_mock: mock.Magic
 
 
 def test_get_station_board_empty(client: TestClient, rt_mock: mock.MagicMock) -> None:
-  """GET /station/MHIDE returns 200 with count=0 and no query when board is empty."""
+  """GET /station/MHIDE returns 200 with count=0 when board is empty."""
   rt_mock.StationCodeFromNameFragmentOrCode.return_value = 'MHIDE'
   rt_mock.StationBoardCall.return_value = (None, [])
   resp = client.get('/station/MHIDE')
@@ -289,7 +286,6 @@ def test_get_station_board_empty(client: TestClient, rt_mock: mock.MagicMock) ->
   body = resp.json()
   assert body['count'] == 0
   assert body['lines'] == []
-  assert body['query'] is None
 
 
 def test_get_station_board_resolve_error(client: TestClient, rt_mock: mock.MagicMock) -> None:
@@ -316,17 +312,13 @@ def test_get_station_board_call_error(client: TestClient, rt_mock: mock.MagicMoc
 def test_get_train_movements_success_explicit_day(
   client: TestClient, rt_mock: mock.MagicMock
 ) -> None:
-  """GET /train/E108?day=20250629 returns 200 and serialises query + stops."""
+  """GET /train/E108?day=20250629 returns 200 and serialises stops."""
   rt_mock.TrainDataCall.return_value = (_TRAIN_QUERY, [_TRAIN_STOP])
   resp = client.get('/train/E108', params={'day': 20250629})
   assert resp.status_code == 200
   body = resp.json()
   assert body['count'] == 1
   assert len(body['stops']) == 1
-  query = body['query']
-  assert query['train_code'] == 'E108'
-  assert query['origin_code'] == 'MHIDE'
-  assert query['destination_code'] == 'BRAY'
   stop = body['stops'][0]
   assert stop['station_code'] == 'MHIDE'
   assert stop['station_name'] == 'Malahide'
@@ -359,7 +351,6 @@ def test_get_train_movements_empty(client: TestClient, rt_mock: mock.MagicMock) 
   body = resp.json()
   assert body['count'] == 0
   assert body['stops'] == []
-  assert body['query'] is None
 
 
 def test_get_train_movements_upstream_error(client: TestClient, rt_mock: mock.MagicMock) -> None:

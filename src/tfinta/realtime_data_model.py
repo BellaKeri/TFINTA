@@ -287,36 +287,6 @@ class StationLineQueryData(RealtimeRPCData):
     return self.tm_server < other.tm_server
 
 
-class StationLineQueryDataModel(pydantic.BaseModel):
-  """Metadata returned alongside a station-board query."""
-
-  tm_server: datetime.datetime = pydantic.Field(
-    description='Server time when this data was generated.'
-  )
-  tm_query: base.DayTimeModel | None = pydantic.Field(
-    default=None, description='Query time for the station board.'
-  )
-  station_name: str = pydantic.Field(description='Name of the station.')
-  station_code: str = pydantic.Field(description='Code of the station.')
-  day: datetime.date = pydantic.Field(description='Day of the query.')
-
-  @classmethod
-  def from_domain(cls, q: StationLineQueryData) -> StationLineQueryDataModel:
-    """Convert domain ``StationLineQueryData`` to Pydantic model.
-
-    Returns:
-      StationLineQueryDataModel: converted model.
-
-    """
-    return cls(
-      tm_server=q.tm_server,
-      tm_query=base.DayTimeModel.from_domain(q.tm_query),
-      station_name=q.station_name,
-      station_code=q.station_code,
-      day=q.day,
-    )
-
-
 @functools.total_ordering
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class StationLine(RealtimeRPCData):
@@ -441,9 +411,6 @@ class StationLineModel(pydantic.BaseModel):
 class StationBoardResponse(pydantic.BaseModel):
   """Response for the station-board endpoint."""
 
-  query: StationLineQueryDataModel | None = pydantic.Field(
-    default=None, description='Query data for the station board'
-  )
   count: int = pydantic.Field(description='Number of lines returned')
   lines: list[StationLineModel] = pydantic.Field(description='List of station board lines')
 
@@ -490,34 +457,6 @@ class TrainStopQueryData(RealtimeRPCData):
     if self.destination_name != other.destination_name:
       return self.destination_name < other.destination_name
     return self.train_code < other.train_code
-
-
-class TrainStopQueryDataModel(pydantic.BaseModel):
-  """Metadata returned alongside a train-movements query."""
-
-  train_code: str = pydantic.Field(description='Train code, e.g. 22000 or DART10')
-  day: datetime.date = pydantic.Field(description='Date of the train journey')
-  origin_code: str = pydantic.Field(description='Origin station code')
-  origin_name: str = pydantic.Field(description='Origin station name')
-  destination_code: str = pydantic.Field(description='Destination station code')
-  destination_name: str = pydantic.Field(description='Destination station name')
-
-  @classmethod
-  def from_domain(cls, q: TrainStopQueryData) -> TrainStopQueryDataModel:
-    """Convert domain ``TrainStopQueryData`` to Pydantic model.
-
-    Returns:
-      TrainStopQueryDataModel: converted model.
-
-    """
-    return cls(
-      train_code=q.train_code,
-      day=q.day,
-      origin_code=q.origin_code,
-      origin_name=q.origin_name,
-      destination_code=q.destination_code,
-      destination_name=q.destination_name,
-    )
 
 
 @functools.total_ordering
@@ -619,9 +558,6 @@ class TrainStopModel(pydantic.BaseModel):
 class TrainMovementsResponse(pydantic.BaseModel):
   """Response for the train-movements endpoint."""
 
-  query: TrainStopQueryDataModel | None = pydantic.Field(
-    default=None, description='Query data for the train stops'
-  )
   count: int = pydantic.Field(description='Number of stops returned')
   stops: list[TrainStopModel] = pydantic.Field(description='List of train stops')
 
